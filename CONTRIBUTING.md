@@ -48,6 +48,7 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
 - **Sprache:** Benutzeroberfläche, Log-Meldungen und Dokumentation sind auf Deutsch.
 - **Keine Geheimnisse** (Passwörter, Tokens, Tenant-IDs) in Code, Logs oder Screenshots.
 - **Destruktive Aktionen** (Entfernen, Löschen, Freigeben) müssen vor der Ausführung eine Bestätigung anfordern.
+- **CSV-Exporte** immer über `ConvertTo-SafeCsvObject` leiten (Schutz vor Formel-Injection).
 - **Benutzereingaben** in OPATH-Filtern (`-Filter`) immer mit `ConvertTo-OPathValue` maskieren.
 - **Exchange-Cmdlets:** Bevorzugt die REST-basierten `Get-EXO*`-Cmdlets bzw. aktuelle Cmdlets (z. B. `Get-MessageTraceV2`) verwenden.
 - **Signatur:** Nach jeder Änderung ist die Authenticode-Signatur ungültig. Releases werden vom Maintainer neu signiert.

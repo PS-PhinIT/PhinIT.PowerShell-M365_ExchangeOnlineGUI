@@ -1,6 +1,8 @@
 # easyEXO - Exchange Online Verwaltungstool
 
-![Screenshot](https://github.com/PS-easyIT/easyEXO/blob/main/%23%20Screenshots/easyEXO-V0.0.13_Dashboard.jpg)
+![Version](https://img.shields.io/badge/version-0.1.2-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
+
+> Screenshots der aktuellen Version werden unter [`docs/screenshots/`](docs/screenshots/) abgelegt.
 
 ## Übersicht
 
@@ -42,30 +44,65 @@ Das Tool bietet einen modularen Aufbau mit verschiedenen Tabs für spezifische V
 
 ## Voraussetzungen
 
-- **Windows PowerShell 5.1** oder **PowerShell 7**
-- **ExchangeOnlineManagement Modul**: Version 3.0.0 oder höher. Das Skript prüft beim Start, ob das Modul installiert ist.
-- **Administratorrechte**: Das Skript muss mit erhöhten Rechten ausgeführt werden, um eine Verbindung zu Exchange Online herstellen und Konfigurationen ändern zu können.
-- **Internetverbindung**: Für die Verbindung zu Exchange Online.
+- **Windows** mit **Windows PowerShell 5.1** oder **PowerShell 7.x** (WPF-Oberfläche, STA-Modus – wird bei Bedarf automatisch neu gestartet)
+- **ExchangeOnlineManagement-Modul** ab Version 3.0.0, **empfohlen ab 3.7.0** (für `Get-MessageTraceV2` / `Get-MessageTraceDetailV2` in der Nachrichtenverfolgung). Das Skript prüft beim Start, ob das Modul installiert ist.
+- **Exchange-Online-Berechtigungen** passend zu den genutzten Funktionen (Prinzip der minimalen Rechte, z. B. *Recipient Management*, *View-Only Organization Management*, *Organization Management*).
+- Für Compliance-Funktionen (DLP, Aufbewahrung, Vertraulichkeitsbezeichnungen) zusätzlich eine Verbindung über `Connect-IPPSSession` (Security & Compliance PowerShell).
+- **Keine lokalen Administratorrechte erforderlich** – nur für eine optionale, automatische Installation von PowerShell 7 werden ggf. erhöhte Rechte durch den Installer angefordert.
+- **Internetverbindung** für die Verbindung zu Exchange Online.
 
 ## Anwendung
 
-1.  **Herunterladen**: Laden Sie das Skript `easyEXO_V0.1.1.ps1` herunter.
-2.  **Zertifikat**: importieren Sie das öffentliche Code Signing Certificat von https://github.com/PS-easyIT/PowerShell_Certificate
-3.  **Ausführen**: Starten Sie das Skript in einer PowerShell-Konsole mit Administratorrechten.
+1.  **Herunterladen**: Laden Sie das Skript [`src/easyEXO.ps1`](src/easyEXO.ps1) herunter (oder klonen Sie das Repository).
+2.  **Signatur / Ausführungsrichtlinie**: Releases werden vom Maintainer mit dem öffentlichen Code-Signing-Zertifikat von https://github.com/PS-easyIT/PowerShell_Certificate signiert. Importieren Sie dieses Zertifikat, wenn Ihre Ausführungsrichtlinie (`AllSigned`/`RemoteSigned`) signierte Skripte verlangt. Der Quellstand im Repository ist nach Änderungen unsigniert – siehe [SECURITY.md](SECURITY.md).
+3.  **Ausführen**: Starten Sie das Skript in einer PowerShell-Konsole:
     ```powershell
-    .\easyEXO_V0.1.1.ps1
+    .\src\easyEXO.ps1
     ```
-4.  **Verbinden**: Klicken Sie auf den Button "Mit Exchange Online verbinden". Nach erfolgreicher Authentifizierung werden die GUI-Elemente aktiviert.
-5.  **Verwalten**: Navigieren Sie durch die Tabs, um die gewünschten Aktionen auszuführen.
+4.  **Verbinden**: Klicken Sie auf den Button „Mit Exchange Online verbinden“. Nach erfolgreicher Authentifizierung werden die GUI-Elemente aktiviert. Ein erneuter Klick trennt die Verbindung.
+5.  **Verwalten**: Navigieren Sie über die linke Navigationsleiste durch die Bereiche. Ändernde und löschende Aktionen werden vor der Ausführung bestätigt.
 
 ## Konfiguration
 
 Das Skript speichert grundlegende Einstellungen in der Windows-Registrierung unter:
 `HKCU:\Software\easyIT\easyEXO`
 
-Hier kann z.B. der **Debug-Modus** aktiviert werden, um detailliertere Log-Ausgaben zu erhalten.
+Hier kann z. B. der **Debug-Modus** aktiviert werden, um detailliertere Log-Ausgaben zu erhalten.
 
 ## Logging
 
-Alle Aktionen, Fehler und wichtige Informationen werden in einer Log-Datei im Unterordner `Logs` gespeichert (`ExchangeTool.log`). Dies erleichtert die Nachverfolgung und Fehlerbehebung.
+Alle Aktionen, Fehler und wichtige Informationen werden in einer Log-Datei im Unterordner `Logs` neben dem Skript gespeichert (`Logs/ExchangeTool.log`, UTF-8). Die Logs enthalten u. a. Benutzernamen/E-Mail-Adressen (personenbezogene Daten) – bitte entsprechend schützen und nicht einchecken (`Logs/` ist in `.gitignore` ausgeschlossen).
 
+## Projektstruktur
+
+```text
+.
+├── src/
+│   └── easyEXO.ps1              # Hauptskript (GUI/XAML eingebettet)
+├── docs/
+│   ├── AUDIT.md                 # Audit-Bericht (Sicherheit, Performance, Funktionen, GUI …)
+│   └── screenshots/             # Screenshots der aktuellen Version
+├── .github/
+│   ├── workflows/               # CI (PSScriptAnalyzer, Codacy)
+│   └── PULL_REQUEST_TEMPLATE.md
+├── CHANGELOG.md
+├── CODE_OF_CONDUCT.md
+├── CONTRIBUTING.md
+├── LICENSE
+├── README.md
+└── SECURITY.md
+```
+
+Ältere Skriptversionen sind nicht mehr im Repository enthalten; sie bleiben über die Git-Historie verfügbar.
+
+## Weitere Dokumentation
+
+- [CHANGELOG.md](CHANGELOG.md) – Änderungen je Version
+- [docs/AUDIT.md](docs/AUDIT.md) – Audit-Bericht inkl. behobener und offener Punkte
+- [SECURITY.md](SECURITY.md) – Sicherheitsrichtlinie und Meldung von Schwachstellen
+- [CONTRIBUTING.md](CONTRIBUTING.md) – Mitwirken, Prüfungen, Release-Ablauf
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) – Verhaltenskodex
+
+## Lizenz
+
+MIT – siehe [LICENSE](LICENSE).
