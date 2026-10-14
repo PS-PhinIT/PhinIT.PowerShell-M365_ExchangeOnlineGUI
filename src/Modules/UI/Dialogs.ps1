@@ -216,6 +216,81 @@ function Show-HelpDialog {
                 $helpMessage += "- Compliance-Ereignisse: eDiscovery-Aktionen, Aufbewahrungsrichtlinien`n`n"
                 $helpMessage += "Hinweis: Audit-Logs werden standardmäßig 90 Tage aufbewahrt. Für längere Aufbewahrung sind spezielle Lizenzen erforderlich."
             }
+            "SharedMailbox" {
+                $helpMessage = "Hier finden Sie Hilfe zu freigegebenen Postfächern (Shared Mailboxes).`n`n"
+                $helpMessage += "Funktionen:`n"
+                $helpMessage += "- Erstellen: Legt ein neues freigegebenes Postfach mit Name und Domäne an.`n"
+                $helpMessage += "- In Shared umwandeln: Wandelt ein Benutzerpostfach in ein freigegebenes Postfach um.`n"
+                $helpMessage += "- Löschen: Entfernt das ausgewählte freigegebene Postfach (mit Bestätigung).`n"
+                $helpMessage += "- Berechtigungen: 'Full Access', 'Send As' und 'Send on Behalf' hinzufügen, anzeigen und entfernen.`n"
+                $helpMessage += "- Adressbuch: Postfach in der globalen Adressliste (GAL) ein- oder ausblenden.`n"
+                $helpMessage += "- Weiterleitung: Weiterleitungsadresse setzen oder entfernen, optional mit Kopie im Postfach.`n"
+                $helpMessage += "- Export: Berechtigungsliste als CSV-Datei speichern.`n`n"
+                $helpMessage += "Hinweis: Freigegebene Postfächer benötigen bis 50 GB keine eigene Lizenz."
+            }
+            "Troubleshooting" {
+                $helpMessage = "Hier finden Sie Hilfe zur Fehlerbehebung.`n`n"
+                $helpMessage += "- Diagnose auswählen: Wählen Sie eine vordefinierte Prüfung (z. B. Postfachzugriff, Weiterleitung, Drosselung).`n"
+                $helpMessage += "- Benutzer/Postfach: Für postfachbezogene Prüfungen die Adresse angeben.`n"
+                $helpMessage += "- Diagnose ausführen: Führt die Prüfung aus und zeigt das Ergebnis rechts an.`n"
+                $helpMessage += "- Admin Center: Öffnet die passende Seite im Exchange Admin Center.`n"
+                $helpMessage += "- Ergebnisse speichern: Sichert die Ausgabe als Textdatei.`n`n"
+                $helpMessage += "Hinweis: Prüfungen zu DLP und Bezeichnungen benötigen 'Compliance verbinden'."
+            }
+            "RegionSettings" {
+                $helpMessage = "Hier finden Sie Hilfe zu den Regionaleinstellungen von Postfächern.`n`n"
+                $helpMessage += "- Postfach auswählen und aktuelle Einstellungen laden (Sprache, Zeitzone, Datums-/Zeitformat).`n"
+                $helpMessage += "- Werte anpassen und mit 'Regionaleinstellungen anwenden' speichern (Set-MailboxRegionalConfiguration); '(Keine Änderung)' lässt den Wert unverändert.`n"
+                $helpMessage += "- Optional werden die Standardordner (Posteingang, Gesendete Elemente ...) in der gewählten Sprache benannt (LocalizeDefaultFolderName).`n`n"
+                $helpMessage += "Hinweis: Datums- und Zeitformat müssen zur gewählten Sprache passen."
+            }
+            "Reports" {
+                $helpMessage = "Hier finden Sie Hilfe zu Berichten.`n`n"
+                $helpMessage += "- Kategorie wählen: Filtert die Liste der verfügbaren Berichte.`n"
+                $helpMessage += "- Bericht wählen und 'Bericht generieren' klicken. Lange Berichte zeigen den Fortschritt an und lassen sich abbrechen (Teilergebnis bleibt erhalten).`n"
+                $helpMessage += "- Von/Bis: Zeitraum für den Bericht 'Letzte Anmeldung'.`n"
+                $helpMessage += "- Benutzer: Schränkt postfachbezogene Berichte auf passende Postfächer ein (Name, Alias oder Adresse, auch teilweise).`n"
+                $helpMessage += "- Export: Als CSV oder für Excel (XLSX, wenn das Modul ImportExcel installiert ist, sonst Excel-kompatible CSV).`n"
+                $helpMessage += "- 'Automatisch als CSV speichern' legt jeden Bericht im Ordner 'Reports' neben dem Programm ab, optional mit anschließendem Öffnen."
+            }
+            "AutoReply" {
+                $helpMessage = "Hier finden Sie Hilfe zu automatischen Antworten (Abwesenheitsnotizen).`n`n"
+                $helpMessage += "- Benutzer, Start- und Enddatum sowie Nachricht angeben und aktivieren.`n"
+                $helpMessage += "- Platzhalter {StartDate} und {EndDate} werden durch die gewählten Daten ersetzt; Zeilenumbrüche werden übernommen.`n"
+                $helpMessage += "- Status aktualisieren: Zeigt den Status eines Benutzers (oder aller Benutzerpostfächer) an.`n"
+                $helpMessage += "- Masseneinrichtung: Aktiviert dieselbe Abwesenheitsnotiz für alle in der Liste markierten Benutzer oder für mehrere Adressen im Feld 'Benutzer' (getrennt durch ; oder ,)."
+            }
+            "HybridExchange" {
+                $helpMessage = "Hier finden Sie Hilfe zur Hybrid-Konfiguration.`n`n"
+                $helpMessage += "- Hybrid-Assistent: Öffnet den Download des Hybrid Configuration Wizard (HCW). Der Assistent wird auf einem Exchange-Server im lokalen Netzwerk ausgeführt.`n"
+                $helpMessage += "- Hybrid-Status prüfen: Liest aus Exchange Online die lokale Organisation, Organisationsbeziehungen, IntraOrganization-Connectors, lokale Connectors und Migrationsendpunkte.`n"
+                $helpMessage += "- Vertrauensstellung prüfen: Zeigt den Verbundorganisationsbezeichner und die Organisationsbeziehungen (Frei/Gebucht, Postfachverschiebung).`n"
+                $helpMessage += "- Export: Ergebnisse als CSV speichern."
+            }
+            "MultiForest" {
+                $helpMessage = "Hier finden Sie Hilfe zur Multi-Forest-Verwaltung.`n`n"
+                $helpMessage += "Exchange Online sieht lokale Forests über die synchronisierten Objekte und deren Domänen.`n"
+                $helpMessage += "- Domänen laden: Liest die akzeptierten Domänen des Tenants.`n"
+                $helpMessage += "- Objekte suchen: Listet Empfänger je Domäne und Objekttyp; 'Forest' zeigt Domäne und Herkunft (AD-synchronisiert oder Cloud).`n"
+                $helpMessage += "- Synchronisation starten/stoppen: Steuert Microsoft Entra Connect (Delta- oder vollständige Synchronisation). Nur verfügbar, wenn easyEXO auf dem Entra-Connect-Server mit dem Modul ADSync ausgeführt wird."
+            }
+            "Compliance" {
+                $helpMessage = "Hier finden Sie Hilfe zu Data Loss Prevention (DLP) und Compliance.`n`n"
+                $helpMessage += "Voraussetzung: Links auf 'Compliance verbinden' klicken (Connect-IPPSSession).`n`n"
+                $helpMessage += "- DLP-Richtlinien / DLP-Regeln laden.`n"
+                $helpMessage += "- Aufbewahrungsrichtlinien und Vertraulichkeitsbezeichnungen laden.`n"
+                $helpMessage += "- Modus ändern: Setzt die ausgewählte DLP-Richtlinie auf Aktiv, Test mit/ohne Benachrichtigungen oder Deaktiviert (mit Bestätigung).`n"
+                $helpMessage += "- Export: Angezeigte Liste als CSV speichern."
+            }
+            "eDiscovery" {
+                $helpMessage = "Hier finden Sie Hilfe zu eDiscovery und Legal Hold.`n`n"
+                $helpMessage += "eDiscovery-Fälle (benötigt 'Compliance verbinden'):`n"
+                $helpMessage += "- Fälle laden, neuen Fall anlegen; bei Auswahl werden Details und Haltebereiche angezeigt.`n`n"
+                $helpMessage += "Legal Hold (Beweissicherung, Exchange Online):`n"
+                $helpMessage += "- Suchen: Ohne Eingabe werden alle Postfächer mit aktivem Legal Hold angezeigt, sonst passende Postfächer.`n"
+                $helpMessage += "- Hold hinzufügen/entfernen: Für alle markierten Postfächer (mit Bestätigung).`n`n"
+                $helpMessage += "Hinweis: Legal Hold erfordert Exchange Online Plan 2 oder eine Archivierungslizenz."
+            }
             "General" {
                  $helpTitle = "Allgemeine Hilfe zu easyEXO"
                  $helpMessage = "Willkommen bei easyEXO! Dieses Tool wurde entwickelt, um die Verwaltung gängiger Aufgaben in Exchange Online über eine grafische Benutzeroberfläche zu vereinfachen.`n`n"
@@ -240,7 +315,7 @@ function Show-HelpDialog {
             }
             default {
                 $helpMessage = "Kein spezifisches Hilfethema für '$Topic' gefunden.`n`n"
-                $helpMessage += "Verfügbare Hilfethemen sind: General, Mailbox, Calendar, Contacts, Resources, Groups, Rules, Transport, Quarantine, Audit.`n"
+                $helpMessage += "Verfügbare Hilfethemen sind: General, Mailbox, Calendar, Contacts, Resources, Groups, SharedMailbox, Rules, Transport, Quarantine, Audit, Troubleshooting, RegionSettings, Reports, AutoReply, HybridExchange, MultiForest, Compliance, eDiscovery.`n"
                 $helpMessage += "Bitte klicken Sie auf ein Hilfe-Symbol in einem der Tabs, um spezifische Informationen zu erhalten, oder wählen Sie 'General' für einen Überblick."
                 $helpTitle = "Hilfe: Unbekanntes Thema"
             }
@@ -255,6 +330,113 @@ function Show-HelpDialog {
             Write-Log -Message "Fehler im Show-HelpDialog für Topic '$Topic': $errorMsg" -Type "Error"
         } catch {}
         [System.Windows.MessageBox]::Show("Fehler beim Anzeigen der Hilfe für '$Topic': $errorMsg", "Fehler", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error) | Out-Null
+    }
+}
+
+# Einfacher Eingabedialog (eine Zeile oder mehrzeilig). Gibt den eingegebenen Text oder $null (Abbrechen) zurück.
+function Show-InputDialog {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Title,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Prompt,
+
+        [string]$DefaultValue = "",
+
+        [switch]$Multiline,
+
+        # Leere Eingabe zulassen (z. B. für optionale Beschreibungen)
+        [switch]$AllowEmpty
+    )
+
+    try {
+        $dialog = New-Object System.Windows.Window
+        $dialog.Title = $Title
+        $dialog.SizeToContent = [System.Windows.SizeToContent]::Height
+        $dialog.Width = 460
+        $dialog.ResizeMode = [System.Windows.ResizeMode]::NoResize
+        $dialog.ShowInTaskbar = $false
+        if ($null -ne $script:Form) {
+            $dialog.Owner = $script:Form
+            $dialog.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterOwner
+        }
+        else {
+            $dialog.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterScreen
+        }
+
+        $panel = New-Object System.Windows.Controls.StackPanel
+        $panel.Margin = New-Object System.Windows.Thickness(16)
+
+        $label = New-Object System.Windows.Controls.TextBlock
+        $label.Text = $Prompt
+        $label.TextWrapping = [System.Windows.TextWrapping]::Wrap
+        $label.Margin = New-Object System.Windows.Thickness(0, 0, 0, 8)
+        [void]$panel.Children.Add($label)
+
+        $textBox = New-Object System.Windows.Controls.TextBox
+        $textBox.Text = $DefaultValue
+        $textBox.Margin = New-Object System.Windows.Thickness(0, 0, 0, 12)
+        if ($Multiline) {
+            $textBox.AcceptsReturn = $true
+            $textBox.TextWrapping = [System.Windows.TextWrapping]::Wrap
+            $textBox.Height = 120
+            $textBox.VerticalScrollBarVisibility = [System.Windows.Controls.ScrollBarVisibility]::Auto
+        }
+        else {
+            $textBox.Height = 30
+        }
+        [void]$panel.Children.Add($textBox)
+
+        $buttonPanel = New-Object System.Windows.Controls.StackPanel
+        $buttonPanel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+        $buttonPanel.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
+
+        $okButton = New-Object System.Windows.Controls.Button
+        $okButton.Content = "OK"
+        $okButton.Width = 100
+        $okButton.Height = 30
+        $okButton.IsDefault = $true
+        $okButton.Margin = New-Object System.Windows.Thickness(0, 0, 8, 0)
+
+        $cancelButton = New-Object System.Windows.Controls.Button
+        $cancelButton.Content = "Abbrechen"
+        $cancelButton.Width = 100
+        $cancelButton.Height = 30
+        $cancelButton.IsCancel = $true
+
+        if ($null -ne $script:Form) {
+            $successStyle = $script:Form.TryFindResource("SuccessButton")
+            $secondaryStyle = $script:Form.TryFindResource("SecondaryButton")
+            if ($successStyle -is [System.Windows.Style]) { $okButton.Style = $successStyle }
+            if ($secondaryStyle -is [System.Windows.Style]) { $cancelButton.Style = $secondaryStyle }
+        }
+
+        $okButton.Add_Click({
+            if (-not $AllowEmpty -and [string]::IsNullOrWhiteSpace($textBox.Text)) {
+                $textBox.Focus() | Out-Null
+                return
+            }
+            $dialog.DialogResult = $true
+        }.GetNewClosure())
+
+        [void]$buttonPanel.Children.Add($okButton)
+        [void]$buttonPanel.Children.Add($cancelButton)
+        [void]$panel.Children.Add($buttonPanel)
+
+        $dialog.Content = $panel
+        $dialog.Add_ContentRendered({ $textBox.Focus() | Out-Null }.GetNewClosure())
+
+        if ($dialog.ShowDialog() -eq $true) {
+            return $textBox.Text.Trim()
+        }
+        return $null
+    }
+    catch {
+        Write-Log "Fehler im Eingabedialog '$Title': $($_.Exception.Message)" -Type "Error"
+        return $null
     }
 }
 

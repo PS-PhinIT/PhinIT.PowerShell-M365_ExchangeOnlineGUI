@@ -264,8 +264,12 @@ $script:ComplianceCommandNames = @(
     "Get-RetentionComplianceRule",
     "Get-DlpCompliancePolicy",
     "Get-DlpComplianceRule",
+    "Set-DlpCompliancePolicy",
     "Get-Label",
-    "Get-LabelPolicy"
+    "Get-LabelPolicy",
+    "Get-ComplianceCase",
+    "New-ComplianceCase",
+    "Get-CaseHoldPolicy"
 )
 $script:isComplianceConnected = $false
 

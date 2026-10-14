@@ -218,3 +218,113 @@ function Export-DataGridContent {
         Show-MessageBox -Message $errorMsg -Title "Export-Fehler" -Type "Error"
     }
 }
+
+# Speichert einen Text (z. B. Audit- oder Diagnose-Ergebnis) als UTF-8-Textdatei
+function Export-TextContent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Text,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DefaultFileName
+    )
+
+    try {
+        if ([string]::IsNullOrWhiteSpace($Text)) {
+            Show-MessageBox -Message "Es sind keine Ergebnisse zum Speichern vorhanden." -Title "Keine Daten" -Type "Warning"
+            return
+        }
+
+        $saveFileDialog = New-Object Microsoft.Win32.SaveFileDialog
+        $saveFileDialog.Filter = "Textdateien (*.txt)|*.txt|Alle Dateien (*.*)|*.*"
+        $saveFileDialog.FileName = "$($DefaultFileName)_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+
+        if ($saveFileDialog.ShowDialog() -eq $true) {
+            $exportPath = $saveFileDialog.FileName
+            [System.IO.File]::WriteAllText($exportPath, $Text, (New-Object System.Text.UTF8Encoding($true)))
+            Update-StatusBar -Message "Ergebnisse gespeichert: $exportPath" -Type "Success"
+            Write-Log "Ergebnisse gespeichert: $exportPath" -Type "Info"
+        }
+    }
+    catch {
+        $errorMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Fehler beim Speichern der Ergebnisse."
+        Write-Log $errorMsg -Type "Error"
+        Show-MessageBox -Message $errorMsg -Title "Export-Fehler" -Type "Error"
+    }
+}
+
+# Öffnet eine Web-Adresse im Standardbrowser. Erlaubt sind nur HTTPS-Adressen bekannter
+# Microsoft-Domänen, damit über manipulierte Daten keine beliebigen Programme gestartet werden.
+$script:AllowedExternalUrlHosts = @(
+    "aka.ms",
+    "learn.microsoft.com",
+    "admin.exchange.microsoft.com",
+    "admin.microsoft.com",
+    "purview.microsoft.com",
+    "compliance.microsoft.com",
+    "security.microsoft.com",
+    "entra.microsoft.com"
+)
+
+function Open-ExternalUrl {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Url
+    )
+
+    try {
+        $uri = $null
+        if (-not [System.Uri]::TryCreate($Url, [System.UriKind]::Absolute, [ref]$uri) -or
+            $uri.Scheme -ne [System.Uri]::UriSchemeHttps -or
+            $script:AllowedExternalUrlHosts -notcontains $uri.Host.ToLowerInvariant()) {
+            Write-Log "Adresse wurde nicht geöffnet (nicht zulässig): $Url" -Type "Warning"
+            return $false
+        }
+        Start-Process -FilePath $uri.AbsoluteUri
+        Write-Log "Öffne $($uri.AbsoluteUri)" -Type "Info"
+        return $true
+    }
+    catch {
+        Write-Log "Adresse konnte nicht geöffnet werden ($Url): $($_.Exception.Message)" -Type "Error"
+        return $false
+    }
+}
+
+# Hinterlegt Hilfe-Thema und Klick-Handler an einem Hilfe-Link (TextBlock)
+function Register-HelpLink {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ElementName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Topic
+    )
+
+    $link = Get-XamlElement -ElementName $ElementName
+    if ($null -eq $link) { return $false }
+    $link.Tag = $Topic
+    $link.Add_MouseLeftButtonDown({
+        try { Show-HelpDialog -Topic ([string]$this.Tag) }
+        catch { Write-Log "Hilfe konnte nicht angezeigt werden: $($_.Exception.Message)" -Type "Error" }
+    })
+    return $true
+}
+
+# Liefert die ausgewählten Zeilen eines DataGrids (Mehrfachauswahl); Aufruf mit @(...)
+function Get-SelectedGridItems {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowNull()]
+        $DataGrid
+    )
+
+    if ($null -eq $DataGrid) { return }
+    $items = @($DataGrid.SelectedItems | Where-Object { $null -ne $_ })
+    if ($items.Count -eq 0 -and $null -ne $DataGrid.SelectedItem) { $items = @($DataGrid.SelectedItem) }
+    return $items
+}

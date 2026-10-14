@@ -2834,7 +2834,7 @@
                                 <GroupBox
                                     Margin="0,0,0,10"
                                     Background="#ffffff"
-                                    Header="Forest-Auswahl und Verbindung">
+                                    Header="Forest-Auswahl (Domänen des Tenants)">
                                     <StackPanel Margin="10">
                                         <Grid>
                                             <Grid.RowDefinitions>
@@ -2853,7 +2853,7 @@
                                                 Width="120"
                                                 Margin="0,5,10,5"
                                                 VerticalAlignment="Center"
-                                                Text="Verfügbare Forests:" />
+                                                Text="Domäne / Forest:" />
                                             <ComboBox
                                                 x:Name="cmbForests"
                                                 Grid.Row="0"
@@ -2870,7 +2870,7 @@
                                                 Height="30"
                                                 Margin="0,10,0,0"
                                                 HorizontalAlignment="Center"
-                                                Content="Mit Forest verbinden" />
+                                                Content="Domänen laden" />
                                         </Grid>
                                     </StackPanel>
                                 </GroupBox>
@@ -2950,48 +2950,40 @@
                                     </StackPanel>
                                 </GroupBox>
 
-                                <!--  Forest-Synchronisation  -->
-                                <GroupBox Background="#ffffff" Header="Forest-Synchronisation Optionen">
+                                <!--  Forest-Synchronisation (Microsoft Entra Connect)  -->
+                                <GroupBox Background="#ffffff" Header="Synchronisation (Microsoft Entra Connect)">
                                     <StackPanel Margin="10">
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-
-                                            <CheckBox
-                                                x:Name="chkSyncUsers"
-                                                Grid.Row="1"
-                                                Margin="0,0,30,5"
-                                                Content="Benutzer synchronisieren" />
-
-                                            <CheckBox
-                                                x:Name="chkSyncGroups"
-                                                Grid.Row="1"
-                                                Margin="180,0,0,5"
-                                                Content="Gruppen synchronisieren" />
-
-                                            <StackPanel
-                                                Grid.Row="2"
-                                                Margin="0,15,0,0"
-                                                HorizontalAlignment="Center"
-                                                Orientation="Horizontal">
-                                                <Button
-                                                    Style="{StaticResource SuccessButton}"
-                                                    x:Name="btnStartSync"
-                                                    Width="170"
-                                                    Height="30"
-                                                    Margin="0,0,10,0"
-                                                    Content="Synchronisation starten" />
-                                                <Button
-                                                    Style="{StaticResource DangerButton}"
-                                                    x:Name="btnStopSync"
-                                                    Width="170"
-                                                    Height="30"
-                                                    Content="Synchronisation stoppen" />
-                                            </StackPanel>
-                                        </Grid>
+                                        <TextBlock
+                                            Margin="0,0,0,10"
+                                            Text="Nur verfügbar, wenn easyEXO auf dem Entra-Connect-Server ausgeführt wird (Modul ADSync)."
+                                            TextWrapping="Wrap" />
+                                        <CheckBox
+                                            x:Name="chkSyncFullCycle"
+                                            Margin="0,0,0,5"
+                                            Content="Vollständige Synchronisation (Initial statt Delta)" />
+                                        <TextBlock
+                                            x:Name="txtSyncStatus"
+                                            Margin="0,5,0,0"
+                                            Text="Status: unbekannt"
+                                            TextWrapping="Wrap" />
+                                        <StackPanel
+                                            Margin="0,15,0,0"
+                                            HorizontalAlignment="Center"
+                                            Orientation="Horizontal">
+                                            <Button
+                                                Style="{StaticResource SuccessButton}"
+                                                x:Name="btnStartSync"
+                                                Width="170"
+                                                Height="30"
+                                                Margin="0,0,10,0"
+                                                Content="Synchronisation starten" />
+                                            <Button
+                                                Style="{StaticResource DangerButton}"
+                                                x:Name="btnStopSync"
+                                                Width="170"
+                                                Height="30"
+                                                Content="Synchronisation stoppen" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </GroupBox>
                             </StackPanel>
@@ -3475,18 +3467,128 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
-                            <Label
-                                Margin="5"
-                                Content="Data Loss Prevention (DLP)"
-                                FontSize="16"
-                                FontWeight="Bold" />
-                            <Grid Grid.Row="1" Margin="5">
-                                <!--  Inhalt für DLP hier einfügen  -->
-                                <TextBlock
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Text="Hier werden die Tools für die Verwaltung von Data Loss Prevention (DLP) Regeln zur Verfügung gestellt." />
-                            </Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="420" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!--  Hilfe Link  -->
+                            <TextBlock
+                                x:Name="helpLinkDLP"
+                                Grid.Row="0"
+                                Grid.ColumnSpan="2"
+                                Margin="10,10,10,10"
+                                HorizontalAlignment="Right"
+                                Cursor="Hand"
+                                Foreground="#0067c0"
+                                Text="Hilfe zu DLP &amp; Compliance"
+                                TextDecorations="Underline" />
+
+                            <!--  Linke Spalte - Abfragen und Aktionen  -->
+                            <StackPanel
+                                Grid.Row="1"
+                                Grid.Column="0"
+                                Margin="10,0,10,10">
+                                <Border
+                                    Margin="0,0,0,10"
+                                    Padding="10"
+                                    Background="#FFF3CD"
+                                    BorderBrush="#FFEAA7"
+                                    BorderThickness="1"
+                                    CornerRadius="3">
+                                    <TextBlock
+                                        FontSize="12"
+                                        Foreground="#856404"
+                                        Text="Voraussetzung: links auf 'Compliance verbinden' klicken (Security &amp; Compliance PowerShell)."
+                                        TextWrapping="Wrap" />
+                                </Border>
+
+                                <GroupBox
+                                    Margin="0,0,0,10"
+                                    Background="#ffffff"
+                                    Header="Richtlinien und Bezeichnungen laden">
+                                    <StackPanel Margin="10">
+                                        <Button
+                                            Style="{StaticResource SecondaryButton}"
+                                            x:Name="btnGetDlpPolicies"
+                                            Height="30"
+                                            Margin="0,0,0,8"
+                                            Content="DLP-Richtlinien laden" />
+                                        <Button
+                                            Style="{StaticResource SecondaryButton}"
+                                            x:Name="btnGetDlpRules"
+                                            Height="30"
+                                            Margin="0,0,0,8"
+                                            Content="DLP-Regeln laden" />
+                                        <Button
+                                            Style="{StaticResource SecondaryButton}"
+                                            x:Name="btnGetRetentionPolicies"
+                                            Height="30"
+                                            Margin="0,0,0,8"
+                                            Content="Aufbewahrungsrichtlinien laden" />
+                                        <Button
+                                            Style="{StaticResource SecondaryButton}"
+                                            x:Name="btnGetSensitivityLabels"
+                                            Height="30"
+                                            Content="Vertraulichkeitsbezeichnungen laden" />
+                                    </StackPanel>
+                                </GroupBox>
+
+                                <GroupBox Background="#ffffff" Header="Modus der ausgewählten DLP-Richtlinie">
+                                    <StackPanel Margin="10">
+                                        <ComboBox
+                                            x:Name="cmbDlpPolicyMode"
+                                            Height="30"
+                                            Margin="0,0,0,8">
+                                            <ComboBoxItem Content="Aktiv (Enable)" IsSelected="True" Tag="Enable" />
+                                            <ComboBoxItem Content="Test mit Benachrichtigungen" Tag="TestWithNotifications" />
+                                            <ComboBoxItem Content="Test ohne Benachrichtigungen" Tag="TestWithoutNotifications" />
+                                            <ComboBoxItem Content="Deaktiviert (Disable)" Tag="Disable" />
+                                        </ComboBox>
+                                        <Button
+                                            Style="{StaticResource WarningButton}"
+                                            x:Name="btnSetDlpPolicyMode"
+                                            Height="30"
+                                            Content="Modus setzen" />
+                                    </StackPanel>
+                                </GroupBox>
+                            </StackPanel>
+
+                            <!--  Rechte Spalte - Ergebnisse  -->
+                            <GroupBox
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Margin="0,0,10,10"
+                                Background="#ffffff"
+                                Header="Ergebnisse">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock
+                                        x:Name="txtDlpResultInfo"
+                                        Margin="8,8,8,0"
+                                        Text="Noch keine Daten geladen." />
+                                    <DataGrid
+                                        x:Name="dgDlpResults"
+                                        Grid.Row="1"
+                                        Margin="8"
+                                        AutoGenerateColumns="True"
+                                        IsReadOnly="True"
+                                        SelectionMode="Single" />
+                                    <Button
+                                        Style="{StaticResource SecondaryButton}"
+                                        x:Name="btnExportDlpResults"
+                                        Grid.Row="2"
+                                        Width="180"
+                                        Height="30"
+                                        Margin="0,0,8,8"
+                                        HorizontalAlignment="Right"
+                                        Content="Liste exportieren (CSV)" />
+                                </Grid>
+                            </GroupBox>
                         </Grid>
                     </TabItem>
                     <!--  eDiscovery & Legal Hold Tab  -->
@@ -3500,11 +3602,20 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <TextBlock
-                                Margin="0,0,0,15"
-                                FontSize="18"
-                                FontWeight="SemiBold"
-                                Text="eDiscovery &amp; Legal Hold Management" />
+                            <DockPanel Margin="0,0,0,15">
+                                <TextBlock
+                                    x:Name="helpLinkeDiscovery"
+                                    VerticalAlignment="Center"
+                                    Cursor="Hand"
+                                    DockPanel.Dock="Right"
+                                    Foreground="#0067c0"
+                                    Text="Hilfe zu eDiscovery &amp; Legal Hold"
+                                    TextDecorations="Underline" />
+                                <TextBlock
+                                    FontSize="18"
+                                    FontWeight="SemiBold"
+                                    Text="eDiscovery &amp; Legal Hold Management" />
+                            </DockPanel>
 
                             <TabControl Grid.Row="1">
                                 <!--  eDiscovery Cases  -->
@@ -3517,14 +3628,24 @@
                                         </Grid.RowDefinitions>
                                         <StackPanel Margin="0,0,0,10" Orientation="Horizontal">
                                             <Button
+                                                Style="{StaticResource SecondaryButton}"
                                                 x:Name="btnGeteDiscoveryCases"
                                                 Width="150"
+                                                Height="30"
                                                 Margin="0,0,10,0"
                                                 Content="Fälle laden" />
                                             <Button
+                                                Style="{StaticResource SuccessButton}"
                                                 x:Name="btnNeweDiscoveryCase"
                                                 Width="150"
+                                                Height="30"
                                                 Content="Neuer Fall" />
+                                            <TextBlock
+                                                Margin="10,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Foreground="#666666"
+                                                Text="Erfordert 'Compliance verbinden'."
+                                                TextWrapping="Wrap" />
                                         </StackPanel>
                                         <DataGrid
                                             x:Name="dgeDiscoveryCases"
@@ -3577,21 +3698,37 @@
                                             <TextBox
                                                 x:Name="txtSearchLegalHoldMailbox"
                                                 Width="250"
-                                                Margin="0,0,10,0" />
+                                                Height="30"
+                                                Margin="0,0,10,0"
+                                                VerticalContentAlignment="Center"
+                                                ToolTip="Name oder Adresse (leer = alle Postfächer mit Legal Hold)" />
                                             <Button
+                                                Style="{StaticResource SecondaryButton}"
                                                 x:Name="btnSearchLegalHoldMailbox"
                                                 Width="100"
+                                                Height="30"
                                                 Margin="0,0,10,0"
                                                 Content="Suchen" />
                                             <Button
+                                                Style="{StaticResource WarningButton}"
                                                 x:Name="btnAddLegalHold"
                                                 Width="150"
+                                                Height="30"
                                                 Margin="0,0,10,0"
                                                 Content="Hold hinzufügen" />
                                             <Button
+                                                Style="{StaticResource DangerButton}"
                                                 x:Name="btnRemoveLegalHold"
                                                 Width="150"
+                                                Height="30"
+                                                Margin="0,0,10,0"
                                                 Content="Hold entfernen" />
+                                            <Button
+                                                Style="{StaticResource SecondaryButton}"
+                                                x:Name="btnExportLegalHold"
+                                                Width="120"
+                                                Height="30"
+                                                Content="Exportieren" />
                                         </StackPanel>
                                         <DataGrid
                                             x:Name="dgLegalHoldMailboxes"

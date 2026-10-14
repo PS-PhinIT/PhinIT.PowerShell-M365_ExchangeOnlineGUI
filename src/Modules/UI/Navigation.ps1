@@ -287,6 +287,58 @@ function Initialize-ApplicationUI {
 }
 
 # Initialisiert die restlichen Tabs im Hintergrund über einen separaten Thread
+# Zentrale Liste aller Tab-Initialisierungen (Name -> Funktion), von
+# Initialize-RemainingTabs und Start-AsyncTabInitialization gemeinsam genutzt.
+$script:TabInitializers = [ordered]@{
+    EXOSettings     = "Initialize-EXOSettingsTab"
+    Calendar        = "Initialize-CalendarTab"
+    Mailbox         = "Initialize-MailboxTab"
+    Audit           = "Initialize-AuditTab"
+    Troubleshooting = "Initialize-TroubleshootingTab"
+    Groups          = "Initialize-GroupsTab"
+    SharedMailbox   = "Initialize-SharedMailboxTab"
+    Contacts        = "Initialize-ContactsTab"
+    Resources       = "Initialize-ResourcesTab"
+    Reports         = "Initialize-ReportsTab"
+    RegionSettings  = "Initialize-RegionSettingsTab"
+    MailFlowRules   = "Initialize-MailFlowRulesTab"
+    InboxRules      = "Initialize-InboxRulesTab"
+    MessageTrace    = "Initialize-MessageTraceTab"
+    AutoReply       = "Initialize-AutoReplyTab"
+    HealthCheck     = "Initialize-HealthCheckTab"
+    CrossPremises   = "Initialize-CrossPremisesTab"
+    ATP             = "Initialize-ATPTab"
+    DLP             = "Initialize-DLPTab"
+    eDiscovery      = "Initialize-eDiscoveryTab"
+    MDM             = "Initialize-MDMTab"
+    HybridExchange  = "Initialize-HybridExchangeTab"
+    MultiForest     = "Initialize-MultiForestTab"
+}
+
+# Führt alle Tab-Initialisierungen aus; ein Fehler in einem Tab hält die übrigen nicht auf.
+function Invoke-TabInitializers {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param()
+
+    $results = @{}
+    foreach ($entry in $script:TabInitializers.GetEnumerator()) {
+        try {
+            if (-not (Get-Command -Name $entry.Value -CommandType Function -ErrorAction SilentlyContinue)) {
+                Write-Log "Initialisierungsfunktion nicht gefunden: $($entry.Value)" -Type "Warning"
+                $results[$entry.Key] = $false
+                continue
+            }
+            $results[$entry.Key] = ((@(& $entry.Value) | Select-Object -Last 1) -eq $true)
+        }
+        catch {
+            Write-Log "Fehler bei der Initialisierung von $($entry.Key): $($_.Exception.Message)" -Type "Error"
+            $results[$entry.Key] = $false
+        }
+    }
+    return $results
+}
+
 function Initialize-RemainingTabs {
     [CmdletBinding()]
     param()
@@ -298,32 +350,7 @@ function Initialize-RemainingTabs {
         Update-StatusBar -Message "Lade Module im Hintergrund..."
     }, "Background")
 
-    $results = @{
-        EXOSettings = Initialize-EXOSettingsTab
-        Calendar = Initialize-CalendarTab
-        Mailbox = Initialize-MailboxTab
-        Audit = Initialize-AuditTab
-        Troubleshooting = Initialize-TroubleshootingTab
-        Groups = Initialize-GroupsTab
-        SharedMailbox = Initialize-SharedMailboxTab
-        Contacts = Initialize-ContactsTab
-        Resources = Initialize-ResourcesTab
-        Reports = Initialize-ReportsTab
-        RegionSettings = Initialize-RegionSettingsTab
-        MailFlowRules = Initialize-MailFlowRulesTab
-        InboxRules = Initialize-InboxRulesTab
-        MessageTrace = Initialize-MessageTraceTab
-        AutoReply = Initialize-AutoReplyTab
-        HealthCheck = Initialize-HealthCheckTab
-        # Tabs welche keine Funktion haben, aber im UI bereits vorhanden sind
-        ATP = Initialize-ATPTab
-        #DLP = Initialize-DLPTab
-        #eDiscovery = Initialize-eDiscoveryTab
-        MDM = Initialize-MDMTab
-        #HybridExchange = Initialize-HybridExchangeTab
-        #MultiForest = Initialize-MultiForestTab
-        CrossPremises = Initialize-CrossPremisesTab
-    }
+    $results = Invoke-TabInitializers
 
     $successCount = ($results.Values | Where-Object { $_ -eq $true }).Count
     $totalCount = $results.Count
@@ -360,31 +387,7 @@ function Start-AsyncTabInitialization {
             try {
                 Write-Log "Beginne synchrone Tab-Initialisierung im Hintergrund..." -Type "Debug"
                 
-                $results = @{
-                    EXOSettings = Initialize-EXOSettingsTab
-                    Calendar = Initialize-CalendarTab
-                    Mailbox = Initialize-MailboxTab
-                    Audit = Initialize-AuditTab
-                    Troubleshooting = Initialize-TroubleshootingTab
-                    Groups = Initialize-GroupsTab
-                    SharedMailbox = Initialize-SharedMailboxTab
-                    Contacts = Initialize-ContactsTab
-                    Resources = Initialize-ResourcesTab
-                    Reports = Initialize-ReportsTab
-                    RegionSettings = Initialize-RegionSettingsTab
-                    MailFlowRules = Initialize-MailFlowRulesTab
-                    InboxRules = Initialize-InboxRulesTab
-                    MessageTrace = Initialize-MessageTraceTab
-                    AutoReply = Initialize-AutoReplyTab
-                    HealthCheck = Initialize-HealthCheckTab
-                    CrossPremises = Initialize-CrossPremisesTab
-                    ATP = Initialize-ATPTab
-                    #DLP = Initialize-DLPTab
-                    #eDiscovery = Initialize-eDiscoveryTab
-                    MDM = Initialize-MDMTab
-                    #HybridExchange = Initialize-HybridExchangeTab
-                    #MultiForest = Initialize-MultiForestTab
-                }
+                $results = Invoke-TabInitializers
                 
                 $successCount = ($results.Values | Where-Object { $_ -eq $true }).Count
                 $totalCount = $results.Count
