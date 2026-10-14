@@ -128,7 +128,36 @@ $script:knownUIElements = @(
     #   Ratelimiting (GroupBox Header="Ratelimiting")
     "txtPowerShellMaxConcurrency",
     "txtPowerShellMaxCmdletQueueDepth",
-    "txtPowerShellMaxCmdletsExecutionDuration"
+    "txtPowerShellMaxCmdletsExecutionDuration",
+    "txtHierarchicalAddressBookRoot",
+
+    # Bisher nicht verdrahtete Steuerelemente (in der XAML vorhanden, wurden aber weder geladen noch gespeichert)
+    "chkBookingsBlockedWordsEnabled",
+    "chkBookingsNamingPolicyEnabled",
+    "chkBookingsNamingPolicyPrefixEnabled",
+    "txtBookingsNamingPolicyPrefix",
+    "chkBookingsNamingPolicySuffixEnabled",
+    "txtBookingsNamingPolicySuffix",
+    "chkMailTipsAllTipsEnabled",
+    "cmbLargeAudienceThreshold",
+    "chkMaskClientIpInReceivedHeadersEnabled",
+    "chkComplianceMLBgdCrawlEnabled",
+    "txtIPListBlocked",
+    "cmbPublicFoldersEnabled",
+    "chkOAuth2ClientProfileEnabled",
+    "txtDefaultAuthPolicy",
+    "chkPerTenantSwitchToESTSEnabled",
+    "chkRefreshSessionEnabled",
+    "txtWACDiscoveryEndpoint",
+    "chkEwsEnabled",
+    "cmbEwsAppAccessPolicy",
+    "chkEwsAllowEntourage",
+    "chkEwsAllowMacOutlook",
+    "chkEwsAllowOutlook",
+    "txtEwsAllowList",
+    "txtEwsBlockList",
+    "chkMobileAppEducationEnabled",
+    "chkOutlookMobileGCCRestrictionsEnabled"
 )
 
 
@@ -414,65 +443,8 @@ function Get-CurrentOrganizationConfig {
 
                 if ($elementType -eq "Unknown") { Write-Log "Element '$elementName' unbekannter Typ." -Type "Debug"; continue }
 
-                $propertyName = $null; $derivedPropertyName = $null
-                if ($elementName.StartsWith("chk") -and $elementName.Length -gt 3) { $derivedPropertyName = $elementName.Substring(3) }
-                elseif ($elementName.StartsWith("cmb") -and $elementName.Length -gt 3) { $derivedPropertyName = $elementName.Substring(3) }
-                elseif ($elementName.StartsWith("txt") -and $elementName.Length -gt 3) { $derivedPropertyName = $elementName.Substring(3) }
-
-                # Spezifische Zuordnungen für Elemente mit abweichenden PropertyNames
-                switch ($elementName) {
-                    "txtActivityBasedAuthenticationTimeoutInterval" { $propertyName = "ActivityBasedAuthenticationTimeoutInterval"; break }
-                    "txtMailTipsLargeAudienceThreshold" { $propertyName = "MailTipsLargeAudienceThreshold"; break }
-                    "cmbSearchQueryLanguage" { $propertyName = "SearchQueryLanguage"; break }
-                    "cmbShortenEventScopeDefault" { $propertyName = "ShortenEventScopeDefault"; break }
-                    "cmbLargeAudienceThreshold" { $propertyName = "MailTipsLargeAudienceThreshold"; break }
-                    "cmbEwsAppAccessPolicy" { $propertyName = "EwsApplicationAccessPolicy"; break }
-                    "cmbPublicFoldersEnabled" { $propertyName = "PublicFoldersEnabled"; break }
-                    "txtDefaultAuthPolicy" { $propertyName = "DefaultAuthenticationPolicy"; break }
-                    "txtWACDiscoveryEndpoint" { $propertyName = "WACDiscoveryEndpoint"; break }
-                    "txtEwsAllowList" { $propertyName = "EwsAllowList"; break }
-                    "txtEwsBlockList" { $propertyName = "EwsBlockList"; break }
-                    "txtIPListBlocked" { $propertyName = "IPListBlocked"; break }
-                    # Fehlende Bookings-Zuordnungen hinzufügen
-                    "txtBookingsNamingPolicyPrefix" { $propertyName = "BookingsNamingPolicyPrefix"; break }
-                    "txtBookingsNamingPolicySuffix" { $propertyName = "BookingsNamingPolicySuffix"; break }
-                    "txtBookingsSchedulingPolicy" { $propertyName = "BookingsSchedulingPolicy"; break }
-                    # Fehlende CheckBox-Zuordnungen für spezielle Fälle
-                    "chkBookingsBlockedWordsEnabled" { $propertyName = "BookingsBlockedWordsEnabled"; break }
-                    "chkBookingsNamingPolicyEnabled" { $propertyName = "BookingsNamingPolicyEnabled"; break }
-                    "chkBookingsNamingPolicyPrefixEnabled" { $propertyName = "BookingsNamingPolicyPrefixEnabled"; break }
-                    "chkBookingsNamingPolicySuffixEnabled" { $propertyName = "BookingsNamingPolicySuffixEnabled"; break }
-                    default { $propertyName = $derivedPropertyName }
-                }
-                
-                # Spezielle CheckBox-Behandlung für Steuerelemente, die andere UI-Elemente aktivieren/deaktivieren
-                if ($elementType -eq "CheckBox") {
-                    switch ($elementName) {
-                        "chkMailTipsLargeAudienceThreshold" { $propertyName = "MailTipsLargeAudienceThreshold"; break }
-                        "chkPreferredInternetCodePageForShiftJis" { $propertyName = "PreferredInternetCodePageForShiftJis"; break }
-                        "chkSearchQueryLanguage" { $propertyName = "SearchQueryLanguage"; break }
-                        "chkMailTipsAllTipsEnabled" { $propertyName = "MailTipsAllTipsEnabled"; break }
-                        # Fehlende MailTips-CheckBoxen
-                        "chkMailTipsExternalRecipientsTipsEnabled" { $propertyName = "MailTipsExternalRecipientsTipsEnabled"; break }
-                        "chkMailTipsGroupMetricsEnabled" { $propertyName = "MailTipsGroupMetricsEnabled"; break }
-                        "chkMailTipsMailboxSourcedTipsEnabled" { $propertyName = "MailTipsMailboxSourcedTipsEnabled"; break }
-                        # Fehlende Sicherheits-CheckBoxen
-                        "chkMaskClientIpInReceivedHeadersEnabled" { $propertyName = "MaskClientIpInReceivedHeadersEnabled"; break }
-                        "chkComplianceMLBgdCrawlEnabled" { $propertyName = "ComplianceMLBgdCrawlEnabled"; break }
-                        # Fehlende OAuth/Auth-CheckBoxen
-                        "chkOAuth2ClientProfileEnabled" { $propertyName = "OAuth2ClientProfileEnabled"; break }
-                        "chkPerTenantSwitchToESTSEnabled" { $propertyName = "PerTenantSwitchToESTSEnabled"; break }
-                        "chkRefreshSessionEnabled" { $propertyName = "RefreshSessionEnabled"; break }
-                        # Fehlende EWS-CheckBoxen
-                        "chkEwsEnabled" { $propertyName = "EwsEnabled"; break }
-                        "chkEwsAllowEntourage" { $propertyName = "EwsAllowEntourage"; break }
-                        "chkEwsAllowMacOutlook" { $propertyName = "EwsAllowMacOutlook"; break }
-                        "chkEwsAllowOutlook" { $propertyName = "EwsAllowOutlook"; break }
-                        # Fehlende Mobile-CheckBoxen
-                        "chkMobileAppEducationEnabled" { $propertyName = "MobileAppEducationEnabled"; break }
-                        "chkOutlookMobileGCCRestrictionsEnabled" { $propertyName = "OutlookMobileGCCRestrictionsEnabled"; break }
-                    }
-                }
+                # Eigenschaftsname aus dem Elementnamen ableiten (Sonderfälle: $script:OrgConfigPropertyMap / $script:OrgConfigToggleControls)
+                $propertyName = Get-OrgConfigPropertyName -ElementName $elementName
 
                 if (-not $propertyName) { Write-Log "Kein OrgConfig PropertyName für UI '$elementName' ($elementType). Überspringe." -Type "Warning"; $element.IsEnabled = $true; continue }
 
@@ -553,6 +525,8 @@ function Get-CurrentOrganizationConfig {
                 }
             } else { Write-Log "Element '$elementName' nicht in XAML (UI Update)." -Type "Debug" }
         }
+        # Zustand direkt nach dem Laden merken: Beim Speichern werden nur Abweichungen davon übertragen
+        $script:orgConfigUiSnapshot = Get-OrgConfigUiState
         if ($null -ne $script:txtStatus) { $script:txtStatus.Text = "Organisationseinstellungen erfolgreich geladen." }
     } catch {
         $errorMsg = $_.Exception.Message
@@ -560,6 +534,177 @@ function Get-CurrentOrganizationConfig {
         if ($null -ne $script:txtStatus) { $script:txtStatus.Text = "Fehler Laden Organisationseinstellungen: $errorMsg" }
         Show-MessageBox -Message "Fehler Laden Organisationseinstellungen: $errorMsg" -Title "Fehler" -Type "Error"
     }
+}
+
+# -----------------------------------------------
+# Zuordnung UI-Element -> Eigenschaft von Get-/Set-OrganizationConfig
+# -----------------------------------------------
+# Elemente, deren Eigenschaftsname nicht direkt aus dem Namen (ohne chk/cmb/txt) folgt
+$script:OrgConfigPropertyMap = @{
+    "cmbLargeAudienceThreshold" = "MailTipsLargeAudienceThreshold"
+    "cmbEwsAppAccessPolicy"     = "EwsApplicationAccessPolicy"
+    "txtDefaultAuthPolicy"      = "DefaultAuthenticationPolicy"
+}
+
+# Steuer-Checkboxen ohne eigenen booleschen Wert: Sie schalten nur das zugehörige Wertfeld frei
+$script:OrgConfigToggleControls = @{
+    "chkMailTipsLargeAudienceThreshold"       = "txtMailTipsLargeAudienceThreshold"
+    "chkPreferredInternetCodePageForShiftJis" = "txtPreferredInternetCodePageForShiftJis"
+    "chkSearchQueryLanguage"                  = "cmbSearchQueryLanguage"
+}
+
+# Eigenschaften, die als ganze Zahl übergeben werden müssen
+$script:OrgConfigNumericProperties = @(
+    "DefaultMinutesToReduceShortEventsBy",
+    "DefaultMinutesToReduceLongEventsBy",
+    "MailTipsLargeAudienceThreshold",
+    "PreferredInternetCodePageForShiftJis"
+)
+
+# Mehrwertige Eigenschaften (Eingabe kommagetrennt)
+$script:OrgConfigMultiValueProperties = @(
+    "EwsAllowList",
+    "EwsBlockList",
+    "IPListBlocked",
+    "RemotePublicFolderMailboxes"
+)
+
+function Get-OrgConfigPropertyName {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ElementName
+    )
+
+    if ($script:OrgConfigPropertyMap.ContainsKey($ElementName)) { return $script:OrgConfigPropertyMap[$ElementName] }
+    if ($script:OrgConfigToggleControls.ContainsKey($ElementName)) {
+        return (Get-OrgConfigPropertyName -ElementName $script:OrgConfigToggleControls[$ElementName])
+    }
+    if ($ElementName -match '^(chk|cmb|txt)(.+)$') { return $Matches[2] }
+    return $null
+}
+
+function Test-OrgConfigChecked {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ElementName
+    )
+
+    $control = Get-XamlElement -ElementName $ElementName
+    return ($null -ne $control -and $control.IsChecked -eq $true)
+}
+
+# Liest den effektiven Zustand aller Organisationseinstellungs-Felder aus der Oberfläche.
+# Ergebnis: Hashtable Eigenschaftsname -> @{ Value = <Text>; Kind = CheckBox|ComboBox|TextBox; Element = <Name> }
+# Deaktivierte Felder, Steuer-Checkboxen und nicht freigeschaltete Wertfelder werden ausgelassen.
+function Get-OrgConfigUiState {
+    [CmdletBinding()]
+    param()
+
+    $state = @{}
+    if ($null -eq $script:currentOrganizationConfig) { return $state }
+    $configProperties = @($script:currentOrganizationConfig.PSObject.Properties.Name)
+
+    $valueToToggle = @{}
+    foreach ($toggleName in $script:OrgConfigToggleControls.Keys) { $valueToToggle[$script:OrgConfigToggleControls[$toggleName]] = $toggleName }
+
+    foreach ($elementName in $script:knownUIElements) {
+        if ($script:OrgConfigToggleControls.ContainsKey($elementName)) { continue }
+
+        $element = Get-XamlElement -ElementName $elementName
+        if ($null -eq $element -or -not $element.IsEnabled) { continue }
+
+        $propertyName = Get-OrgConfigPropertyName -ElementName $elementName
+        if ([string]::IsNullOrEmpty($propertyName) -or $configProperties -notcontains $propertyName) { continue }
+
+        # Abhängige Wertfelder nur berücksichtigen, wenn sie freigeschaltet sind
+        if ($valueToToggle.ContainsKey($elementName) -and -not (Test-OrgConfigChecked -ElementName $valueToToggle[$elementName])) { continue }
+        if ($elementName -eq "cmbLargeAudienceThreshold" -and (Test-OrgConfigChecked -ElementName "chkMailTipsLargeAudienceThreshold")) { continue }
+        if ($elementName -eq "txtActivityBasedAuthenticationTimeoutInterval" -and -not (Test-OrgConfigChecked -ElementName "chkActivityBasedAuthenticationTimeoutEnabled")) { continue }
+
+        $kind = $null
+        $value = $null
+        if ($element -is [System.Windows.Controls.CheckBox]) {
+            $kind = "CheckBox"
+            $value = [string]($element.IsChecked -eq $true)
+        }
+        elseif ($element -is [System.Windows.Controls.ComboBox]) {
+            $kind = "ComboBox"
+            $item = $element.SelectedItem
+            if ($item -is [System.Windows.Controls.ComboBoxItem]) {
+                $value = if ($null -ne $item.Tag -and "$($item.Tag)" -ne "") { "$($item.Tag)" } else { "$($item.Content)" }
+            }
+            elseif ($null -ne $item) { $value = "$item" }
+            else { $value = "$($element.Text)" }
+        }
+        elseif ($element -is [System.Windows.Controls.TextBox]) {
+            $kind = "TextBox"
+            $value = "$($element.Text)"
+        }
+        else { continue }
+
+        $value = $value.Trim()
+        if ($value -eq "KEINE DATEN") { $value = "" }
+        $state[$propertyName] = [PSCustomObject]@{ Value = $value; Kind = $kind; Element = $elementName }
+    }
+    return $state
+}
+
+# Wandelt einen UI-Wert in den passenden Parametertyp für Set-OrganizationConfig um.
+function ConvertTo-OrgConfigParameterValue {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PropertyName,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Value,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Kind
+    )
+
+    if ($Kind -eq "CheckBox") { return [bool]::Parse($Value) }
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        if ($script:OrgConfigNumericProperties -contains $PropertyName) {
+            throw "Der Wert für '$PropertyName' darf nicht leer sein (ganze Zahl erwartet)."
+        }
+        return $null
+    }
+
+    $current = $script:currentOrganizationConfig.$PropertyName
+    $isNumeric = $script:OrgConfigNumericProperties -contains $PropertyName
+    if (-not $isNumeric -and $null -ne $current -and $current -isnot [enum] -and $current -isnot [bool]) {
+        $typeCode = [System.Type]::GetTypeCode($current.GetType())
+        $isNumeric = ($typeCode -ge [System.TypeCode]::Int16 -and $typeCode -le [System.TypeCode]::Decimal)
+    }
+    if ($isNumeric) {
+        $number = 0L
+        if (-not [long]::TryParse($Value, [ref]$number)) {
+            throw "Der Wert für '$PropertyName' ('$Value') muss eine ganze Zahl sein."
+        }
+        return $number
+    }
+
+    $isMultiValue = $script:OrgConfigMultiValueProperties -contains $PropertyName -or
+        ($null -ne $current -and $current -is [System.Collections.IEnumerable] -and $current -isnot [string])
+    if ($isMultiValue) {
+        return [string[]]@($Value -split '[,;]' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
+    }
+
+    if ($PropertyName -eq "ActivityBasedAuthenticationTimeoutInterval") {
+        $timeoutValue = ($Value -split ' ')[0]
+        if ($timeoutValue -notmatch '^(\d+\.)?\d{1,2}:\d{2}:\d{2}$') {
+            throw "Ungültiges Format für das Sitzungs-Timeout ('$Value'). Erwartet wird HH:MM:SS, z. B. 06:00:00."
+        }
+        return $timeoutValue
+    }
+
+    return $Value
 }
 
 function Set-CustomOrganizationConfig {
@@ -573,194 +718,84 @@ function Set-CustomOrganizationConfig {
             return
         }
 
-        # Bestätigungsdialog anzeigen
-        $confirmResult = Show-MessageBox -Message "Möchten Sie die Organisationseinstellungen wirklich speichern?" -Title "Einstellungen speichern" -Type "Question"
-        if ($confirmResult -ne "Yes") {
+        if ($null -eq $script:currentOrganizationConfig -or $null -eq $script:orgConfigUiSnapshot) {
+            Show-MessageBox -Message "Bitte laden Sie zuerst die aktuellen Organisationseinstellungen." -Title "Einstellungen nicht geladen" -Type "Info"
             return
         }
 
-        if ($null -ne $script:txtStatus) {
-            $script:txtStatus.Text = "Speichere Organisationseinstellungen..."
-        }
-
-        $paramsToSet = @{}
-
-        # Behandle CheckBoxen
-        # $script:knownUIElements sollte alle relevanten UI-Element-Namen enthalten
-        foreach ($elementName in $script:knownUIElements) {
-            $element = Get-XamlElement -ElementName $elementName
-            if ($null -ne $element -and $element -is [System.Windows.Controls.CheckBox] -and $elementName -like "chk*") {
-                $propertyName = $elementName.Substring(3)
-                # Spezielle Checkboxen, die andere Controls steuern, werden später explizit behandelt.
-                # Hier werden alle booleschen Werte erfasst.
-                $paramsToSet[$propertyName] = $element.IsChecked
-            }
-        }
-
-        # Behandle ComboBoxen
-        # Spezialfall: ActivityBasedAuthenticationTimeoutInterval (gesteuert von chkActivityBasedAuthenticationTimeoutEnabled)
-        if ($paramsToSet.ContainsKey("ActivityBasedAuthenticationTimeoutEnabled") -and $paramsToSet["ActivityBasedAuthenticationTimeoutEnabled"] -eq $true) {
-            # Im XAML ist das Intervall eine TextBox (txtActivityBasedAuthenticationTimeoutInterval), keine ComboBox
+        if ((Test-OrgConfigChecked -ElementName "chkActivityBasedAuthenticationTimeoutEnabled")) {
             $txtActivityTimeout = Get-XamlElement -ElementName "txtActivityBasedAuthenticationTimeoutInterval"
-            if ($null -ne $txtActivityTimeout -and -not [string]::IsNullOrWhiteSpace($txtActivityTimeout.Text)) {
-                $selectedText = $txtActivityTimeout.Text.Trim()
-                $timeoutValue = ($selectedText -split ' ')[0] # Extrahiert "HH:MM:SS"
-                if ($timeoutValue -match "^\d{2}:\d{2}:\d{2}$") {
-                    $paramsToSet["ActivityBasedAuthenticationTimeoutInterval"] = $timeoutValue
-                } else {
-                    Write-Log "Ungültiges Format für ActivityBasedAuthenticationTimeoutInterval: '$selectedText'. Parameter wird nicht gesetzt." -Type "Warning"
-                    # Entfernen, falls es durch eine vorherige Logik (falls vorhanden) gesetzt wurde
-                    $paramsToSet.Remove("ActivityBasedAuthenticationTimeoutInterval") | Out-Null
-                }
-            } else {
-                # Wenn Checkbox aktiviert ist, aber kein Intervall ausgewählt, ist das ein ungültiger Zustand für Set-OrganizationConfig
+            if ($null -ne $txtActivityTimeout -and $txtActivityTimeout.IsEnabled -and ([string]::IsNullOrWhiteSpace($txtActivityTimeout.Text) -or $txtActivityTimeout.Text.Trim() -eq "KEINE DATEN")) {
                 Show-MessageBox -Message "Wenn 'Inaktive Sitzungs-Timeout aktivieren' ausgewählt ist, muss ein Timeout-Intervall angegeben werden." -Title "Fehlende Eingabe" -Type "Error"
-                if ($null -ne $script:txtStatus) {
-                    $script:txtStatus.Text = "Fehler: Timeout-Intervall fehlt."
-                }
                 return
             }
-        } else {
-            # Wenn ActivityBasedAuthenticationTimeoutEnabled false ist, den Intervall-Parameter entfernen
-            $paramsToSet.Remove("ActivityBasedAuthenticationTimeoutInterval") | Out-Null
         }
 
-        # Allgemeine ComboBoxen
-        $comboBoxMappings = @{
-            "cmbShortenEventScopeDefault" = "ShortenEventScopeDefault"
-            "cmbLargeAudienceThreshold" = "MailTipsLargeAudienceThreshold"
-            "cmbInformationBarrierMode" = "InformationBarrierMode"
-            "cmbEwsAppAccessPolicy" = "EwsApplicationAccessPolicy"
-            "cmbOfficeFeatures" = "OfficeFeatures"
-            # cmbSearchQueryLanguage wird speziell behandelt
-        }
+        # Nur Parameter senden, die Set-OrganizationConfig tatsächlich kennt
+        $validParameters = @()
+        try { $validParameters = @((Get-Command -Name Set-OrganizationConfig -ErrorAction Stop).Parameters.Keys) }
+        catch { Write-Log "Parameterliste von Set-OrganizationConfig nicht ermittelbar: $($_.Exception.Message)" -Type "Warning" }
 
-        foreach ($comboBoxName in $comboBoxMappings.Keys) {
-            $comboBox = Get-XamlElement -ElementName $comboBoxName
-            $propertyName = $comboBoxMappings[$comboBoxName]
+        # Nur geänderte Werte ermitteln (Vergleich mit dem Zustand direkt nach dem Laden)
+        $currentState = Get-OrgConfigUiState
+        $paramsToSet = @{}
+        $changeLines = New-Object 'System.Collections.Generic.List[string]'
+        $skipped = New-Object 'System.Collections.Generic.List[string]'
 
-            if ($null -ne $comboBox -and $null -ne $comboBox.SelectedItem) {
-                $selectedValue = $comboBox.SelectedItem.Content.ToString()
-                if ($comboBoxName -eq "cmbLargeAudienceThreshold") {
-                    if ([int]::TryParse($selectedValue, [ref]$null)) {
-                        $paramsToSet[$propertyName] = [int]$selectedValue
-                    } else {
-                        throw "Der Wert für $propertyName ('$selectedValue') muss eine ganze Zahl sein."
-                    }
-                } else {
-                    $paramsToSet[$propertyName] = $selectedValue
-                }
-            } else {
-                # Wenn nichts ausgewählt ist, Parameter nicht senden (implizit durch Nicht-Hinzufügen zu paramsToSet)
-                # oder explizit entfernen, falls er anderweitig gesetzt wurde (hier nicht der Fall)
-                $paramsToSet.Remove($propertyName) | Out-Null
+        foreach ($propertyName in ($currentState.Keys | Sort-Object)) {
+            $entry = $currentState[$propertyName]
+            $originalValue = $null
+            if ($script:orgConfigUiSnapshot.ContainsKey($propertyName)) { $originalValue = $script:orgConfigUiSnapshot[$propertyName].Value }
+            if ($null -ne $originalValue -and $originalValue -ceq $entry.Value) { continue }
+
+            if ($validParameters.Count -gt 0 -and $validParameters -notcontains $propertyName) {
+                $skipped.Add($propertyName)
+                continue
             }
+
+            $paramsToSet[$propertyName] = ConvertTo-OrgConfigParameterValue -PropertyName $propertyName -Value $entry.Value -Kind $entry.Kind
+            $oldText = if ([string]::IsNullOrEmpty($originalValue)) { "(leer)" } else { $originalValue }
+            $newText = if ([string]::IsNullOrEmpty($entry.Value)) { "(leer)" } else { $entry.Value }
+            $changeLines.Add("- ${propertyName}: $oldText -> $newText")
         }
 
-        # Spezialfall: cmbSearchQueryLanguage (gesteuert von chkSearchQueryLanguage)
-        $chkSearchQueryLanguage = Get-XamlElement -ElementName "chkSearchQueryLanguage"
-        if ($null -ne $chkSearchQueryLanguage -and $chkSearchQueryLanguage.IsChecked -eq $true) {
-            $cmbSearchQueryLanguage = Get-XamlElement -ElementName "cmbSearchQueryLanguage"
-            if ($null -ne $cmbSearchQueryLanguage -and $null -ne $cmbSearchQueryLanguage.SelectedItem) {
-                $paramsToSet["SearchQueryLanguage"] = $cmbSearchQueryLanguage.SelectedItem.Content.ToString()
-            } else {
-                # Checkbox ist an, aber nichts ausgewählt -> Parameter nicht senden
-                $paramsToSet.Remove("SearchQueryLanguage") | Out-Null
-            }
-        } else {
-            # Checkbox ist aus, Parameter nicht senden (ggf. von generischer Checkbox-Logik gesetzten booleschen Wert entfernen)
-            $paramsToSet.Remove("SearchQueryLanguage") | Out-Null
+        if ($skipped.Count -gt 0) {
+            Write-Log "Folgende geänderte Felder werden von Set-OrganizationConfig nicht unterstützt und übersprungen: $($skipped -join ', ')" -Type "Warning"
         }
-
-
-        # Behandle TextBoxen
-        $textBoxMappings = @{
-            "txtDefaultMinutesToReduceShortEventsBy" = "DefaultMinutesToReduceShortEventsBy"
-            "txtDefaultMinutesToReduceLongEventsBy" = "DefaultMinutesToReduceLongEventsBy"
-            "txtPowerShellMaxConcurrency" = "PowerShellMaxConcurrency"
-            "txtPowerShellMaxCmdletQueueDepth" = "PowerShellMaxCmdletQueueDepth"
-            "txtPowerShellMaxCmdletsExecutionDuration" = "PowerShellMaxCmdletsExecutionDuration"
-            "txtDefaultAuthPolicy" = "DefaultAuthenticationPolicy"
-            "txtHierAddressBookRoot" = "HierarchicalAddressBookRoot"
-            # txtPreferredInternetCodePageForShiftJis wird speziell behandelt
-        }
-
-        $numericTextBoxesForOrgConfig = @(
-            "txtDefaultMinutesToReduceShortEventsBy",
-            "txtDefaultMinutesToReduceLongEventsBy",
-            "txtPowerShellMaxConcurrency",
-            "txtPowerShellMaxCmdletQueueDepth",
-            "txtPowerShellMaxCmdletsExecutionDuration"
-            # txtPreferredInternetCodePageForShiftJis ist auch numerisch, aber speziell behandelt
-        )
-
-        foreach ($textBoxName in $textBoxMappings.Keys) {
-            $textBox = Get-XamlElement -ElementName $textBoxName
-            $propertyName = $textBoxMappings[$textBoxName]
-
-            if ($null -ne $textBox) {
-                if (-not [string]::IsNullOrWhiteSpace($textBox.Text)) {
-                    $textValue = $textBox.Text.Trim()
-                    if ($numericTextBoxesForOrgConfig -contains $textBoxName) {
-                        if ([int]::TryParse($textValue, [ref]$null)) {
-                            $paramsToSet[$propertyName] = [int]$textValue
-                        } else {
-                            throw "Der Wert für $propertyName ('$textValue') muss eine ganze Zahl sein."
-                        }
-                    } else {
-                        $paramsToSet[$propertyName] = $textValue
-                    }
-                } else {
-                    # Leere Textbox -> Parameter nicht senden (implizit durch Nicht-Hinzufügen)
-                    # oder explizit entfernen, falls er anderweitig gesetzt wurde
-                    $paramsToSet.Remove($propertyName) | Out-Null
-                }
-            }
-        }
-
-        # Spezialfall: txtPreferredInternetCodePageForShiftJis (gesteuert von chkPreferredInternetCodePageForShiftJis)
-        $chkPreferredInternetCodePageForShiftJis = Get-XamlElement -ElementName "chkPreferredInternetCodePageForShiftJis"
-        if ($null -ne $chkPreferredInternetCodePageForShiftJis -and $chkPreferredInternetCodePageForShiftJis.IsChecked -eq $true) {
-            $txtBox = Get-XamlElement -ElementName "txtPreferredInternetCodePageForShiftJis"
-            if ($null -ne $txtBox -and -not [string]::IsNullOrWhiteSpace($txtBox.Text)) {
-                $textValue = $txtBox.Text.Trim()
-                if ([int]::TryParse($textValue, [ref]$null)) {
-                    $paramsToSet["PreferredInternetCodePageForShiftJis"] = [int]$textValue
-                } else {
-                    throw "Der Wert für PreferredInternetCodePageForShiftJis ('$textValue') muss eine ganze Zahl sein."
-                }
-            } else {
-                # Checkbox ist an, aber Textbox leer -> Parameter nicht senden
-                $paramsToSet.Remove("PreferredInternetCodePageForShiftJis") | Out-Null
-            }
-        } else {
-            # Checkbox ist aus, Parameter nicht senden (ggf. von generischer Checkbox-Logik gesetzten booleschen Wert entfernen)
-            $paramsToSet.Remove("PreferredInternetCodePageForShiftJis") | Out-Null
-        }
-
-        # Parameter für Set-OrganizationConfig vorbereiten - nur die, die auch Werte haben
-        # $paramsToSet enthält bereits die korrekten Parameter
 
         if ($paramsToSet.Count -eq 0) {
-            Show-MessageBox -Message "Es wurden keine Änderungen zum Speichern gefunden." -Title "Keine Änderungen" -Type "Info"
-            if ($null -ne $script:txtStatus) {
-                $script:txtStatus.Text = "Keine Änderungen zum Speichern."
-            }
+            $message = "Es wurden keine Änderungen zum Speichern gefunden."
+            if ($skipped.Count -gt 0) { $message += "`n`nNicht unterstützte Felder (übersprungen): $($skipped -join ', ')" }
+            Show-MessageBox -Message $message -Title "Keine Änderungen" -Type "Info"
+            Update-StatusBar -Message "Keine Änderungen zum Speichern." -Type Info
             return
         }
-        
-        # Debug-Log alle Parameter, die gesendet werden
-        Write-Log "Folgende Parameter werden an Set-OrganizationConfig übergeben:" -Type "Debug"
+
+        $preview = @($changeLines | Select-Object -First 25)
+        if ($changeLines.Count -gt 25) { $preview += "... und $($changeLines.Count - 25) weitere" }
+        $confirmText = "Folgende Organisationseinstellungen werden geändert:`n`n$($preview -join "`n")`n`nJetzt speichern?"
+        $confirmResult = Show-MessageBox -Message $confirmText -Title "Einstellungen speichern" -Type "Question"
+        if ($confirmResult -ne "Yes") {
+            Update-StatusBar -Message "Speichern abgebrochen." -Type Info
+            return
+        }
+
         foreach ($key in $paramsToSet.Keys | Sort-Object) {
-            Write-Log "Parameter: $key = '$($paramsToSet[$key])' (Typ: $($paramsToSet[$key].GetType().Name))" -Type "Debug"
+            Write-Log "Set-OrganizationConfig Parameter: $key = '$($paramsToSet[$key])'" -Type "Debug"
         }
 
-        # Organisationseinstellungen aktualisieren
-        Set-OrganizationConfig @paramsToSet -ErrorAction Stop
-
-        if ($null -ne $script:txtStatus) {
-            $script:txtStatus.Text = "Organisationseinstellungen erfolgreich gespeichert."
+        Update-StatusBar -Message "Speichere Organisationseinstellungen..." -Type Info
+        Start-UIBusy -Message "Speichere $($paramsToSet.Count) Organisationseinstellung(en)..." -Title "Organisationseinstellungen"
+        try {
+            Set-OrganizationConfig @paramsToSet -ErrorAction Stop
         }
+        finally {
+            Stop-UIBusy
+        }
+
+        Write-Log "Organisationseinstellungen gespeichert: $($paramsToSet.Keys -join ', ')" -Type "Success"
+        Log-Action "Organisationseinstellungen geändert: $($paramsToSet.Keys -join ', ')"
+        Update-StatusBar -Message "Organisationseinstellungen erfolgreich gespeichert ($($paramsToSet.Count) Änderung(en))." -Type Success
         Show-MessageBox -Message "Die Organisationseinstellungen wurden erfolgreich gespeichert." -Title "Erfolg" -Type "Info"
 
         # Aktuelle Konfiguration neu laden, um Änderungen zu sehen
@@ -769,10 +804,7 @@ function Set-CustomOrganizationConfig {
     catch {
         $errorMsg = $_.Exception.Message
         Write-Log "Fehler beim Speichern der Organisationseinstellungen: $errorMsg" -Type "Error"
-        Write-Log $_.Exception.StackTrace -Type "Error"
-        if ($null -ne $script:txtStatus) {
-            $script:txtStatus.Text = "Fehler beim Speichern der Organisationseinstellungen: $errorMsg"
-        }
+        Update-StatusBar -Message "Fehler beim Speichern der Organisationseinstellungen: $errorMsg" -Type Error
         Show-MessageBox -Message "Fehler beim Speichern der Organisationseinstellungen: $errorMsg" -Title "Fehler" -Type "Error"
     }
 }

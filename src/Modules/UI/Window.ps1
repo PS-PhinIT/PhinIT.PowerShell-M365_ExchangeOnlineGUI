@@ -139,9 +139,23 @@ function Register-EventHandler {
     }
     
     try {
-        # Event-Handler hinzufügen
-        $event = "Add_$EventName"
-        $Control.$event($Handler)
+        if ($EventName -eq "Click" -and $null -ne $script:UIClickDispatcher -and $Handler -is [scriptblock]) {
+            # Click-Handler laufen über den zentralen Verteiler (UI/Busy.ps1):
+            # Warte-Cursor, Schutz vor Doppelklicks während eines Vorgangs und Fehlerabfang.
+            $controlKey = $Control.PSObject.BaseObject
+            $handlerList = $null
+            if (-not $script:UIClickHandlers.TryGetValue($controlKey, [ref]$handlerList)) {
+                $handlerList = New-Object 'System.Collections.Generic.List[scriptblock]'
+                $script:UIClickHandlers[$controlKey] = $handlerList
+                $Control.Add_Click($script:UIClickDispatcher)
+            }
+            $handlerList.Add($Handler)
+        }
+        else {
+            # Event-Handler direkt hinzufügen
+            $event = "Add_$EventName"
+            $Control.$event($Handler)
+        }
         Write-Log  "Event-Handler für $ControlName.$EventName registriert" -Type "Info"
         return $true
     }

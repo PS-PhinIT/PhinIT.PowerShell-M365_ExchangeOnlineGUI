@@ -2175,6 +2175,11 @@
                                                                 Margin="0,5"
                                                                 Content="PDP-Standort aktivieren"
                                                                 ToolTip="Aktiviert den Policy Decision Point-Standort" />
+                                                            <TextBlock Margin="0,8,0,0" Text="Stamm des hierarchischen Adressbuchs (HAB):" />
+                                                            <TextBox
+                                                                x:Name="txtHierarchicalAddressBookRoot"
+                                                                Height="26"
+                                                                ToolTip="Gruppe (Name, Alias, DN oder SMTP-Adresse), die als oberste Ebene des hierarchischen Adressbuchs dient. Leer lassen, um das HAB zu deaktivieren." />
                                                         </StackPanel>
                                                     </GroupBox>
                                                     <GroupBox
@@ -2589,15 +2594,26 @@
                                                 Header="Versteckt" />
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    <Button
-                                        Style="{StaticResource SecondaryButton}"
-                                        x:Name="btnExportGroupMembers"
+                                    <StackPanel
                                         Grid.Row="1"
-                                        Width="220"
-                                        Height="30"
                                         Margin="0,8,8,8"
                                         HorizontalAlignment="Right"
-                                        Content="Mitgliederliste exportieren (CSV)" />
+                                        Orientation="Horizontal">
+                                        <Button
+                                            x:Name="btnShowGroupMembers"
+                                            Width="200"
+                                            Height="30"
+                                            Margin="0,0,8,0"
+                                            Content="Mitglieder anzeigen / neu laden"
+                                            Style="{StaticResource SecondaryButton}"
+                                            ToolTip="Lädt Mitglieder, Besitzer und Einstellungen der ausgewählten Gruppe (erneut)." />
+                                        <Button
+                                            x:Name="btnExportGroupMembers"
+                                            Width="220"
+                                            Height="30"
+                                            Content="Mitgliederliste exportieren (CSV)"
+                                            Style="{StaticResource SecondaryButton}" />
+                                    </StackPanel>
                                 </Grid>
                             </GroupBox>
                         </Grid>
@@ -6420,5 +6436,53 @@
                 </StackPanel>
             </Grid>
         </Border>
+
+        <!--  Arbeits-Overlay (UI/Busy.ps1): blockiert Eingaben während langer Vorgänge, zeigt Fortschritt und "Abbrechen"  -->
+        <Grid
+            x:Name="gridBusyOverlay"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Panel.ZIndex="100"
+            Background="{StaticResource OverlayBrush}"
+            Visibility="Collapsed">
+            <Border
+                MinWidth="380"
+                MaxWidth="560"
+                Padding="24,20"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource CardBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <StackPanel>
+                    <TextBlock
+                        x:Name="txtBusyTitle"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Foreground="{StaticResource TextPrimaryBrush}"
+                        Text="Vorgang läuft" />
+                    <TextBlock
+                        x:Name="txtBusyMessage"
+                        Margin="0,8,0,12"
+                        Foreground="{StaticResource TextSecondaryBrush}"
+                        Text="Bitte warten..."
+                        TextWrapping="Wrap" />
+                    <ProgressBar
+                        x:Name="prgBusy"
+                        Height="6"
+                        Foreground="{StaticResource AccentBrush}"
+                        IsIndeterminate="True" />
+                    <Button
+                        x:Name="btnBusyCancel"
+                        Width="140"
+                        Margin="0,16,0,0"
+                        HorizontalAlignment="Right"
+                        Content="Abbrechen"
+                        Style="{StaticResource SecondaryButton}"
+                        Visibility="Collapsed" />
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

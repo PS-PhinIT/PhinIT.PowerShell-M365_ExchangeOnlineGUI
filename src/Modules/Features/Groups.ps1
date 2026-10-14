@@ -254,14 +254,14 @@ function Get-AllGroupTypesAction {
     try {
         Write-Log "Rufe alle relevanten Gruppen ab (Verteiler, E-Mail-aktivierte Sicherheitsgruppen, Microsoft 365-Gruppen)" -Type "Info"
         Update-StatusBar -Message "Rufe alle Gruppentypen ab..." -Type Info
-        $allGroupsData = @()
+        $allGroupsData = New-Object 'System.Collections.Generic.List[object]'
 
         # Verteilergruppen und E-Mail-aktivierte Sicherheitsgruppen
-        # Get-DistributionGroup liefert sowohl Verteilergruppen als auch E-Mail-aktivierte Sicherheitsgruppen
-        # Der Parameter -ResultSize Unlimited ist für die EXO V2/V3 Cmdlets nicht gültig/nötig.
-        $distributionAndSecurityGroups = Get-DistributionGroup -ErrorAction SilentlyContinue
-        if ($null -ne $distributionAndSecurityGroups) {
-            $allGroupsData += $distributionAndSecurityGroups | ForEach-Object {
+        # Get-DistributionGroup liefert sowohl Verteilergruppen als auch E-Mail-aktivierte Sicherheitsgruppen.
+        # Ohne -ResultSize Unlimited liefert das Cmdlet höchstens 1000 Objekte.
+        $distributionAndSecurityGroups = @(Get-DistributionGroup -ResultSize Unlimited -ErrorAction SilentlyContinue | Step-UIProgress -Activity "Lade Verteilergruppen")
+        if ($distributionAndSecurityGroups.Count -gt 0) {
+            $allGroupsData.AddRange([object[]]@($distributionAndSecurityGroups | ForEach-Object {
                 [PSCustomObject]@{
                     DisplayName        = $_.DisplayName
                     PrimarySmtpAddress = $_.PrimarySmtpAddress
@@ -271,16 +271,15 @@ function Get-AllGroupTypesAction {
                     # Speichere das ursprüngliche Objekt für vollen Zugriff, falls später benötigt
                     OriginalObject     = $_
                 }
-            }
+            }))
         } else {
             Write-Log "Keine Verteilergruppen oder E-Mail-aktivierte Sicherheitsgruppen gefunden oder Fehler beim Abruf." -Type Info # Kann auch Warning sein, je nach Erwartung
         }
 
-        # Microsoft 365-Gruppen
-        # Der Parameter -ResultSize Unlimited ist für die EXO V2/V3 Cmdlets nicht gültig/nötig.
-        $unifiedGroups = Get-ExoUnifiedGroup -ErrorAction SilentlyContinue
-        if ($null -ne $unifiedGroups) {
-            $allGroupsData += $unifiedGroups | ForEach-Object {
+        # Microsoft 365-Gruppen (Get-ExoUnifiedGroup ruft ohne Identity alle Gruppen mit -ResultSize Unlimited ab)
+        $unifiedGroups = @(Get-ExoUnifiedGroup -ErrorAction SilentlyContinue)
+        if ($unifiedGroups.Count -gt 0) {
+            $allGroupsData.AddRange([object[]]@($unifiedGroups | ForEach-Object {
                 [PSCustomObject]@{
                     DisplayName        = $_.DisplayName
                     PrimarySmtpAddress = $_.PrimarySmtpAddress
@@ -289,7 +288,7 @@ function Get-AllGroupTypesAction {
                     RecipientTypeDetails = $_.RecipientTypeDetails # z.B. GroupMailbox
                     OriginalObject     = $_
                 }
-            }
+            }))
         } else {
             Write-Log "Keine Microsoft 365-Gruppen gefunden oder Fehler beim Abruf." -Type Info
         }
@@ -305,7 +304,7 @@ function Get-AllGroupTypesAction {
         # DistinguishedName sollte für DG/SecGroup eindeutig sein, ExternalDirectoryObjectId für UnifiedGroup.
         # Da wir beide in derselben Eigenschaft 'DistinguishedName' im PSCustomObject speichern, sollte dies funktionieren.
         $uniqueGroupsByDistinguishedName = $allGroupsData | Sort-Object -Property DistinguishedName -Unique
-        $sortedGroups = $uniqueGroupsByDistinguishedName | Sort-Object DisplayName
+        $sortedGroups = @($uniqueGroupsByDistinguishedName | Sort-Object DisplayName)
         
         $statusMsg = "Abruf von $($sortedGroups.Count) Gruppen abgeschlossen."
         Write-Log $statusMsg -Type Success
@@ -349,7 +348,13 @@ function Refresh-ExistingGroupsDropdown {
         $script:cmbSelectExistingGroup.ItemsSource = $null # Vorherige Bindung / Elemente löschen
         $script:cmbSelectExistingGroup.Items.Clear()   # Sicherstellen, dass sie wirklich leer ist
         
-        $groups = Get-AllGroupTypesAction # Diese Funktion hat bereits Logging und Status-Updates
+        Start-UIBusy -Message "Lade Gruppen..." -Title "Gruppenliste aktualisieren"
+        try {
+            $groups = Get-AllGroupTypesAction # Diese Funktion hat bereits Logging und Status-Updates
+        }
+        finally {
+            Stop-UIBusy
+        }
 
         if ($null -ne $groups -and $groups.Count -gt 0) {
             foreach ($group in $groups) {
@@ -427,7 +432,7 @@ function Get-GroupMembersAction {
         }
         
         # Objekte für die DataGrid-Anzeige aufbereiten
-        $memberList = @()
+        $memberList = New-Object 'System.Collections.Generic.List[object]'
         foreach ($member in $members) {
             $memberObj = [PSCustomObject]@{
                 DisplayName = $member.DisplayName
@@ -435,7 +440,7 @@ function Get-GroupMembersAction {
                 RecipientType = $member.RecipientType
                 HiddenFromAddressListsEnabled = $member.HiddenFromAddressListsEnabled
             }
-            $memberList += $memberObj
+            $memberList.Add($memberObj)
         }
         
         Write-Log  "Mitglieder der Gruppe $GroupName erfolgreich abgerufen: $($memberList.Count)" -Type "Success"
@@ -693,6 +698,10 @@ function Get-ExoUnifiedGroup {
         $params = @{ ErrorAction = 'Stop' }
         if (-not [string]::IsNullOrWhiteSpace($Identity)) {
             $params['Identity'] = $Identity
+        }
+        else {
+            # Ohne -ResultSize Unlimited liefert Get-UnifiedGroup höchstens 1000 Gruppen
+            $params['ResultSize'] = 'Unlimited'
         }
 
         # Der eigentliche EXO-Cmdlet-Aufruf
@@ -1526,6 +1535,7 @@ function Get-ExoGroupMembersAction {
 
     Write-Log "Get-ExoGroupMembersAction: Verarbeite Gruppe '$groupDisplayName' (Identity: '$effectiveIdentityForExo', Typ: '$recipientType')" -Type Info
     Update-StatusBar -Message "Lade Mitglieder für '$groupDisplayName'..." -Type Info
+    Start-UIBusy -Message "Lade Mitglieder und Einstellungen für '$groupDisplayName'..." -Title "Gruppenmitglieder"
 
     try {
         if (-not $script:isConnected) {
@@ -1585,33 +1595,35 @@ function Get-ExoGroupMembersAction {
         # UI aktualisieren - Mitgliederliste
         if ($null -ne $script:lstGroupMembers) {
             # Erstelle eine Liste für die DataGrid-Anzeige
-            $displayList = @()
+            $displayList = New-Object 'System.Collections.Generic.List[object]'
+            $ownerAddresses = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
             
             # Zuerst Besitzer hinzufügen (falls vorhanden)
-            if ($owners.Count -gt 0) {
+            if (@($owners).Count -gt 0) {
                 foreach ($owner in $owners) {
+                    if (-not [string]::IsNullOrEmpty([string]$owner.PrimarySmtpAddress)) { [void]$ownerAddresses.Add([string]$owner.PrimarySmtpAddress) }
                     $displayItem = [PSCustomObject]@{
                         DisplayName = "$($owner.DisplayName) (Besitzer)"
                         PrimarySmtpAddress = $owner.PrimarySmtpAddress
                         RecipientType = if ($owner.RecipientType) { "$($owner.RecipientType) - Besitzer" } else { "Besitzer" }
                         HiddenFromAddressListsEnabled = $owner.HiddenFromAddressListsEnabled
                     }
-                    $displayList += $displayItem
+                    $displayList.Add($displayItem)
                 }
             }
 
             # Dann normale Mitglieder hinzufügen
-            if ($membersSuccessfullyRetrieved -and $members.Count -gt 0) {
+            if ($membersSuccessfullyRetrieved -and @($members).Count -gt 0) {
                 foreach ($member in $members) {
                     # Prüfen ob das Mitglied nicht bereits als Besitzer aufgelistet wurde
-                    if (-not ($owners | Where-Object {$_.PrimarySmtpAddress -eq $member.PrimarySmtpAddress})) {
+                    if (-not $ownerAddresses.Contains([string]$member.PrimarySmtpAddress)) {
                         $displayItem = [PSCustomObject]@{
                             DisplayName = $member.DisplayName
                             PrimarySmtpAddress = $member.PrimarySmtpAddress
                             RecipientType = $member.RecipientType
                             HiddenFromAddressListsEnabled = $member.HiddenFromAddressListsEnabled
                         }
-                        $displayList += $displayItem
+                        $displayList.Add($displayItem)
                     }
                 }
             } elseif ($recipientType -eq "DynamicDistributionGroup") {
@@ -1621,7 +1633,7 @@ function Get-ExoGroupMembersAction {
                     RecipientType = ""
                     HiddenFromAddressListsEnabled = ""
                 }
-                $displayList += $displayItem
+                $displayList.Add($displayItem)
             } elseif ($displayList.Count -eq 0) {
                 $displayItem = [PSCustomObject]@{
                     DisplayName = "Keine Mitglieder gefunden."
@@ -1629,7 +1641,7 @@ function Get-ExoGroupMembersAction {
                     RecipientType = ""
                     HiddenFromAddressListsEnabled = ""
                 }
-                $displayList += $displayItem
+                $displayList.Add($displayItem)
             }
             
             # Setze die ItemsSource des DataGrids
@@ -1723,6 +1735,8 @@ function Get-ExoGroupMembersAction {
         } catch {
             Write-Log "Get-ExoGroupMembersAction: Konnte UI nach schwerem Fehler nicht zurücksetzen." -Type Error
         }
+    } finally {
+        Stop-UIBusy
     }
 }
 
@@ -1810,7 +1824,7 @@ function Initialize-GroupsTab {
                     -not $groupObject.PSObject.Properties["DistinguishedName"] -or 
                     [string]::IsNullOrWhiteSpace($groupObject.DistinguishedName)) {
                     Write-Log "SelectionChanged: Ungültiges Gruppenobjekt oder fehlende DistinguishedName im Tag des ausgewählten Elements." -Type Warning
-                    if ($null -ne $script:lstGroupMembers) { $script:lstGroupMembers.Items.Clear(); $script:lstGroupMembers.Tag = $null }
+                    if ($null -ne $script:lstGroupMembers) { $script:lstGroupMembers.ItemsSource = $null; $script:lstGroupMembers.Tag = $null }
                     if ($null -ne $script:chkHiddenFromGAL) { $script:chkHiddenFromGAL.IsChecked = $false; $script:chkHiddenFromGAL.IsEnabled = $false }
                     if ($null -ne $script:chkRequireSenderAuth) { $script:chkRequireSenderAuth.IsChecked = $false; $script:chkRequireSenderAuth.IsEnabled = $false }
                     if ($null -ne $script:chkAllowExternalSenders) { $script:chkAllowExternalSenders.IsChecked = $false; $script:chkAllowExternalSenders.IsEnabled = $false }
@@ -1827,7 +1841,7 @@ function Initialize-GroupsTab {
                 if ($null -ne $script:txtGroupUser) { $script:txtGroupUser.Text = "" } 
                 } else {
                 Write-Log "ComboBox-Auswahl gelöscht oder kein Element ausgewählt (cmbSelectExistingGroup)." -Type Info
-                if ($null -ne $script:lstGroupMembers) { $script:lstGroupMembers.Items.Clear(); $script:lstGroupMembers.Tag = $null }
+                if ($null -ne $script:lstGroupMembers) { $script:lstGroupMembers.ItemsSource = $null; $script:lstGroupMembers.Tag = $null }
                 if ($null -ne $script:chkHiddenFromGAL) { $script:chkHiddenFromGAL.IsChecked = $false; $script:chkHiddenFromGAL.IsEnabled = $false }
                 if ($null -ne $script:chkRequireSenderAuth) { $script:chkRequireSenderAuth.IsChecked = $false; $script:chkRequireSenderAuth.IsEnabled = $false }
                 if ($null -ne $script:chkAllowExternalSenders) { $script:chkAllowExternalSenders.IsChecked = $false; $script:chkAllowExternalSenders.IsEnabled = $false }
@@ -1880,7 +1894,7 @@ function Initialize-GroupsTab {
                     $membersInput = $script:txtGroupMembers.Text
                     $membersArray = @()
                     if (-not [string]::IsNullOrWhiteSpace($membersInput)) {
-                        $membersArray = $membersInput -split '[;,`n`r]' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+                        $membersArray = $membersInput -split '[;,\r\n]' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
                     }
 
                     $createParams = @{
@@ -1902,7 +1916,6 @@ function Initialize-GroupsTab {
                         $script:txtGroupMembers.Text = ""
                         $script:txtGroupDescription.Text = ""
                         Refresh-ExistingGroupsDropdown 
-                        Get-SharedMailboxPermissionsAction -Mailbox $mailbox
                     } # Fehlerfall wird in New-ExoGroupAction behandelt (Statusbar, Log)
 
                 } catch {
@@ -2188,6 +2201,28 @@ function Initialize-GroupsTab {
             } -ControlName "btnUpdateGroupSettings"
         }
         
+        if ($null -ne $script:btnShowGroupMembers) {
+            Register-EventHandler -Control $script:btnShowGroupMembers -Handler {
+                try {
+                    Write-Log "Button 'Mitglieder anzeigen' (btnShowGroupMembers) geklickt." -Type "Info"
+                    if (-not $script:isConnected) {
+                        Show-MessageBox -Message "Bitte stellen Sie zuerst eine Verbindung zu Exchange Online her." -Title "Keine Verbindung" -Type Warning
+                        return
+                    }
+                    if ($null -eq $script:cmbSelectExistingGroup -or $null -eq $script:cmbSelectExistingGroup.SelectedItem) {
+                        Show-MessageBox -Message "Bitte wählen Sie zuerst eine Gruppe aus der Liste 'Gruppe auswählen' aus." -Title "Keine Gruppe ausgewählt" -Type Info
+                        return
+                    }
+                    Get-ExoGroupMembersAction
+                }
+                catch {
+                    $errMsg = "Fehler beim Anzeigen der Gruppenmitglieder: $($_.Exception.Message)"
+                    Write-Log $errMsg -Type "Error"
+                    Update-StatusBar -Message $errMsg -Type "Error"
+                }
+            } -ControlName "btnShowGroupMembers"
+        }
+
         if ($null -ne $script:btnExportGroupMembers) {
             Register-EventHandler -Control $script:btnExportGroupMembers -Handler {
                 try {

@@ -66,6 +66,7 @@ $script:ModuleFiles = @(
     'Core/Helpers.ps1'
     'UI/Window.ps1'
     'UI/Controls.ps1'
+    'UI/Busy.ps1'
     'UI/Dialogs.ps1'
     'UI/Navigation.ps1'
     'Exchange/Connection.ps1'
@@ -437,6 +438,20 @@ Es ermöglicht Administratoren und Helpdesk-Mitarbeitern, schnell und effizient 
     # Fehler beim Finden der Buttons oder Registrieren der Handler
     Write-Log "Kritischer Fehler beim Registrieren der Header-Button-Handler: $($_.Exception.Message)" -Type Error
 }
+
+# -------------------------------------------------
+# Arbeits-Overlay (UI/Busy.ps1) und Schutz vor dem Schließen während eines Vorgangs
+# -------------------------------------------------
+$null = Initialize-UIBusyOverlay
+$script:Form.Add_Closing({
+    param($sender, $e)
+    if ($script:UIBusyDepth -gt 0) {
+        # Während eine Abfrage läuft, nicht schließen, sondern den Vorgang abbrechen
+        $e.Cancel = $true
+        $script:UICancelRequested = $true
+        Update-StatusBar -Message "Vorgang wird abgebrochen - bitte danach erneut schließen." -Type Warning
+    }
+})
 
 # Event-Handler für das Loaded-Event des Formulars
 $script:Form.Add_Loaded({

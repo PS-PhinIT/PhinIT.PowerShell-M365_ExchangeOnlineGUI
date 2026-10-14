@@ -42,6 +42,7 @@
     <SolidColorBrush x:Key="NavBackgroundBrush" Color="#16253A" />
     <SolidColorBrush x:Key="NavHoverBrush" Color="#22344D" />
     <SolidColorBrush x:Key="NavTextBrush" Color="#E6EDF3" />
+    <SolidColorBrush x:Key="OverlayBrush" Color="#990F1B2D" />
 
     <!--  ===== Basis-Template für alle Buttons (abgerundet) =====  -->
     <ControlTemplate x:Key="RoundedButtonTemplate" TargetType="Button">
