@@ -7092,6 +7092,10 @@ $script:AppVersion = "0.1.2"
 # WPF benötigt einen STA-Thread (Standard bei Windows PowerShell 5.1 und pwsh 7 unter Windows).
 # Bei Start mit -MTA wird das Skript automatisch im STA-Modus neu gestartet.
 if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne [System.Threading.ApartmentState]::STA) {
+    if ([string]::IsNullOrWhiteSpace($PSCommandPath)) {
+        Write-Warning "easyEXO benötigt den STA-Modus. Bitte mit 'powershell.exe -STA -File <Pfad>\easyEXO.ps1' bzw. 'pwsh.exe -STA -File ...' starten."
+        exit 1
+    }
     $hostExecutable = (Get-Process -Id $PID).Path
     Start-Process -FilePath $hostExecutable -ArgumentList "-NoProfile -STA -File `"$PSCommandPath`""
     exit
@@ -8218,7 +8222,7 @@ function Connect-OwnExchangeOnline {
             if (-not $result) {
                 $errorMsg = "Anmeldung abgebrochen."
                 Write-Log $errorMsg -Type "Warning"
-                Show-MessageBox -Message $errorMsg -Title "Abgebrochen" -Type "Warning"
+                $null = Show-MessageBox -Message $errorMsg -Title "Abgebrochen" -Type "Warning"
                 Update-StatusBar -Message "Anmeldung abgebrochen." -Type "Error"
                 return $false
             }
@@ -8227,7 +8231,7 @@ function Connect-OwnExchangeOnline {
             if ([string]::IsNullOrWhiteSpace($script:userPrincipalName)) {
                 $errorMsg = "Keine E-Mail-Adresse eingegeben oder erkannt. Verbindung abgebrochen."
                 Write-Log $errorMsg -Type "Warning"
-                Show-MessageBox -Message $errorMsg -Title "Abgebrochen" -Type "Warning"
+                $null = Show-MessageBox -Message $errorMsg -Title "Abgebrochen" -Type "Warning"
                 Update-StatusBar -Message "Keine E-Mail-Adresse eingegeben oder erkannt. Verbindung abgebrochen." -Type "Warning"
                 return $false
             }
@@ -8270,7 +8274,7 @@ function Connect-OwnExchangeOnline {
         $script:txtConnectionStatus.Foreground = "#d83b01"
         $Global:IsConnectedToExo = $false
         $script:isConnected = $false
-        Show-MessageBox -Message "Fehler beim Verbinden mit Exchange Online: $errorMsg" -Title "Verbindungsfehler" -Type "Error"
+        $null = Show-MessageBox -Message "Fehler beim Verbinden mit Exchange Online: $errorMsg" -Title "Verbindungsfehler" -Type "Error"
         Update-StatusBar -Message "Fehler beim Verbinden mit Exchange Online: $errorMsg" -Type "Error"
         return $false
     }
@@ -20950,7 +20954,8 @@ $script:btnConnect.Add_Click({
         # Die Funktion Check-Prerequisites sollte den Benutzer bereits informiert haben.
         return
     }
-    if (Connect-OwnExchangeOnline) {
+    $null = Connect-OwnExchangeOnline
+    if ($script:isConnected) {
         $script:btnConnect.Content = "Verbindung trennen"
         $script:btnConnect.Tag = "disconnect"
         Update-DomainList
