@@ -7,11 +7,126 @@
 # Nicht direkt ausführen.
 # =====================================================================
 
+# Teilt die Eingabe "Anwenden auf" (mit Semikolon getrennt) in Domänen und Empfängeradressen auf.
+# Leere Listen werden als $null geliefert - bei Set-*Rule entfernt das die jeweilige Bedingung.
+function ConvertTo-SecurityRuleScope {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$Text
+    )
+
+    $entries = @("$Text" -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $domains = @($entries | Where-Object { $_ -notlike "*@*" })
+    $recipients = @($entries | Where-Object { $_ -like "*@*" })
+    [PSCustomObject]@{
+        Domains    = if ($domains.Count -gt 0) { [string[]]$domains } else { $null }
+        Recipients = if ($recipients.Count -gt 0) { [string[]]$recipients } else { $null }
+        Count      = $entries.Count
+    }
+}
+
+# Fasst mehrere boolesche Einstellungen für eine Checkbox zusammen: $true/$false, wenn alle gleich sind,
+# sonst $null (Checkbox "unbestimmt" - der Wert wird dann beim Speichern nicht verändert).
+function Get-CombinedCheckState {
+    [CmdletBinding()]
+    param(
+        [object[]]$Values
+    )
+
+    $flags = @($Values | ForEach-Object { $_ -eq $true })
+    if ($flags -notcontains $false) { return $true }
+    if ($flags -notcontains $true) { return $false }
+    return $null
+}
+
+# Prüft, ob eine Regel nach dem Leeren von "Anwenden auf" noch eine Empfängerbedingung (Gruppen) behält
+function Test-SecurityRuleKeepsCondition {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [AllowNull()]
+        $Rule,
+
+        [Parameter(Mandatory = $true)]
+        $Scope
+    )
+
+    if ($null -eq $Rule -or $Scope.Count -gt 0) { return $true }
+    return (@($Rule.SentToMemberOf | Where-Object { $null -ne $_ -and "$_" -ne "" }).Count -gt 0)
+}
+
+# Legt die Regel einer Defender-Richtlinie an (falls Empfänger angegeben sind) oder aktualisiert
+# Empfängerbereich und - wenn -Enabled angegeben ist - den Status (Enable-/Disable-*Rule) der vorhandenen Regel.
+function Sync-SecurityPolicyRule {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("AntiPhish", "SafeAttachment", "SafeLinks")]
+        [string]$RuleType,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PolicyName,
+
+        [AllowNull()]
+        $Rule,
+
+        [Parameter(Mandatory = $true)]
+        $Scope,
+
+        [Nullable[bool]]$Enabled
+    )
+
+    $commands = @{
+        AntiPhish      = @{ New = "New-AntiPhishRule"; Set = "Set-AntiPhishRule"; Enable = "Enable-AntiPhishRule"; Disable = "Disable-AntiPhishRule"; PolicyParameter = "AntiPhishPolicy" }
+        SafeAttachment = @{ New = "New-SafeAttachmentRule"; Set = "Set-SafeAttachmentRule"; Enable = "Enable-SafeAttachmentRule"; Disable = "Disable-SafeAttachmentRule"; PolicyParameter = "SafeAttachmentPolicy" }
+        SafeLinks      = @{ New = "New-SafeLinksRule"; Set = "Set-SafeLinksRule"; Enable = "Enable-SafeLinksRule"; Disable = "Disable-SafeLinksRule"; PolicyParameter = "SafeLinksPolicy" }
+    }[$RuleType]
+
+    if ($null -ne $Rule) {
+        if ($PSCmdlet.ShouldProcess($Rule.Name, "Regel aktualisieren")) {
+            # Beide Bedingungen immer übergeben: $null entfernt eine geleerte Bedingung
+            $setParams = @{
+                Identity          = $Rule.Name
+                RecipientDomainIs = $Scope.Domains
+                SentTo            = $Scope.Recipients
+                ErrorAction       = 'Stop'
+            }
+            & $commands.Set @setParams
+            Write-Log "Regel '$($Rule.Name)' für Richtlinie '$PolicyName' aktualisiert." -Type "Info"
+
+            if ($null -ne $Enabled -and $Enabled -ne ([string]$Rule.State -eq 'Enabled')) {
+                $stateCommand = if ($Enabled) { $commands.Enable } else { $commands.Disable }
+                & $stateCommand -Identity $Rule.Name -Confirm:$false -ErrorAction Stop
+                Write-Log "Regel '$($Rule.Name)' wurde $(if ($Enabled) { 'aktiviert' } else { 'deaktiviert' })." -Type "Info"
+            }
+        }
+        return
+    }
+
+    if ($Scope.Count -eq 0) { return }
+
+    $ruleName = "$($PolicyName)_Rule"
+    if ($PSCmdlet.ShouldProcess($ruleName, "Regel erstellen")) {
+        $newParams = @{
+            Name        = $ruleName
+            ErrorAction = 'Stop'
+        }
+        $newParams[$commands.PolicyParameter] = $PolicyName
+        if ($null -ne $Enabled) { $newParams.Enabled = [bool]$Enabled }
+        if ($null -ne $Scope.Domains) { $newParams.RecipientDomainIs = $Scope.Domains }
+        if ($null -ne $Scope.Recipients) { $newParams.SentTo = $Scope.Recipients }
+        $null = & $commands.New @newParams
+        Write-Log "Neue Regel '$ruleName' für Richtlinie '$PolicyName' erstellt." -Type "Info"
+    }
+}
+
 function Get-AntiPhishingPoliciesAction {
     if (-not (Confirm-ExchangeConnection)) { return }
     Update-StatusBar -Message "Anti-Phishing-Richtlinien werden geladen..." -Type Info
     try {
-        $policies = Get-AntiPhishPolicy -ErrorAction Stop
+        $policies = @(Get-AntiPhishPolicy -ErrorAction Stop)
         $script:dgAntiPhishingPolicies.Dispatcher.Invoke([Action]{
             $script:dgAntiPhishingPolicies.ItemsSource = $policies
         })
@@ -106,35 +221,37 @@ function New-AntiPhishingPolicyAction {
 
                 Update-StatusBar -Message "Erstelle Anti-Phishing-Richtlinie '$policyName'..." -Type Info
 
+                $impersonationEnabled = [bool]$chkImpersonationProtectionEnabled.IsChecked
+                $mailboxIntelligenceEnabled = [bool]$chkMailboxIntelligenceProtectionEnabled.IsChecked
                 $policyParams = @{
                     Name = $policyName
-                    Enabled = $chkEnabled.IsChecked
-                    Description = $txtPolicyDescription.Text.Trim()
-                    ImpersonationProtectionEnabled = $chkImpersonationProtectionEnabled.IsChecked
-                    SpoofProtectionEnabled = $chkSpoofProtectionEnabled.IsChecked
-                    MailboxIntelligenceProtectionEnabled = $chkMailboxIntelligenceProtectionEnabled.IsChecked
+                    Enabled = [bool]$chkEnabled.IsChecked
+                    EnableTargetedUserProtection = $impersonationEnabled
+                    EnableOrganizationDomainsProtection = $impersonationEnabled
+                    EnableSpoofIntelligence = [bool]$chkSpoofProtectionEnabled.IsChecked
+                    EnableMailboxIntelligence = $mailboxIntelligenceEnabled
+                    EnableMailboxIntelligenceProtection = $mailboxIntelligenceEnabled
                     ErrorAction = 'Stop'
+                }
+                $adminDisplayName = $txtPolicyDescription.Text.Trim()
+                if (-not [string]::IsNullOrWhiteSpace($adminDisplayName)) {
+                    $policyParams.AdminDisplayName = $adminDisplayName
                 }
 
                 # Richtlinie erstellen
-                New-AntiPhishPolicy @policyParams
+                $null = New-AntiPhishPolicy @policyParams
 
-                # Regel erstellen und mit Richtlinie verknüpfen
-                $appliedToRecipients = $txtAppliedTo.Text.Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-                if ($appliedToRecipients.Count -gt 0) {
-                    $ruleParams = @{
-                        Name = "$($policyName)_Rule"
-                        AntiPhishPolicy = $policyName
-                        RecipientDomainIs = $appliedToRecipients | Where-Object { $_ -notlike "*@*" }
-                        SentTo = $appliedToRecipients | Where-Object { $_ -like "*@*" }
-                        ErrorAction = 'Stop'
-                    }
-                    New-AntiPhishRule @ruleParams
-                }
+                # Regel erstellen und mit Richtlinie verknüpfen (der Status der Regel bestimmt, ob die Richtlinie aktiv ist)
+                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text
+                Sync-SecurityPolicyRule -RuleType AntiPhish -PolicyName $policyName -Rule $null -Scope $scope -Enabled ([bool]$chkEnabled.IsChecked)
 
                 $dialog.DialogResult = $true
                 $dialog.Close()
-                Show-MessageBox -Message "Die Anti-Phishing-Richtlinie '$policyName' wurde erfolgreich erstellt." -Title "Erfolg" -Type Info
+                $successMessage = "Die Anti-Phishing-Richtlinie '$policyName' wurde erfolgreich erstellt."
+                if ($scope.Count -eq 0) {
+                    $successMessage += "`n`nHinweis: Ohne Angabe unter 'Anwenden auf' wurde keine Regel erstellt - die Richtlinie ist noch nicht wirksam."
+                }
+                Show-MessageBox -Message $successMessage -Title "Erfolg" -Type Info
                 Log-Action "Neue Anti-Phishing-Richtlinie '$policyName' erstellt."
                 
                 # Liste aktualisieren
@@ -173,7 +290,15 @@ function Set-AntiPhishingPolicyAction {
 
     try {
         # Zugehörige Regel finden
-        $rule = Get-AntiPhishRule | Where-Object { $_.AntiPhishPolicy -eq $selectedPolicy.Name } | Select-Object -First 1
+        $rule = $null
+        $ruleLookupFailed = $false
+        try {
+            $rule = Get-AntiPhishRule -ErrorAction Stop | Where-Object { $_.AntiPhishPolicy -eq $selectedPolicy.Name } | Select-Object -First 1
+        } catch {
+            $ruleLookupFailed = $true
+            Write-Log "Anti-Phishing-Regel für '$($selectedPolicy.Name)' konnte nicht abgerufen werden: $($_.Exception.Message)" -Type "Warning"
+            Show-MessageBox -Message "Die zugehörige Anti-Phishing-Regel konnte nicht abgerufen werden. 'Anwenden auf' und der Regelstatus werden daher nicht geändert.`n`n$($_.Exception.Message)" -Title "Regel nicht verfügbar" -Type "Warning"
+        }
 
         # XAML für das Dialogfenster (ähnlich wie bei 'New', aber zum Bearbeiten)
         $xamlDialog = @"
@@ -238,11 +363,13 @@ function Set-AntiPhishingPolicyAction {
 
         # Dialog mit vorhandenen Werten füllen
         $txtPolicyName.Text = $selectedPolicy.Name
-        $txtPolicyDescription.Text = $selectedPolicy.Description
-        $chkEnabled.IsChecked = $selectedPolicy.Enabled
-        $chkImpersonationProtectionEnabled.IsChecked = $selectedPolicy.ImpersonationProtectionEnabled
-        $chkSpoofProtectionEnabled.IsChecked = $selectedPolicy.SpoofProtectionEnabled
-        $chkMailboxIntelligenceProtectionEnabled.IsChecked = $selectedPolicy.MailboxIntelligenceProtectionEnabled
+        $txtPolicyDescription.Text = [string]$selectedPolicy.AdminDisplayName
+        # Ob eine Anti-Phishing-Richtlinie aktiv ist, steuert der Status der zugehörigen Regel
+        $chkEnabled.IsChecked = if ($null -ne $rule) { [string]$rule.State -eq 'Enabled' } else { $selectedPolicy.Enabled -eq $true }
+        $chkImpersonationProtectionEnabled.IsChecked = Get-CombinedCheckState -Values @($selectedPolicy.EnableTargetedUserProtection, $selectedPolicy.EnableOrganizationDomainsProtection)
+        $chkSpoofProtectionEnabled.IsChecked = $selectedPolicy.EnableSpoofIntelligence -eq $true
+        $chkMailboxIntelligenceProtectionEnabled.IsChecked = Get-CombinedCheckState -Values @($selectedPolicy.EnableMailboxIntelligence, $selectedPolicy.EnableMailboxIntelligenceProtection)
+        $txtAppliedTo.IsEnabled = -not $ruleLookupFailed
         
         if ($null -ne $rule) {
             $appliedTo = @()
@@ -256,31 +383,40 @@ function Set-AntiPhishingPolicyAction {
         $btnSave.Add_Click({
             try {
                 $policyName = $txtPolicyName.Text
+                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text
+                if (-not $ruleLookupFailed -and -not (Test-SecurityRuleKeepsCondition -Rule $rule -Scope $scope)) {
+                    Show-MessageBox -Message "Die zugehörige Regel '$($rule.Name)' benötigt mindestens einen Empfänger oder eine Domäne unter 'Anwenden auf'." -Title "Eingabe fehlt" -Type Warning
+                    return
+                }
+
                 Update-StatusBar -Message "Aktualisiere Anti-Phishing-Richtlinie '$policyName'..." -Type Info
 
                 $policyParams = @{
                     Identity = $policyName
-                    Enabled = $chkEnabled.IsChecked
-                    Description = $txtPolicyDescription.Text.Trim()
-                    ImpersonationProtectionEnabled = $chkImpersonationProtectionEnabled.IsChecked
-                    SpoofProtectionEnabled = $chkSpoofProtectionEnabled.IsChecked
-                    MailboxIntelligenceProtectionEnabled = $chkMailboxIntelligenceProtectionEnabled.IsChecked
+                    Enabled = [bool]$chkEnabled.IsChecked
+                    EnableSpoofIntelligence = [bool]$chkSpoofProtectionEnabled.IsChecked
                     ErrorAction = 'Stop'
+                }
+                # Unbestimmte Checkboxen (gemischte Werte) lassen die Einstellungen unverändert
+                if ($null -ne $chkImpersonationProtectionEnabled.IsChecked) {
+                    $policyParams.EnableTargetedUserProtection = [bool]$chkImpersonationProtectionEnabled.IsChecked
+                    $policyParams.EnableOrganizationDomainsProtection = [bool]$chkImpersonationProtectionEnabled.IsChecked
+                }
+                if ($null -ne $chkMailboxIntelligenceProtectionEnabled.IsChecked) {
+                    $policyParams.EnableMailboxIntelligence = [bool]$chkMailboxIntelligenceProtectionEnabled.IsChecked
+                    $policyParams.EnableMailboxIntelligenceProtection = [bool]$chkMailboxIntelligenceProtectionEnabled.IsChecked
+                }
+                $adminDisplayName = $txtPolicyDescription.Text.Trim()
+                if ($adminDisplayName -ne ([string]$selectedPolicy.AdminDisplayName).Trim()) {
+                    $policyParams.AdminDisplayName = $adminDisplayName
                 }
 
                 # Richtlinie aktualisieren
                 Set-AntiPhishPolicy @policyParams
 
-                # Regel aktualisieren, falls vorhanden
-                if ($null -ne $rule) {
-                    $appliedToRecipients = $txtAppliedTo.Text.Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-                    $ruleParams = @{
-                        Identity = $rule.Name
-                        RecipientDomainIs = $appliedToRecipients | Where-Object { $_ -notlike "*@*" }
-                        SentTo = $appliedToRecipients | Where-Object { $_ -like "*@*" }
-                        ErrorAction = 'Stop'
-                    }
-                    Set-AntiPhishRule @ruleParams
+                # Regel aktualisieren bzw. anlegen, wenn noch keine existiert und Empfänger angegeben sind
+                if (-not $ruleLookupFailed) {
+                    Sync-SecurityPolicyRule -RuleType AntiPhish -PolicyName $policyName -Rule $rule -Scope $scope -Enabled ([bool]$chkEnabled.IsChecked)
                 }
 
                 $dialog.DialogResult = $true

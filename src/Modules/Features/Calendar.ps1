@@ -124,341 +124,6 @@ function Show-CalendarPermissions {
     }
 }
 
-# Fix for Set-CalendarDefaultPermissionsAction function
-function Set-CalendarDefaultPermissionsAction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateSet("Standard", "Anonym", "Beides")]
-        [string]$PermissionType,
-        
-        [Parameter(Mandatory = $true)]
-        [string]$AccessRights,
-        
-        [Parameter(Mandatory = $false)]
-        [switch]$ForAllMailboxes = $false,
-        
-        [Parameter(Mandatory = $false)]
-        [string]$MailboxUser = ""
-    )
-    
-    try {
-        Write-Log  "Setze Standardberechtigungen für Kalender: $PermissionType mit $AccessRights" -Type "Info"
-        
-        if ($ForAllMailboxes) {
-            # Frage den Benutzer ob er das wirklich tun möchte
-            $confirmResult = [System.Windows.MessageBox]::Show(
-                "Möchten Sie wirklich die $PermissionType-Berechtigungen für ALLE Postfächer setzen? Diese Aktion kann bei vielen Postfächern lange dauern.",
-                "Massenänderung bestätigen",
-                [System.Windows.MessageBoxButton]::YesNo,
-                [System.Windows.MessageBoxImage]::Warning)
-                
-            if ($confirmResult -eq [System.Windows.MessageBoxResult]::No) {
-                Write-Log  "Massenänderung vom Benutzer abgebrochen" -Type "Info"
-                if ($null -ne $txtStatus) {
-                    Update-GuiText -TextElement $txtStatus -Message "Operation abgebrochen."
-                }
-                return $false
-            }
-            
-            Log-Action "Starte Setzen von Standardberechtigungen für alle Postfächer: $PermissionType"
-            
-            $successCount = 0
-            $errorCount = 0
-
-            if ($PermissionType -eq "Standard" -or $PermissionType -eq "Beides") {
-                $result = Set-DefaultCalendarPermissionForAll -AccessRights $AccessRights
-                if ($result) { $successCount++ } else { $errorCount++ }
-            }
-            if ($PermissionType -eq "Anonym" -or $PermissionType -eq "Beides") {
-                $result = Set-AnonymousCalendarPermissionForAll -AccessRights $AccessRights
-                if ($result) { $successCount++ } else { $errorCount++ }
-            }
-        }
-        else {         
-            if ([string]::IsNullOrWhiteSpace($MailboxUser) -and 
-                $null -ne $script:txtCalendarMailboxUser -and 
-                -not [string]::IsNullOrWhiteSpace($script:txtCalendarMailboxUser.Text)) {
-                $mailboxUser = $script:txtCalendarMailboxUser.Text.Trim()
-            }
-            
-            if ([string]::IsNullOrWhiteSpace($mailboxUser)) {
-                throw "Keine Postfach-E-Mail-Adresse angegeben"
-            }
-            
-            if ($PermissionType -eq "Standard") {
-                Set-DefaultCalendarPermission -MailboxUser $mailboxUser -AccessRights $AccessRights
-            }
-            elseif ($PermissionType -eq "Anonym") {
-                Set-AnonymousCalendarPermission -MailboxUser $mailboxUser -AccessRights $AccessRights
-            }
-            elseif ($PermissionType -eq "Beides") {
-                Set-DefaultCalendarPermission -MailboxUser $mailboxUser -AccessRights $AccessRights
-                Set-AnonymousCalendarPermission -MailboxUser $mailboxUser -AccessRights $AccessRights
-            }
-        }
-        
-        Write-Log  "Standardberechtigungen für Kalender erfolgreich gesetzt: $PermissionType mit $AccessRights" -Type "Success"
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message "Standardberechtigungen gesetzt: $PermissionType mit $AccessRights" -Color $script:connectedBrush
-        }
-        Log-Action "Standardberechtigungen für Kalender gesetzt: $PermissionType mit $AccessRights"
-        return $true
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Setzen der Standardberechtigungen für Kalender: $errorMsg" -Type "Error"
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message "Fehler: $errorMsg"
-        }
-        Log-Action "Fehler beim Setzen der Standardberechtigungen für Kalender: $errorMsg"
-        return $false
-    }
-}
-
-function Add-CalendarPermission {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$SourceUser,
-        
-        [Parameter(Mandatory = $true)]
-        [string]$TargetUser,
-        
-        [Parameter(Mandatory = $true)]
-        [string]$Permission
-    )
-    
-    try {
-        # Eingabevalidierung
-        if (-not (Validate-Email -Email $SourceUser)) {
-            throw "Ungültige E-Mail-Adresse für Quellpostfach."
-        }
-        if (-not (Validate-Email -Email $TargetUser)) {
-            throw "Ungültige E-Mail-Adresse für Zielbenutzer."
-        }
-        
-        Write-Log  "Füge Kalenderberechtigung hinzu/aktualisiere: $SourceUser -> $TargetUser ($Permission)" -Type "Info"
-        
-        # Prüfe ob Berechtigung bereits existiert und ermittle den korrekten Kalenderordner
-        $calendarExists = $false
-        $identityDE = "${SourceUser}:\Kalender"
-        $identityEN = "${SourceUser}:\Calendar"
-        $identity = $null
-        
-        # Systematisch nach dem richtigen Kalender suchen
-        try {
-            # Zuerst versuchen wir den deutschen Kalender
-            $existingPermDE = Get-MailboxFolderPermission -Identity $identityDE -User $TargetUser -ErrorAction SilentlyContinue
-            if ($null -ne $existingPermDE) {
-                $calendarExists = $true
-                $identity = $identityDE
-                Write-Log  "Bestehende Berechtigung gefunden (DE): $($existingPermDE.AccessRights)" -Type "Info"
-            }
-            else {
-                # Dann den englischen Kalender probieren
-                $existingPermEN = Get-MailboxFolderPermission -Identity $identityEN -User $TargetUser -ErrorAction SilentlyContinue
-                if ($null -ne $existingPermEN) {
-                    $calendarExists = $true
-                    $identity = $identityEN
-                    Write-Log  "Bestehende Berechtigung gefunden (EN): $($existingPermEN.AccessRights)" -Type "Info"
-                }
-            }
-    }
-    catch {
-            Write-Log  "Fehler bei der Prüfung bestehender Berechtigungen: $($_.Exception.Message)" -Type "Warning"
-        }
-        
-        # Falls noch kein identifizierter Kalender, versuchen wir die Kalender zu prüfen ohne Benutzerberechtigungen
-        if ($null -eq $identity) {
-            try {
-                # Prüfen, ob der deutsche Kalender existiert
-                $deExists = Get-MailboxFolderPermission -Identity $identityDE -ErrorAction SilentlyContinue
-                if ($null -ne $deExists) {
-                    $identity = $identityDE
-                    Write-Log  "Deutscher Kalenderordner gefunden: $identityDE" -Type "Info"
-                }
-                else {
-                    # Prüfen, ob der englische Kalender existiert
-                    $enExists = Get-MailboxFolderPermission -Identity $identityEN -ErrorAction SilentlyContinue
-                    if ($null -ne $enExists) {
-                        $identity = $identityEN
-                        Write-Log  "Englischer Kalenderordner gefunden: $identityEN" -Type "Info"
-                    }
-                }
-            }
-            catch {
-                Write-Log  "Fehler beim Prüfen der Kalenderordner: $($_.Exception.Message)" -Type "Warning"
-            }
-        }
-        
-        # Falls immer noch kein Kalender gefunden, über Statistiken suchen
-        if ($null -eq $identity) {
-            try {
-                $folderStats = Get-MailboxFolderStatistics -Identity $SourceUser -FolderScope Calendar -ErrorAction Stop
-                foreach ($folder in $folderStats) {
-                    if ($folder.FolderType -eq "Calendar" -or $folder.Name -eq "Kalender" -or $folder.Name -eq "Calendar") {
-                        $identity = "$SourceUser`:" + $folder.FolderPath.Replace("/", "\")
-                        Write-Log  "Kalenderordner über FolderStatistics gefunden: $identity" -Type "Info"
-                        break
-                    }
-                }
-            }
-            catch {
-                Write-Log  "Fehler beim Suchen des Kalenderordners über FolderStatistics: $($_.Exception.Message)" -Type "Warning"
-            }
-        }
-        
-        # Wenn immer noch kein Kalender gefunden, Exception werfen
-        if ($null -eq $identity) {
-            throw "Kein Kalenderordner für $SourceUser gefunden. Bitte stellen Sie sicher, dass das Postfach existiert und Sie Zugriff haben."
-        }
-        
-        # Je nachdem ob Berechtigung existiert, update oder add
-        if ($calendarExists) {
-            Write-Log  "Aktualisiere bestehende Berechtigung: $identity ($Permission)" -Type "Info"
-            Set-MailboxFolderPermission -Identity $identity -User $TargetUser -AccessRights $Permission -ErrorAction Stop
-            
-            if ($null -ne $txtStatus) {
-                Update-GuiText -TextElement $txtStatus -Message "Kalenderberechtigung aktualisiert." -Color $script:connectedBrush
-            }
-            
-            Write-Log  "Kalenderberechtigung erfolgreich aktualisiert" -Type "Success"
-            Log-Action "Kalenderberechtigung aktualisiert: $SourceUser -> $TargetUser mit $Permission"
-        }
-        else {
-            Write-Log  "Füge neue Berechtigung hinzu: $identity ($Permission)" -Type "Info"
-            Add-MailboxFolderPermission -Identity $identity -User $TargetUser -AccessRights $Permission -ErrorAction Stop
-            
-            if ($null -ne $txtStatus) {
-                Update-GuiText -TextElement $txtStatus -Message "Kalenderberechtigung hinzugefügt." -Color $script:connectedBrush
-            }
-            
-            Write-Log  "Kalenderberechtigung erfolgreich hinzugefügt" -Type "Success"
-            Log-Action "Kalenderberechtigung hinzugefügt: $SourceUser -> $TargetUser mit $Permission"
-        }
-        
-        return $true
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Hinzufügen/Aktualisieren der Kalenderberechtigung: $errorMsg" -Type "Error"
-        
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message "Fehler: $errorMsg"
-        }
-        
-        Log-Action "Fehler beim Hinzufügen/Aktualisieren der Kalenderberechtigung: $errorMsg"
-        return $false
-    }
-}
-
-function Remove-CalendarPermission {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$SourceUser,
-        
-        [Parameter(Mandatory = $true)]
-        [string]$TargetUser
-    )
-    
-    try {
-        # Eingabevalidierung
-        if (-not (Validate-Email -Email $SourceUser)) {
-            throw "Ungültige E-Mail-Adresse für Quellpostfach."
-        }
-        if (-not (Validate-Email -Email $TargetUser)) {
-            throw "Ungültige E-Mail-Adresse für Zielbenutzer."
-        }
-        
-        Write-Log  "Entferne Kalenderberechtigung: $SourceUser -> $TargetUser" -Type "Info"
-        
-        # Prüfe deutsche und englische Kalenderordner
-        $removed = $false
-        
-        try {
-            $identityDE = "${SourceUser}:\Kalender"
-            Write-Log  "Prüfe deutsche Kalenderberechtigungen: $identityDE" -Type "Info"
-            
-            # Prüfe ob Berechtigung existiert
-            $existingPerm = Get-MailboxFolderPermission -Identity $identityDE -User $TargetUser -ErrorAction SilentlyContinue
-            
-            if ($existingPerm) {
-                Write-Log  "Gefundene Berechtigung wird entfernt (DE): $($existingPerm.AccessRights)" -Type "Info"
-                Remove-MailboxFolderPermission -Identity $identityDE -User $TargetUser -Confirm:$false -ErrorAction Stop
-                $removed = $true
-                Write-Log  "Berechtigung erfolgreich entfernt (DE)" -Type "Success"
-            }
-            else {
-                Write-Log  "Keine Berechtigung gefunden für deutschen Kalender" -Type "Info"
-            }
-        } 
-        catch {
-            $errorMsg = $_.Exception.Message
-            Write-Log  "Fehler beim Entfernen der deutschen Kalenderberechtigungen: $errorMsg" -Type "Warning"
-            # Bei Fehler einfach weitermachen und englischen Pfad versuchen
-        }
-        
-        if (-not $removed) {
-            try {
-                $identityEN = "${SourceUser}:\Calendar"
-                Write-Log  "Prüfe englische Kalenderberechtigungen: $identityEN" -Type "Info"
-                
-                # Prüfe ob Berechtigung existiert
-                $existingPerm = Get-MailboxFolderPermission -Identity $identityEN -User $TargetUser -ErrorAction SilentlyContinue
-                
-                if ($existingPerm) {
-                    Write-Log  "Gefundene Berechtigung wird entfernt (EN): $($existingPerm.AccessRights)" -Type "Info"
-                    Remove-MailboxFolderPermission -Identity $identityEN -User $TargetUser -Confirm:$false -ErrorAction Stop
-                    $removed = $true
-                    Write-Log  "Berechtigung erfolgreich entfernt (EN)" -Type "Success"
-                }
-                else {
-                    Write-Log  "Keine Berechtigung gefunden für englischen Kalender" -Type "Info"
-                }
-            } 
-            catch {
-                if (-not $removed) {
-                    $errorMsg = $_.Exception.Message
-                    Write-Log  "Fehler beim Entfernen der englischen Kalenderberechtigungen: $errorMsg" -Type "Error"
-                    throw "Fehler beim Entfernen der Kalenderberechtigung: $errorMsg"
-                }
-            }
-        }
-        
-        if ($removed) {
-            if ($null -ne $txtStatus) {
-                Update-GuiText -TextElement $txtStatus -Message "Kalenderberechtigung entfernt." -Color $script:connectedBrush
-            }
-            
-            Log-Action "Kalenderberechtigung entfernt: $SourceUser -> $TargetUser"
-            return $true
-        } 
-        else {
-            Write-Log  "Keine Kalenderberechtigung zum Entfernen gefunden" -Type "Warning"
-            
-            if ($null -ne $txtStatus) {
-                Update-GuiText -TextElement $txtStatus -Message "Keine Kalenderberechtigung gefunden zum Entfernen."
-            }
-            
-            Log-Action "Keine Kalenderberechtigung gefunden zum Entfernen: $SourceUser -> $TargetUser"
-            return $false
-        }
-    } 
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Entfernen der Kalenderberechtigung: $errorMsg" -Type "Error"
-        
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message "Fehler: $errorMsg"
-        }
-        
-        Log-Action "Fehler beim Entfernen der Kalenderberechtigung: $errorMsg"
-        return $false
-    }
-}
-
 # -------------------------------------------------
 # Abschnitt: Verwaltung der Standard und Anonym Berechtigungen
 # -------------------------------------------------
@@ -567,8 +232,10 @@ function Set-AnonymousCalendarPermission {
 }
 
 # -------------------------------------------------
-# Abschnitt: Standard und Anonym Berechtigungen für alle Postfächer
+# Abschnitt: Standardberechtigungen für alle Postfächer
 # -------------------------------------------------
+# Gibt $true nur zurück, wenn alle Postfächer fehlerfrei bearbeitet wurden (kein Fehler, kein Abbruch).
+# Die detaillierte Statusmeldung (Erfolgreich/Fehler) wird in der Statusleiste angezeigt.
 function Set-DefaultCalendarPermissionForAll {
     [CmdletBinding()]
     param(
@@ -576,40 +243,35 @@ function Set-DefaultCalendarPermissionForAll {
         [string]$AccessRights
     )
     
+    $totalCount = 0
+    $successCount = 0
+    $errorCount = 0
+    $cancelled = $false
+    
+    Start-UIBusy -Message "Setze Standard-Kalenderberechtigungen für alle Postfächer..." -Title "Kalenderberechtigungen" -Cancelable
     try {
         Write-Log  "Setze Standard-Kalenderberechtigungen für alle Postfächer auf: $AccessRights" -Type "Info"
-        
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message "Setze Standard-Kalenderberechtigungen für alle Postfächer..."
-        }
+        Update-StatusBar -Message "Setze Standard-Kalenderberechtigungen für alle Postfächer..." -Type Info
         
         # Alle Mailboxen abrufen
         Write-Log  "Rufe alle Mailboxen ab" -Type "Info"
-        $mailboxes = Get-Mailbox -ResultSize Unlimited -ErrorAction Stop
+        $mailboxes = @(Get-Mailbox -ResultSize Unlimited -ErrorAction Stop | Step-UIProgress -Activity "Lade Postfachliste")
         $totalCount = $mailboxes.Count
-        $successCount = 0
-        $errorCount = 0
         
         Write-Log  "$totalCount Mailboxen gefunden" -Type "Info"
         
-        # Fortschrittsanzeige vorbereiten
         $progressIndex = 0
-        
         foreach ($mailbox in $mailboxes) {
             $progressIndex++
-            $progressPercentage = [math]::Round(($progressIndex / $totalCount) * 100)
+            Update-UIBusy -Message "Setze Standard-Kalenderberechtigungen" -Current $progressIndex -Total $totalCount
+            # Abbruch nur zwischen zwei Postfächern prüfen (außerhalb des Fehlerzählers)
+            Assert-UINotCancelled
             
+            $mailboxAddress = "$($mailbox.PrimarySmtpAddress)"
             try {
-        # Status aktualisieren
-                if ($null -ne $txtStatus) {
-                    Update-GuiText -TextElement $txtStatus -Message "Setze Standard-Kalenderberechtigungen ($progressIndex von $totalCount, $progressPercentage%)..."
-                }
-                
-                # Berechtigungen für dieses Postfach setzen
-                $mailboxAddress = $mailbox.PrimarySmtpAddress.ToString()
                 Write-Log  "Bearbeite Postfach $progressIndex/$totalCount - $mailboxAddress" -Type "Info"
                 
-                Set-DefaultCalendarPermission -MailboxUser $mailboxAddress -AccessRights $AccessRights
+                $null = Set-DefaultCalendarPermission -MailboxUser $mailboxAddress -AccessRights $AccessRights
                 $successCount++
                 Write-Log  "Standard-Kalenderberechtigungen erfolgreich für $mailboxAddress gesetzt" -Type "Success"
             }
@@ -620,105 +282,42 @@ function Set-DefaultCalendarPermissionForAll {
                 Log-Action "Fehler beim Setzen der Standard-Kalenderberechtigungen für $mailboxAddress`: $errorMsg"
             }
         }
-        
-        $statusMessage = "Standard-Kalenderberechtigungen für alle Postfächer gesetzt. Erfolgreich - $successCount, Fehler: $errorCount"
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message $statusMessage -Color $script:connectedBrush
-        }
-        
-        Write-Log  $statusMessage -Type "Success"
-        Log-Action $statusMessage
-        
-        return $true
     }
     catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Setzen der Standard-Kalenderberechtigungen für alle - $errorMsg" -Type "Error"
-        
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message "Fehler: $errorMsg"
+        if ($script:UICancelRequested -or $_.Exception -is [System.OperationCanceledException]) {
+            $cancelled = $true
         }
-        
-        Log-Action "Fehler beim Setzen der Standard-Kalenderberechtigungen für alle: $errorMsg"
-        return $false
+        else {
+            $errorMsg = $_.Exception.Message
+            Write-Log  "Fehler beim Setzen der Standard-Kalenderberechtigungen für alle - $errorMsg" -Type "Error"
+            Update-StatusBar -Message "Fehler: $errorMsg" -Type Error
+            Log-Action "Fehler beim Setzen der Standard-Kalenderberechtigungen für alle: $errorMsg"
+            return $false
+        }
     }
-}
-
-function Set-AnonymousCalendarPermissionForAll {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$AccessRights
-    )
+    finally {
+        Stop-UIBusy
+    }
     
-    try {
-        Write-Log  "Setze Anonym-Kalenderberechtigungen für alle Postfächer auf: $AccessRights" -Type "Info"
-        
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message "Setze Anonym-Kalenderberechtigungen für alle Postfächer..."
-        }
-        
-        # Alle Mailboxen abrufen
-        Write-Log  "Rufe alle Mailboxen ab" -Type "Info"
-        $mailboxes = Get-Mailbox -ResultSize Unlimited -ErrorAction Stop
-        $totalCount = $mailboxes.Count
-        $successCount = 0
-        $errorCount = 0
-        
-        Write-Log  "$totalCount Mailboxen gefunden" -Type "Info"
-        
-        # Fortschrittsanzeige vorbereiten
-        $progressIndex = 0
-        
-        foreach ($mailbox in $mailboxes) {
-            $progressIndex++
-            $progressPercentage = [math]::Round(($progressIndex / $totalCount) * 100)
-            
-            try {
-        # Status aktualisieren
-                if ($null -ne $txtStatus) {
-                    Update-GuiText -TextElement $txtStatus -Message "Setze Anonym-Kalenderberechtigungen ($progressIndex von $totalCount, $progressPercentage%)..."
-                }
-                
-                # Berechtigungen für dieses Postfach setzen
-                $mailboxAddress = $mailbox.PrimarySmtpAddress.ToString()
-                Write-Log  "Bearbeite Postfach $progressIndex/$totalCount - $mailboxAddress" -Type "Info"
-                
-                Set-AnonymousCalendarPermission -MailboxUser $mailboxAddress -AccessRights $AccessRights
-                $successCount++
-                Write-Log  "Anonym-Kalenderberechtigungen erfolgreich für $mailboxAddress gesetzt" -Type "Success"
-            }
-            catch {
-                $errorCount++
-                $errorMsg = $_.Exception.Message
-                Write-Log  "Fehler bei Postfach $mailboxAddress - $errorMsg" -Type "Error"
-                Log-Action "Fehler beim Setzen der Anonym-Kalenderberechtigungen für $mailboxAddress`: $errorMsg"
-            }
-        }
-        
-        $statusMessage = "Anonym-Kalenderberechtigungen für alle Postfächer gesetzt. Erfolgreich - $successCount, Fehler: $errorCount"
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message $statusMessage -Color $script:connectedBrush
-        }
-        
-        Write-Log  $statusMessage -Type "Success"
-        Log-Action $statusMessage
-        
-        return $true
+    if ($cancelled) {
+        $statusMessage = "Setzen der Standard-Kalenderberechtigungen abgebrochen. Erfolgreich: $successCount, Fehler: $errorCount, nicht bearbeitet: $($totalCount - $successCount - $errorCount)"
+        $statusType = "Warning"
     }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Setzen der Anonym-Kalenderberechtigungen für alle - $errorMsg" -Type "Error"
-        
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message "Fehler: $errorMsg"
-        }
-        
-        Log-Action "Fehler beim Setzen der Anonym-Kalenderberechtigungen für alle: $errorMsg"
-        return $false
+    elseif ($errorCount -gt 0) {
+        $statusMessage = "Standard-Kalenderberechtigungen für alle Postfächer gesetzt. Erfolgreich: $successCount, Fehler: $errorCount"
+        $statusType = "Warning"
     }
+    else {
+        $statusMessage = "Standard-Kalenderberechtigungen für alle Postfächer gesetzt. Erfolgreich: $successCount, Fehler: 0"
+        $statusType = "Success"
+    }
+    
+    Update-StatusBar -Message $statusMessage -Type $statusType
+    Write-Log  $statusMessage -Type $statusType
+    Log-Action $statusMessage
+    
+    return (-not $cancelled -and $errorCount -eq 0)
 }
-
 
 function Initialize-CalendarTab {
     [CmdletBinding()]

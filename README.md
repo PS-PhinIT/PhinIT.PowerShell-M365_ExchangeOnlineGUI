@@ -1,6 +1,6 @@
 # easyEXO - Exchange Online Verwaltungstool
 
-![Version](https://img.shields.io/badge/version-0.4.0-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-0.5.0-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
 
 > Screenshots der aktuellen Version werden unter [`docs/screenshots/`](docs/screenshots/) abgelegt.
 
@@ -71,14 +71,21 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
 
 ## Konfiguration
 
-Das Skript speichert grundlegende Einstellungen in der Windows-Registrierung unter:
-`HKCU:\Software\easyIT\easyEXO`
+Einstellungen werden über die Schaltfläche **Einstellungen** (Zahnrad oben rechts) geändert und in der
+Windows-Registrierung unter `HKCU:\Software\easyIT\easyEXO` gespeichert. Änderungen sind sofort aktiv.
 
-Hier kann z. B. der **Debug-Modus** aktiviert werden, um detailliertere Log-Ausgaben zu erhalten.
+| Wert | Typ | Bedeutung | Standard |
+|---|---|---|---|
+| `DefaultUser` | String | Vorbelegter Benutzername (UPN) für die Anmeldung an Exchange Online | leer |
+| `Debug` | DWord | `1` = Debug-Modus (ausführlichere Protokollierung) | `0` |
+| `LogPath` | String | Ordner für die Logdatei `ExchangeTool.log` | `Logs` neben dem Launcher |
+| `AppName`, `Version` | String | Werden vom Programm gepflegt | – |
+
+Beim Start werden nur fehlende Werte angelegt; vorhandene Einstellungen bleiben bei Updates erhalten.
 
 ## Logging
 
-Alle Aktionen, Fehler und wichtige Informationen werden in einer Log-Datei im Unterordner `Logs` neben dem Launcher gespeichert (`src/Logs/ExchangeTool.log`, UTF-8). Die Logs enthalten u. a. Benutzernamen/E-Mail-Adressen (personenbezogene Daten) – bitte entsprechend schützen und nicht einchecken (`Logs/` ist in `.gitignore` ausgeschlossen).
+Alle Aktionen, Fehler und wichtige Informationen werden in der Log-Datei `ExchangeTool.log` (UTF-8) gespeichert – standardmäßig im Unterordner `Logs` neben dem Launcher (`src/Logs/`), alternativ im in den Einstellungen festgelegten Ordner. Debug-Einträge werden nur im Debug-Modus geschrieben. Die Logs enthalten u. a. Benutzernamen/E-Mail-Adressen (personenbezogene Daten) – bitte entsprechend schützen und nicht einchecken (`Logs/` ist in `.gitignore` ausgeschlossen).
 
 Automatisch gespeicherte Berichte (Option „Automatisch als CSV speichern“) liegen im Unterordner `Reports` neben dem Launcher bzw. – ohne Schreibrechte dort – unter `Dokumente\easyEXO\Reports`. Auch sie enthalten personenbezogene Daten (`Reports/` ist in `.gitignore` ausgeschlossen).
 
@@ -99,8 +106,9 @@ Automatisch gespeicherte Berichte (Option „Automatisch als CSV speichern“) l
 │                                #   Compliance/eDiscovery, Hybrid, Multi-Forest, Berichte …)
 ├── docs/
 │   ├── AUDIT.md                 # Audit-Bericht (Sicherheit, Performance, Funktionen, GUI …)
-│   └── screenshots/             # Screenshots der aktuellen Version
+│   └── screenshots/             # Screenshots der aktuellen Version (Dateiname ohne Versionsnummer)
 ├── .github/
+│   ├── ISSUE_TEMPLATE/          # Vorlagen für Fehlerberichte und Funktionswünsche
 │   ├── workflows/               # CI (PSScriptAnalyzer, Codacy)
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── CHANGELOG.md
@@ -111,7 +119,7 @@ Automatisch gespeicherte Berichte (Option „Automatisch als CSV speichern“) l
 └── SECURITY.md
 ```
 
-Ältere Skriptversionen sind nicht mehr im Repository enthalten; sie bleiben über die Git-Historie verfügbar.
+Ältere Skriptversionen und Screenshots sind nicht mehr im Repository enthalten; sie bleiben über die Git-Historie verfügbar. Der Launcher heißt unabhängig von der Version immer `easyEXO.ps1` – die aktuelle Version steht im Badge oben, in der Titelleiste des Programms und im [CHANGELOG](CHANGELOG.md).
 
 ## Weitere Dokumentation
 

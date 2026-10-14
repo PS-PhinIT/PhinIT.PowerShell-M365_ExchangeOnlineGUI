@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Sicherheitslücke melden
+    url: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/security/advisories/new
+    about: Sicherheitslücken bitte vertraulich über „Report a vulnerability“ melden (siehe SECURITY.md), nicht als öffentliches Issue.

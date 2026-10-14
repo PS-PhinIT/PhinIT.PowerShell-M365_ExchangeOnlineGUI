@@ -33,7 +33,9 @@ function New-ResourceAction {
         $params = @{
             Name = $Name
             DisplayName = $DisplayName
-            ResourceCapacity = if ([string]::IsNullOrEmpty($Capacity)) { $null } else { [int]$Capacity }
+        }
+        if (-not [string]::IsNullOrEmpty($Capacity)) {
+            $params.Add("ResourceCapacity", [int]$Capacity)
         }
         
         # Ressource basierend auf Typ erstellen
@@ -51,6 +53,18 @@ function New-ResourceAction {
         
         Write-Log  "$resourceTypeName erfolgreich erstellt: $Name" -Type "Success"
         Log-Action "$resourceTypeName erstellt: $Name"
+        
+        # Standort: New-Mailbox kennt keinen Parameter -Location (-Office nur für Räume),
+        # daher nachträglich per Set-Mailbox -Office setzen.
+        if (-not [string]::IsNullOrWhiteSpace($Location) -and $null -ne $result) {
+            try {
+                Set-Mailbox -Identity $result.Identity -Office $Location -ErrorAction Stop
+                Write-Log  "Standort für $Name gesetzt: $Location" -Type "Info"
+            }
+            catch {
+                Write-Log  "$resourceTypeName '$Name' wurde erstellt, der Standort konnte aber nicht gesetzt werden: $($_.Exception.Message)" -Type "Warning"
+            }
+        }
         
         return $result
     }
@@ -247,7 +261,7 @@ function Get-ResourceSettingsAction {
             PrimarySmtpAddress = $resource.PrimarySmtpAddress
             ResourceType = $resource.RecipientTypeDetails
             Capacity = $resource.ResourceCapacity
-            Location = $resource.ResourceCustom
+            Location = $resource.Office
             AutoAccept = $calendarProcessing.AutomateProcessing -eq "AutoAccept"
             AllowConflicts = $calendarProcessing.AllowConflicts
             BookingWindowInDays = $calendarProcessing.BookingWindowInDays
@@ -481,8 +495,9 @@ function Update-ResourceSettingsAction {
             $mailboxParams.Add("ResourceCapacity", $Capacity)
         }
         
+        # Standort wird im Attribut "Office" gespeichert (ResourceCustom akzeptiert nur per Set-ResourceConfig definierte Eigenschaften)
         if ($PSBoundParameters.ContainsKey('Location') -and ![string]::IsNullOrWhiteSpace($Location)) {
-            $mailboxParams.Add("ResourceCustom", $Location)
+            $mailboxParams.Add("Office", $Location)
         }
         
         if ($mailboxParams.Count -gt 2) {
@@ -623,8 +638,8 @@ function Show-ResourceSettingsDialog {
         # Ressourceneinstellungen abrufen
         $resourceSettings = Get-ResourceSettingsAction -Identity $Identity
         
-        # Ressourcenberechtigungen abrufen
-        $resourcePermissions = Get-ResourcePermissionsAction -Identity $Identity
+        # Ressourcenberechtigungen abrufen (@(): bei genau einem Eintrag liefert die Funktion ein Einzelobjekt)
+        $resourcePermissions = @(Get-ResourcePermissionsAction -Identity $Identity)
         
         # XAML für den Dialog erstellen
         $xaml = @"
@@ -643,7 +658,7 @@ function Show-ResourceSettingsDialog {
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         
-        <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Ressourceneinstellungen für: $($resourceSettings.DisplayName)" FontWeight="Bold" Margin="0,0,0,10"/>
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Name="txtResourceHeader" FontWeight="Bold" Margin="0,0,0,10"/>
         
         <!-- Linke Spalte - Einstellungen -->
         <ScrollViewer Grid.Row="1" Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,10,0">
@@ -850,6 +865,9 @@ function Show-ResourceSettingsDialog {
         $window = [System.Windows.Markup.XamlReader]::Load($reader)
         
         # UI-Elemente referenzieren
+        $txtResourceHeader = $window.FindName("txtResourceHeader")
+        # Exchange-Daten erst nach dem Laden setzen (keine Interpolation in das XAML-Markup)
+        $txtResourceHeader.Text = "Ressourceneinstellungen für: $($resourceSettings.DisplayName)"
         $txtDisplayName = $window.FindName("txtDisplayName")
         $txtCapacity = $window.FindName("txtCapacity")
         $txtLocation = $window.FindName("txtLocation")
@@ -944,20 +962,19 @@ function Show-ResourceSettingsDialog {
                       $txtPostReservationTime, $txtConflictPercentage, $txtMaxConflictInstances, $txtAdditionalResponse, $txtResourceDelegates)
         
         foreach ($textBox in $textBoxes) {
-            # GotFocus Event - Platzhalter entfernen
+            # GotFocus Event - Platzhalter entfernen ($this = auslösende TextBox)
             $textBox.Add_GotFocus({
-                param($sender, $e)
-                if ($sender.Text -eq "" -and $sender.Tag) {
-                    $sender.Foreground = [System.Windows.Media.Brushes]::Black
+                if ($null -ne $this.Tag -and $this.Text -eq [string]$this.Tag) {
+                    $this.Text = ""
+                    $this.ClearValue([System.Windows.Controls.Control]::ForegroundProperty)
                 }
             })
             
             # LostFocus Event - Platzhalter anzeigen wenn leer
             $textBox.Add_LostFocus({
-                param($sender, $e)
-                if ($sender.Text -eq "" -and $sender.Tag) {
-                    $sender.Text = $sender.Tag
-                    $sender.Foreground = [System.Windows.Media.Brushes]::Gray
+                if ([string]::IsNullOrEmpty($this.Text) -and $null -ne $this.Tag) {
+                    $this.Text = [string]$this.Tag
+                    $this.Foreground = [System.Windows.Media.Brushes]::Gray
                 }
             })
             
@@ -971,7 +988,7 @@ function Show-ResourceSettingsDialog {
         # Event-Handler für Berechtigungen aktualisieren
         $btnRefreshPermissions.Add_Click({
             try {
-                $updatedPermissions = Get-ResourcePermissionsAction -Identity $Identity
+                $updatedPermissions = @(Get-ResourcePermissionsAction -Identity $Identity)
                 $dgResourcePermissions.ItemsSource = $updatedPermissions
                 [System.Windows.MessageBox]::Show("Berechtigungen wurden erfolgreich aktualisiert.", 
                     "Aktualisiert", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Information)
@@ -1011,17 +1028,31 @@ function Show-ResourceSettingsDialog {
                     Identity = $Identity
                 }
                 
-                if ($txtDisplayName.Text -ne "" -and $txtDisplayName.Text -ne $txtDisplayName.Tag) {
-                    $params.Add("DisplayName", $txtDisplayName.Text)
+                # Ganzzahlfelder prüfen (ein angezeigter Platzhalter gilt als leer). Ungültige Eingaben werden
+                # gemeldet, statt sie stillschweigend zu verwerfen.
+                $intFields = @(
+                    @{ Box = $txtCapacity; Param = "Capacity"; Label = "Kapazität"; Min = 1 }
+                    @{ Box = $txtBookingWindow; Param = "BookingWindowInDays"; Label = "Buchungszeitraum (Tage)"; Min = 1 }
+                    @{ Box = $txtMaxDuration; Param = "MaximumDurationInMinutes"; Label = "Maximale Dauer (Minuten)"; Min = 1 }
+                    @{ Box = $txtMinDuration; Param = "MinimumDurationInMinutes"; Label = "Minimale Dauer (Minuten)"; Min = 1 }
+                    @{ Box = $txtPostReservationTime; Param = "PostReservationMaxClaimTimeInMinutes"; Label = "Nachreservierungszeit (Min)"; Min = 1 }
+                    @{ Box = $txtConflictPercentage; Param = "ConflictPercentageAllowed"; Label = "Erlaubter Konfliktprozentsatz"; Min = 0 }
+                    @{ Box = $txtMaxConflictInstances; Param = "MaximumConflictInstances"; Label = "Maximale Konfliktinstanzen"; Min = 0 }
+                )
+                foreach ($intField in $intFields) {
+                    $fieldText = [string]$intField.Box.Text
+                    if ([string]::IsNullOrWhiteSpace($fieldText) -or $fieldText -eq [string]$intField.Box.Tag) { continue }
+                    $fieldValue = 0
+                    if (-not [int]::TryParse($fieldText, [ref]$fieldValue) -or $fieldValue -lt $intField.Min) {
+                        Show-MessageBox -Message "Ungültiger Wert für '$($intField.Label)': '$fieldText'.`nBitte geben Sie eine ganze Zahl ab $($intField.Min) ein oder lassen Sie das Feld leer." -Title "Ungültige Eingabe" -Type Warning
+                        [void]$intField.Box.Focus()
+                        return
+                    }
+                    $params[$intField.Param] = $fieldValue
                 }
                 
-                if ($txtCapacity.Text -ne "" -and $txtCapacity.Text -ne $txtCapacity.Tag) {
-                    try {
-                        $capacityValue = [int]::Parse($txtCapacity.Text)
-                        if ($capacityValue -gt 0) {
-                            $params.Add("Capacity", $capacityValue)
-                        }
-                    } catch { }
+                if ($txtDisplayName.Text -ne "" -and $txtDisplayName.Text -ne $txtDisplayName.Tag) {
+                    $params.Add("DisplayName", $txtDisplayName.Text)
                 }
                 
                 if ($txtLocation.Text -ne "" -and $txtLocation.Text -ne $txtLocation.Tag) {
@@ -1031,62 +1062,8 @@ function Show-ResourceSettingsDialog {
                 $params.Add("AutoAccept", $chkAutoAccept.IsChecked)
                 $params.Add("AllowConflicts", $chkAllowConflicts.IsChecked)
                 
-                if ($txtBookingWindow.Text -ne "" -and $txtBookingWindow.Text -ne $txtBookingWindow.Tag) {
-                    try {
-                        $bookingWindowValue = [int]::Parse($txtBookingWindow.Text)
-                        if ($bookingWindowValue -gt 0) {
-                            $params.Add("BookingWindowInDays", $bookingWindowValue)
-                        }
-                    } catch { }
-                }
-                
-                if ($txtMaxDuration.Text -ne "" -and $txtMaxDuration.Text -ne $txtMaxDuration.Tag) {
-                    try {
-                        $maxDurationValue = [int]::Parse($txtMaxDuration.Text)
-                        if ($maxDurationValue -gt 0) {
-                            $params.Add("MaximumDurationInMinutes", $maxDurationValue)
-                        }
-                    } catch { }
-                }
-                
-                if ($txtMinDuration.Text -ne "" -and $txtMinDuration.Text -ne $txtMinDuration.Tag) {
-                    try {
-                        $minDurationValue = [int]::Parse($txtMinDuration.Text)
-                        if ($minDurationValue -gt 0) {
-                            $params.Add("MinimumDurationInMinutes", $minDurationValue)
-                        }
-                    } catch { }
-                }
-                
                 $params.Add("AllowRecurringMeetings", $chkAllowRecurring.IsChecked)
                 $params.Add("ScheduleOnlyDuringWorkHours", $chkWorkHoursOnly.IsChecked)
-                
-                if ($txtPostReservationTime.Text -ne "" -and $txtPostReservationTime.Text -ne $txtPostReservationTime.Tag) {
-                    try {
-                        $postReservationValue = [int]::Parse($txtPostReservationTime.Text)
-                        if ($postReservationValue -gt 0) {
-                            $params.Add("PostReservationMaxClaimTimeInMinutes", $postReservationValue)
-                        }
-                    } catch { }
-                }
-                
-                if ($txtConflictPercentage.Text -ne "" -and $txtConflictPercentage.Text -ne $txtConflictPercentage.Tag) {
-                    try {
-                        $conflictPercentageValue = [int]::Parse($txtConflictPercentage.Text)
-                        if ($conflictPercentageValue -ge 0) {
-                            $params.Add("ConflictPercentageAllowed", $conflictPercentageValue)
-                        }
-                    } catch { }
-                }
-                
-                if ($txtMaxConflictInstances.Text -ne "" -and $txtMaxConflictInstances.Text -ne $txtMaxConflictInstances.Tag) {
-                    try {
-                        $maxConflictValue = [int]::Parse($txtMaxConflictInstances.Text)
-                        if ($maxConflictValue -ge 0) {
-                            $params.Add("MaximumConflictInstances", $maxConflictValue)
-                        }
-                    } catch { }
-                }
                 
                 $params.Add("DeleteComments", $chkDeleteComments.IsChecked)
                 $params.Add("DeleteSubject", $chkDeleteSubject.IsChecked)
@@ -1178,6 +1155,8 @@ function Initialize-ResourcesTab {
         $script:txtResourceSearch = $txtResourceSearch
         $script:cmbResourceSelect = $cmbResourceSelect
         $script:dgResources = $dgResources
+        # Wird in Click-Handlern (nach Ende dieser Funktion) für die Listenaktualisierung benötigt
+        $script:btnRefreshResources = $btnRefreshResources
 
         # Event-Handler für "Alle anzeigen"
         Register-EventHandler -Control $btnRefreshResources -Handler {
@@ -1189,12 +1168,7 @@ function Initialize-ResourcesTab {
             }
             
             Update-StatusBar -Message "Lade alle Ressourcen..." -Type Info
-            $allResources = Get-AllResourcesAction
-            
-            if ($null -eq $allResources) {
-                Write-Log "Get-AllResourcesAction gab null zurück." -Type Warning
-                $allResources = @()
-            }
+            $allResources = @(Get-AllResourcesAction)
             
             # Thread-sichere UI-Aktualisierung
             $script:dgResources.Dispatcher.Invoke([Action]{
@@ -1236,12 +1210,7 @@ function Initialize-ResourcesTab {
             }
             
             Update-StatusBar -Message "Lade Raumressourcen..." -Type Info
-            $rooms = Get-RoomResourcesAction
-            
-            if ($null -eq $rooms) {
-                Write-Log "Get-RoomResourcesAction gab null zurück." -Type Warning
-                $rooms = @()
-            }
+            $rooms = @(Get-RoomResourcesAction)
             
             # Thread-sichere UI-Aktualisierung
             $script:dgResources.Dispatcher.Invoke([Action]{
@@ -1408,12 +1377,7 @@ function Initialize-ResourcesTab {
             try {
                 if (-not $script:isConnected) { Throw "Keine Verbindung zu Exchange Online." }
                 Update-StatusBar -Message "Aktualisiere Ressourcenliste..." -Type Info
-                $allResources = Get-AllResourcesAction
-                
-                if ($null -eq $allResources) {
-                    Write-Log "Get-AllResourcesAction gab null zurück." -Type Warning
-                    $allResources = @()
-                }
+                $allResources = @(Get-AllResourcesAction)
                 
                 # Thread-sichere UI-Aktualisierung der ComboBox
                 $script:cmbResourceSelect.Dispatcher.Invoke([Action]{
@@ -1473,7 +1437,7 @@ function Initialize-ResourcesTab {
                     Update-StatusBar -Message "Ressource '$name' erfolgreich erstellt." -Type "Success"
                     $script:txtResourceName.Text = ""
                     # Optional: Ressourcenliste aktualisieren
-                    $btnRefreshResources.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+                    if ($null -ne $script:btnRefreshResources) { $script:btnRefreshResources.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) }
                 }
             } catch {
                 Update-StatusBar -Message "Fehler: $($_.Exception.Message)" -Type "Error"
@@ -1492,7 +1456,7 @@ function Initialize-ResourcesTab {
                 if ($result) {
                     Update-StatusBar -Message "Einstellungen für '$selectedResource' aktualisiert." -Type "Success"
                     # Ressourcenliste aktualisieren
-                    $btnRefreshResources.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+                    if ($null -ne $script:btnRefreshResources) { $script:btnRefreshResources.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) }
                 } else {
                     Update-StatusBar -Message "Bearbeitung abgebrochen." -Type "Info"
                 }
@@ -1515,7 +1479,7 @@ function Initialize-ResourcesTab {
                     if ($result) { 
                         Update-StatusBar -Message "Ressource '$selectedResource' gelöscht." -Type "Success"
                         # Ressourcenliste aktualisieren
-                        $btnRefreshResources.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+                        if ($null -ne $script:btnRefreshResources) { $script:btnRefreshResources.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) }
                     }
                 }
             } catch {
@@ -1547,7 +1511,8 @@ function Initialize-ResourcesTab {
         # Event-Handler für Hilfe-Link
         if ($null -ne $helpLinkResources) {
             $helpLinkResources.Add_MouseLeftButtonDown({
-                try { Show-HelpDialog -Topic "Resources" } catch {}
+                try { Show-HelpDialog -Topic "Resources" }
+                catch { Write-Log "Fehler beim Öffnen des Hilfe-Dialogs für Ressourcen: $($_.Exception.Message)" -Type Error }
             })
         }
 

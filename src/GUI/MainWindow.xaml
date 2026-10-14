@@ -215,11 +215,11 @@
                             <Button
                                 Style="{StaticResource NavButton}"
                                 x:Name="btnNavMailFlowRules"
-                                Content="Transport Rules" />
+                                Content="Transportregeln" />
                             <Button
                                 Style="{StaticResource NavButton}"
                                 x:Name="btnNavInboxRules"
-                                Content="Inbox Rules" />
+                                Content="Posteingangsregeln" />
                             <Button
                                 Style="{StaticResource NavButton}"
                                 x:Name="btnNavMessageTrace"
@@ -2227,6 +2227,7 @@
                                 </Grid.ColumnDefinitions>
 
                                 <Button
+                                    Style="{StaticResource SecondaryButton}"
                                     x:Name="btnGetOrganizationConfig"
                                     Grid.Column="1"
                                     Width="205"
@@ -3785,16 +3786,19 @@
                                         </Grid.RowDefinitions>
                                         <StackPanel Margin="0,0,0,10" Orientation="Horizontal">
                                             <Button
+                                                Style="{StaticResource SecondaryButton}"
                                                 x:Name="btnGetMobileDevicePolicies"
                                                 Width="150"
                                                 Margin="0,0,10,0"
                                                 Content="Richtlinien laden" />
                                             <Button
+                                                Style="{StaticResource SuccessButton}"
                                                 x:Name="btnNewMobileDevicePolicy"
                                                 Width="150"
                                                 Margin="0,0,10,0"
                                                 Content="Neue Richtlinie" />
                                             <Button
+                                                Style="{StaticResource DangerButton}"
                                                 x:Name="btnRemoveMobileDevicePolicy"
                                                 Width="150"
                                                 Content="Richtlinie entfernen" />
@@ -3836,16 +3840,19 @@
                                         </Grid.RowDefinitions>
                                         <StackPanel Margin="0,0,0,10" Orientation="Horizontal">
                                             <Button
+                                                Style="{StaticResource SecondaryButton}"
                                                 x:Name="btnGetQuarantinedDevices"
                                                 Width="150"
                                                 Margin="0,0,10,0"
                                                 Content="Geräte laden" />
                                             <Button
+                                                Style="{StaticResource SuccessButton}"
                                                 x:Name="btnAllowDevice"
                                                 Width="150"
                                                 Margin="0,0,10,0"
                                                 Content="Gerät zulassen" />
                                             <Button
+                                                Style="{StaticResource DangerButton}"
                                                 x:Name="btnBlockDevice"
                                                 Width="150"
                                                 Content="Gerät blockieren" />
@@ -3906,16 +3913,19 @@
                                         </Grid.RowDefinitions>
                                         <StackPanel Margin="0,0,0,10" Orientation="Horizontal">
                                             <Button
+                                                Style="{StaticResource SecondaryButton}"
                                                 x:Name="btnGetConnectors"
                                                 Width="150"
                                                 Margin="0,0,10,0"
                                                 Content="Connectors laden" />
                                             <Button
+                                                Style="{StaticResource SuccessButton}"
                                                 x:Name="btnAddConnector"
                                                 Width="220"
                                                 Margin="30,0,10,0"
                                                 Content="Connector anlegen" />
                                             <Button
+                                                Style="{StaticResource WarningButton}"
                                                 x:Name="btnSetConnectorStatus"
                                                 Width="220"
                                                 Content="Connector aktivieren/deaktivieren" />
@@ -3949,6 +3959,7 @@
                                             <RowDefinition Height="*" />
                                         </Grid.RowDefinitions>
                                         <Button
+                                            Style="{StaticResource SecondaryButton}"
                                             x:Name="btnGetAcceptedDomains"
                                             Width="150"
                                             Margin="0,0,0,10"
@@ -3979,6 +3990,7 @@
                                             <RowDefinition Height="*" />
                                         </Grid.RowDefinitions>
                                         <Button
+                                            Style="{StaticResource SecondaryButton}"
                                             x:Name="btnGetRemoteDomains"
                                             Width="150"
                                             Margin="0,0,0,10"
@@ -4623,6 +4635,7 @@
                                                 Margin="0,5,0,5" />
 
                                             <Button
+                                             Style="{StaticResource SecondaryButton}"
                                              x:Name="btnSearchResources"
                                              Grid.Row="1"
                                              Grid.ColumnSpan="2"
@@ -4986,12 +4999,14 @@
                                                 HorizontalAlignment="Center"
                                                 Orientation="Horizontal">
                                                 <Button
+                                                    Style="{StaticResource SecondaryButton}"
                                                     x:Name="btnShowMailContacts"
                                                     Width="170"
                                                     Height="30"
                                                     Margin="0,0,5,0"
                                                     Content="Alle MailContacts anzeigen" />
                                                 <Button
+                                                    Style="{StaticResource SecondaryButton}"
                                                     x:Name="btnShowMailUsers"
                                                     Width="170"
                                                     Height="30"
@@ -5334,6 +5349,7 @@
                                              ToolTip="E-Mail-Adresse des Postfachs, dessen Einstellungen abgerufen werden sollen." />
 
                                         <Button
+                                             Style="{StaticResource SecondaryButton}"
                                              x:Name="btnGetRegionSettings"
                                              Grid.Row="1"
                                              Grid.ColumnSpan="2"
@@ -5578,7 +5594,7 @@
                     <!--  Mail Flow Rules Tab  -->
                     <TabItem
                         x:Name="tabMailFlowRules"
-                        Header="Transport Rules"
+                        Header="Transportregeln"
                         Visibility="Collapsed">
                         <Grid Margin="10">
                             <Grid.ColumnDefinitions>
@@ -5598,7 +5614,7 @@
                                 Margin="0,0,10,0">
 
                                 <!--  Rule Creation Section  -->
-                                <GroupBox Header="Create New Rule">
+                                <GroupBox Header="Neue Regel erstellen">
                                     <StackPanel Margin="10">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -5619,7 +5635,7 @@
                                                 Grid.Column="0"
                                                 Margin="0,5,5,5"
                                                 VerticalAlignment="Center"
-                                                Text="Rule Name:" />
+                                                Text="Regelname:" />
                                             <TextBox
                                                 x:Name="txtRuleName"
                                                 Grid.Row="0"
@@ -5631,27 +5647,19 @@
                                                 Grid.Column="0"
                                                 Margin="0,5,5,5"
                                                 VerticalAlignment="Center"
-                                                Text="Condition:" />
+                                                Text="Bedingung:" />
                                             <ComboBox
                                                 x:Name="cmbCondition"
                                                 Grid.Row="1"
                                                 Grid.Column="1"
-                                                Margin="5,5,0,5">
-                                                <ComboBoxItem Content="Sender is..." Tag="From" />
-                                                <ComboBoxItem Content="Recipient is..." Tag="SentTo" />
-                                                <ComboBoxItem Content="Subject contains..." Tag="SubjectContainsWords" />
-                                                <ComboBoxItem Content="Body contains..." Tag="BodyContainsWords" />
-                                                <ComboBoxItem Content="Sender is external..." Tag="FromScope" />
-                                                <ComboBoxItem Content="Message size over..." Tag="MessageSizeOver" />
-                                                <ComboBoxItem Content="Sender address contains..." Tag="FromAddressContainsWords" />
-                                            </ComboBox>
+                                                Margin="5,5,0,5" />
 
                                             <TextBlock
                                                 Grid.Row="2"
                                                 Grid.Column="0"
                                                 Margin="0,5,5,5"
                                                 VerticalAlignment="Center"
-                                                Text="Value:" />
+                                                Text="Wert:" />
                                             <TextBox
                                                 x:Name="txtConditionValue"
                                                 Grid.Row="2"
@@ -5663,26 +5671,19 @@
                                                 Grid.Column="0"
                                                 Margin="0,5,5,5"
                                                 VerticalAlignment="Center"
-                                                Text="Action:" />
+                                                Text="Aktion:" />
                                             <ComboBox
                                                 x:Name="cmbAction"
                                                 Grid.Row="3"
                                                 Grid.Column="1"
-                                                Margin="5,5,0,5">
-                                                <ComboBoxItem Content="Prepend subject..." Tag="PrependSubject" />
-                                                <ComboBoxItem Content="Redirect to..." Tag="RedirectMessageTo" />
-                                                <ComboBoxItem Content="Copy to..." Tag="BlindCopyTo" />
-                                                <ComboBoxItem Content="Reject message..." Tag="RejectMessageEnhancedStatusCode" />
-                                                <ComboBoxItem Content="Delete message" Tag="DeleteMessage" />
-                                                <ComboBoxItem Content="Quarantine..." Tag="Quarantine" />
-                                            </ComboBox>
+                                                Margin="5,5,0,5" />
 
                                             <TextBlock
                                                 Grid.Row="4"
                                                 Grid.Column="0"
                                                 Margin="0,5,5,5"
                                                 VerticalAlignment="Center"
-                                                Text="Action Value:" />
+                                                Text="Aktionswert:" />
                                             <TextBox
                                                 x:Name="txtActionValue"
                                                 Grid.Row="4"
@@ -5694,19 +5695,12 @@
                                                 Grid.Column="0"
                                                 Margin="0,5,5,5"
                                                 VerticalAlignment="Center"
-                                                Text="Mode:" />
+                                                Text="Modus:" />
                                             <ComboBox
                                                 x:Name="cmbRuleMode"
                                                 Grid.Row="5"
                                                 Grid.Column="1"
-                                                Margin="5,5,0,5">
-                                                <ComboBoxItem Content="Enforce" Tag="Enforce" />
-                                                <ComboBoxItem
-                                                    Content="Test with Policy Tips"
-                                                    IsSelected="True"
-                                                    Tag="Test" />
-                                                <ComboBoxItem Content="Test without Policy Tips" Tag="AuditAndNotify" />
-                                            </ComboBox>
+                                                Margin="5,5,0,5" />
                                         </Grid>
 
                                         <StackPanel
@@ -5718,54 +5712,55 @@
                                                 x:Name="btnCreateRule"
                                                 Width="170"
                                                 Margin="0,0,10,0"
-                                                Content="Create Rule" />
+                                                Content="Regel erstellen" />
                                             <Button
                                                 Style="{StaticResource WarningButton}"
                                                 x:Name="btnTestRule"
                                                 Width="170"
-                                                Content="Test Rule" />
+                                                Content="Regel testen" />
                                         </StackPanel>
                                     </StackPanel>
                                 </GroupBox>
 
                                 <!--  Rule Management Buttons  -->
-                                <GroupBox Header="Rule Management">
+                                <GroupBox Header="Regelverwaltung">
                                     <StackPanel Margin="30">
                                         <Button
+                                            Style="{StaticResource SecondaryButton}"
                                             x:Name="btnRefreshRules"
                                             Margin="0,0,0,5"
                                             Padding="10,5"
-                                            Content="Refresh" />
+                                            Content="Aktualisieren" />
                                         <Button
                                             Style="{StaticResource SuccessButton}"
                                             x:Name="btnEnableRule"
                                             Margin="0,15,0,5"
                                             Padding="10,5"
-                                            Content="Enable" />
+                                            Content="Aktivieren" />
                                         <Button
                                             Style="{StaticResource DangerButton}"
                                             x:Name="btnDisableRule"
                                             Margin="0,5,0,5"
                                             Padding="10,5"
-                                            Content="Disable" />
+                                            Content="Deaktivieren" />
                                         <Button
                                             Style="{StaticResource DangerButton}"
                                             x:Name="btnDeleteRule"
                                             Margin="0,25,0,5"
                                             Padding="10,5"
-                                            Content="Delete" />
+                                            Content="Löschen" />
                                         <Button
                                             Style="{StaticResource SecondaryButton}"
                                             x:Name="btnExportRules"
                                             Margin="0,25,0,5"
                                             Padding="10,5"
-                                            Content="Export" />
+                                            Content="Exportieren" />
                                         <Button
                                             Style="{StaticResource SecondaryButton}"
                                             x:Name="btnImportRules"
                                             Margin="0,5,0,0"
                                             Padding="10,5"
-                                            Content="Import" />
+                                            Content="Importieren" />
                                     </StackPanel>
                                 </GroupBox>
                             </StackPanel>
@@ -5774,7 +5769,7 @@
                             <GroupBox
                                 Grid.Row="0"
                                 Grid.Column="1"
-                                Header="Existing Rules">
+                                Header="Vorhandene Regeln">
                                 <DataGrid
                                     Name="dgMailFlowRules"
                                     AutoGenerateColumns="False"
@@ -5788,15 +5783,15 @@
                                         <DataGridTextColumn
                                             Width="Auto"
                                             Binding="{Binding State}"
-                                            Header="State" />
+                                            Header="Status" />
                                         <DataGridTextColumn
                                             Width="Auto"
                                             Binding="{Binding Priority}"
-                                            Header="Priority" />
+                                            Header="Priorität" />
                                         <DataGridTextColumn
                                             Width="*"
                                             Binding="{Binding Conditions}"
-                                            Header="Conditions" />
+                                            Header="Bedingungen" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </GroupBox>
@@ -5806,7 +5801,7 @@
                     <!--  Inbox Rules Tab  -->
                     <TabItem
                         x:Name="tabInboxRules"
-                        Header="Inbox Rules"
+                        Header="Posteingangsregeln"
                         Visibility="Collapsed">
                         <Grid Margin="10">
                             <Grid.ColumnDefinitions>
@@ -5849,12 +5844,13 @@
                                                 Grid.Column="1"
                                                 Margin="25,5,5,5" />
                                             <Button
+                                                Style="{StaticResource SecondaryButton}"
                                                 x:Name="btnLoadInboxRules"
                                                 Grid.Row="0"
                                                 Grid.Column="2"
                                                 Margin="0,0,0,0"
                                                 HorizontalAlignment="Center"
-                                                Content="Regeln Laden" />
+                                                Content="Regeln laden" />
                                         </Grid>
                                     </StackPanel>
                                 </GroupBox>
@@ -5939,6 +5935,7 @@
                                 <GroupBox Header="Regelverwaltung">
                                     <StackPanel Margin="10">
                                         <Button
+                                            Style="{StaticResource SecondaryButton}"
                                             x:Name="btnRefreshInboxRules"
                                             Margin="0,0,0,5"
                                             Padding="10,5"
@@ -5956,11 +5953,13 @@
                                             Padding="10,5"
                                             Content="Deaktivieren" />
                                         <Button
+                                            Style="{StaticResource SecondaryButton}"
                                             x:Name="btnMoveRuleUp"
                                             Margin="0,5,0,5"
                                             Padding="10,5"
                                             Content="Nach oben" />
                                         <Button
+                                            Style="{StaticResource SecondaryButton}"
                                             x:Name="btnMoveRuleDown"
                                             Margin="0,5,0,0"
                                             Padding="10,5"
@@ -5972,6 +5971,7 @@
                                             Padding="10,5"
                                             Content="Löschen" />
                                         <Button
+                                            Style="{StaticResource SecondaryButton}"
                                             x:Name="btnExportInboxRules"
                                             Margin="0,5,0,5"
                                             Padding="10,5"
@@ -6356,7 +6356,7 @@
                     <!--  Auto Reply Tab  -->
                     <TabItem
                         x:Name="tabAutoReply"
-                        Header="Auto Reply Management"
+                        Header="Automatische Antworten"
                         Visibility="Collapsed">
                         <Grid Margin="10">
                             <Grid.ColumnDefinitions>
