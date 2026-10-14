@@ -37,59 +37,16 @@ function Connect-OwnExchangeOnline {
         if ([string]::IsNullOrWhiteSpace($script:userPrincipalName)) {
             Write-Log "Kein Standard-Benutzer gefunden, zeige Anmeldedialog..." -Type "Info"
             
-            # WPF-Fenster für die Benutzereingabe erstellen
-            $inputXaml = @"
-            <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    Title="Exchange Online Anmeldung" Height="150" Width="400" WindowStartupLocation="CenterScreen">
-                <Grid Margin="10">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Label Grid.Row="0" Content="EXO Administrativer Logins:"/>
-                    <TextBox Grid.Row="1" Name="txtEmail" Margin="0,5"/>
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                        <Button Name="btnOK" Content="OK" Width="75" Margin="0,0,5,0"/>
-                        <Button Name="btnCancel" Content="Abbrechen" Width="75"/>
-                    </StackPanel>
-                </Grid>
-            </Window>
-"@
-            
-            $xmlDoc = New-Object System.Xml.XmlDocument
-            $xmlDoc.LoadXml($inputXaml)
-            $reader = New-Object System.Xml.XmlNodeReader $xmlDoc
-            $window = [Windows.Markup.XamlReader]::Load($reader)
-            
-            $txtEmail = $window.FindName("txtEmail")
-            $btnOK = $window.FindName("btnOK")
-            $btnCancel = $window.FindName("btnCancel")
-            
-            $btnOK.Add_Click({
-                if (-not [string]::IsNullOrWhiteSpace($txtEmail.Text)) {
-                    $script:userPrincipalName = $txtEmail.Text
-                    $window.DialogResult = $true
-                    $window.Close()
-                }
-            })
-            
-            $btnCancel.Add_Click({
-                $window.DialogResult = $false
-                $window.Close()
-            })
-            
-            $result = $window.ShowDialog()
-            
-            if (-not $result) {
+            # Einheitlicher, an das Hauptfenster gebundener Eingabedialog (UI/Dialogs.ps1)
+            $enteredUpn = Show-InputDialog -Title "Exchange Online Anmeldung" -Prompt "Administratives Konto für Exchange Online (UPN, z. B. admin@contoso.onmicrosoft.com):"
+            if ($null -eq $enteredUpn) {
                 $errorMsg = "Anmeldung abgebrochen."
                 Write-Log $errorMsg -Type "Warning"
-                $null = Show-MessageBox -Message $errorMsg -Title "Abgebrochen" -Type "Warning"
-                Update-StatusBar -Message "Anmeldung abgebrochen." -Type "Error"
+                Update-StatusBar -Message $errorMsg -Type "Warning"
                 return $false
             }
-            
+            $script:userPrincipalName = $enteredUpn.Trim()
+
             # Überprüfen, ob die E-Mail-Adresse erfolgreich gespeichert wurde
             if ([string]::IsNullOrWhiteSpace($script:userPrincipalName)) {
                 $errorMsg = "Keine E-Mail-Adresse eingegeben oder erkannt. Verbindung abgebrochen."
@@ -119,8 +76,7 @@ function Connect-OwnExchangeOnline {
         # Verbindung testen
         $null = Get-OrganizationConfig -ErrorAction Stop
         
-        # Globale und Skript-Variablen setzen, um den Verbindungsstatus zu speichern
-        $Global:IsConnectedToExo = $true
+        # Verbindungsstatus speichern (nur Script-Scope, keine globalen Variablen in der Sitzung)
         $script:isConnected = $true
         
         Write-Log "Exchange Online Verbindung erfolgreich hergestellt für $script:userPrincipalName" -Type "Success"
@@ -137,7 +93,6 @@ function Connect-OwnExchangeOnline {
         Write-Log "Fehler beim Verbinden mit Exchange Online: $errorMsg" -Type "Error"
         $script:txtConnectionStatus.Text = "Nicht verbunden"
         $script:txtConnectionStatus.Foreground = $script:disconnectedBrush
-        $Global:IsConnectedToExo = $false
         $script:isConnected = $false
         $null = Show-MessageBox -Message "Fehler beim Verbinden mit Exchange Online: $errorMsg" -Title "Verbindungsfehler" -Type "Error"
         Update-StatusBar -Message "Fehler beim Verbinden mit Exchange Online: $errorMsg" -Type "Error"
@@ -154,7 +109,6 @@ function Disconnect-ExchangeOnlineSession {
         Log-Action "Exchange Online Verbindung getrennt"
         
         # Setze alle Verbindungsvariablen zurück (Disconnect-ExchangeOnline trennt auch die Compliance-Sitzung)
-        $Global:IsConnectedToExo = $false
         $script:isConnected = $false
         $script:isComplianceConnected = $false
         $script:LastConnectionCheck = [datetime]::MinValue
@@ -206,7 +160,7 @@ function Confirm-ExchangeConnection {
     )
     
     try {
-        if (-not ($Global:IsConnectedToExo -eq $true -or $script:isConnected -eq $true)) {
+        if ($script:isConnected -ne $true) {
             return $false
         }
 
@@ -228,14 +182,12 @@ function Confirm-ExchangeConnection {
         }
 
         if ($connected) {
-            $Global:IsConnectedToExo = $true
             $script:isConnected = $true
             $script:LastConnectionCheck = [datetime]::UtcNow
             return $true
         }
 
         # Verbindung ist nicht mehr gültig, Status zurücksetzen
-        $Global:IsConnectedToExo = $false
         $script:isConnected = $false
         $script:LastConnectionCheck = [datetime]::MinValue
         Write-Log "Exchange Online Verbindung ist nicht mehr aktiv." -Type "Warning"
@@ -246,7 +198,6 @@ function Confirm-ExchangeConnection {
         return $false
     }
     catch {
-        $Global:IsConnectedToExo = $false
         $script:isConnected = $false
         $script:LastConnectionCheck = [datetime]::MinValue
         Write-Log "Fehler bei der Überprüfung der Exchange Online-Verbindung: $($_.Exception.Message)" -Type "Error"
@@ -371,7 +322,7 @@ function Update-DomainList {
         }
         
         # Domains abrufen und ComboBox befüllen
-        $domains = Get-AcceptedDomain | Select-Object -ExpandProperty DomainName
+        $domains = @(Get-AcceptedDomain -ErrorAction Stop | Select-Object -ExpandProperty DomainName)
         
         # Dispatcher verwenden für Thread-Sicherheit
         $script:cmbSharedMailboxDomain.Dispatcher.Invoke([Action]{

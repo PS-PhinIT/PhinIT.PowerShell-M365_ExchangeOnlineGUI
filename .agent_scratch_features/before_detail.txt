@@ -1,0 +1,21 @@
+Mailbox:237 PSUseDeclaredVarsMoreThanAssignments The variable 'hasSendAs' is assigned but never used.
+Mailbox:68 PSUseShouldProcessForStateChangingFunctions Function 'Remove-MailboxPermissionAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Mailbox:363 PSUseShouldProcessForStateChangingFunctions Function 'Remove-SendAsPermissionAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Mailbox:522 PSUseShouldProcessForStateChangingFunctions Function 'Remove-SendOnBehalfPermissionAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Mailbox:197 PSUseSingularNouns The cmdlet 'Get-MailboxPermissions' uses a plural noun. A singular noun should be used instead.
+SharedMailbox:60 PSUseShouldProcessForStateChangingFunctions Function 'New-SharedMailboxAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+SharedMailbox:178 PSUseShouldProcessForStateChangingFunctions Function 'Remove-SharedMailboxPermissionAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+SharedMailbox:421 PSUseShouldProcessForStateChangingFunctions Function 'Update-SharedMailboxAutoMappingAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+SharedMailbox:460 PSUseShouldProcessForStateChangingFunctions Function 'Set-SharedMailboxForwardingAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+SharedMailbox:494 PSUseShouldProcessForStateChangingFunctions Function 'Remove-SharedMailboxForwardingAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+SharedMailbox:516 PSUseShouldProcessForStateChangingFunctions Function 'Set-SharedMailboxGALVisibilityAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+SharedMailbox:544 PSUseShouldProcessForStateChangingFunctions Function 'Remove-SharedMailboxAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Calendar:128 PSUseShouldProcessForStateChangingFunctions Function 'Set-CalendarDefaultPermissionsAction' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Calendar:356 PSUseShouldProcessForStateChangingFunctions Function 'Remove-CalendarPermission' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Calendar:465 PSUseShouldProcessForStateChangingFunctions Function 'Set-DefaultCalendarPermission' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Calendar:517 PSUseShouldProcessForStateChangingFunctions Function 'Set-AnonymousCalendarPermission' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Calendar:572 PSUseShouldProcessForStateChangingFunctions Function 'Set-DefaultCalendarPermissionForAll' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Calendar:647 PSUseShouldProcessForStateChangingFunctions Function 'Set-AnonymousCalendarPermissionForAll' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Calendar:64 PSUseSingularNouns The cmdlet 'Show-CalendarPermissions' uses a plural noun. A singular noun should be used instead.
+Contacts:11 PSUseShouldProcessForStateChangingFunctions Function 'Update-ExoContact' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+Contacts:60 PSUseSingularNouns The cmdlet 'Search-ExoContacts' uses a plural noun. A singular noun should be used instead.

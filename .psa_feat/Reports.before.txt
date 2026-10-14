@@ -1,0 +1,20 @@
+
+RuleName                                    Line Message
+--------                                    ---- -------
+PSReviewUnusedParameter                      134 The parameter 'Results' has been declared but not used.
+PSReviewUnusedParameter                      141 The parameter 'Mode' has been declared but not used.
+PSReviewUnusedParameter                      143 The parameter 'StartDate' has been declared but not used.
+PSReviewUnusedParameter                      145 The parameter 'EndDate' has been declared but not used.
+PSReviewUnusedParameter                      440 The parameter 'Results' has been declared but not used.
+PSUseShouldProcessForStateChangingFunctions  839 Function 'Update-ReportTypeList' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+PSUseSingularNouns                            88 The cmdlet 'Get-ReportMailboxes' uses a plural noun. A singular noun should be used instead.
+PSUseSingularNouns                           130 The cmdlet 'Add-ReportMailboxStatistics' uses a plural noun. A singular noun should be used instead.
+PSUseSingularNouns                           204 The cmdlet 'Add-ReportMailboxPermissions' uses a plural noun. A singular noun should be used instead.
+PSUseSingularNouns                           252 The cmdlet 'Add-ReportCalendarPermissions' uses a plural noun. A singular noun should be used instead.
+PSUseSingularNouns                           316 The cmdlet 'Add-ReportGroupMembers' uses a plural noun. A singular noun should be used instead.
+PSUseSingularNouns                           436 The cmdlet 'Add-ReportSendAs' uses a plural noun. A singular noun should be used instead.
+PSUseSingularNouns                           480 The cmdlet 'Add-ReportUnifiedGroups' uses a plural noun. A singular noun should be used instead.
+PSUseSingularNouns                           525 The cmdlet 'Add-ReportResources' uses a plural noun. A singular noun should be used instead.
+PSUseSingularNouns                           858 The cmdlet 'Export-ReportResults' uses a plural noun. A singular noun should be used instead.
+
+

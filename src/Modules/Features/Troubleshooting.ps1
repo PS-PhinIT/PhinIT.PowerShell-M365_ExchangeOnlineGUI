@@ -293,7 +293,7 @@ $script:exchangeDiagnostics = @(
     },
     @{
         Name = "Exchange Remote PowerShell Drosselungsinformationen"
-        Description = "Bewerten Sie Remote PowerShell Drosselungseinstellungen, um Verbindungsprobleme zu minimieren. Hinweis: RPS wird ab Juli 2023 eingestellt - verwenden Sie REST-API-Cmdlets."
+        Description = "Bewerten Sie Remote PowerShell Drosselungseinstellungen, um Verbindungsprobleme zu minimieren. Hinweis: Remote PowerShell (RPS) wurde eingestellt - verwenden Sie die REST-basierten Cmdlets."
         PowerShellCheck = "Get-ExchangeThrottlingInfo -InfoType 'PowerShell'"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/settings"
         Tooltip = "Remote PowerShell Drosselungseinstellungen überprüfen"
@@ -556,9 +556,9 @@ $script:exchangeDiagnostics = @(
     },
     @{
         Name = "Exchange Online PowerShell-Modul-Diagnose"
-        Description = "Überprüfen Sie die installierte Version des Exchange Online PowerShell-Moduls und prüfen Sie auf Updates. Wichtig: RPS wird ab Juli 2023 eingestellt."
+        Description = "Überprüfen Sie die installierte Version des Exchange Online PowerShell-Moduls und prüfen Sie auf Updates. Remote PowerShell (RPS) wurde eingestellt - es werden nur REST-basierte Verbindungen (Modul ab Version 3) unterstützt."
         PowerShellCheck = "Get-InstalledModule ExchangeOnlineManagement | Select-Object Name, Version; Get-Module ExchangeOnlineManagement -ListAvailable | Select-Object Name, Version"
-        AdminCenterLink = "https://docs.microsoft.com/powershell/exchange/exchange-online-powershell-v2"
+        AdminCenterLink = "https://learn.microsoft.com/powershell/exchange/exchange-online-powershell-v2"
         Tooltip = "Exchange Online PowerShell-Dokumentation öffnen"
     },
     @{
@@ -765,9 +765,9 @@ function Start-ExchangeDiagnostic {
             $result += "1. Das verwendete Cmdlet ist in modernen Exchange Online PowerShell-Verbindungen nicht mehr verfügbar.`n"
             $result += "2. Sie benötigen möglicherweise zusätzliche Berechtigungen.`n"
             $result += "3. Die Exchange Online Verbindung wurde getrennt oder ist eingeschränkt.`n"
-            $result += "4. RPS (Remote PowerShell) wird ab Juli 2023 eingestellt - verwenden Sie REST-API-Cmdlets.`n`n"
+            $result += "4. Remote PowerShell (RPS) wurde eingestellt - verwenden Sie die REST-basierten Cmdlets.`n`n"
             $result += "Empfehlung: Aktualisieren Sie auf Exchange Online PowerShell V3 und verwenden Sie Connect-ExchangeOnline ohne -UseRPSSession.`n"
-            $result += "Weitere Informationen: https://m365scripts.com/news/rps-remote-powershell-retirement-in-exchange-online/"
+            $result += "Weitere Informationen: https://learn.microsoft.com/powershell/exchange/exchange-online-powershell-v2"
         }
         elseif ($errorMsg -like "*Benutzer nicht gefunden*" -or $errorMsg -like "*user not found*") {
             $result += "Der angegebene Benutzer konnte nicht gefunden werden. Mögliche Ursachen:`n"

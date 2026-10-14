@@ -1,0 +1,13 @@
+
+RuleName                                    Line Message
+--------                                    ---- -------
+PSAvoidUsingComputerNameHardcoded            246 The ComputerName parameter of cmdlet 'Test-Connection' is hardcoded. This will expose sensitive information about the system if the script is shared.
+PSAvoidUsingComputerNameHardcoded            265 The ComputerName parameter of cmdlet 'Test-NetConnection' is hardcoded. This will expose sensitive information about the system if the script is shared.
+PSUseDeclaredVarsMoreThanAssignments         464 The variable 'retentionPolicies' is assigned but never used.
+PSUseDeclaredVarsMoreThanAssignments         477 The variable 'dlpPolicies' is assigned but never used.
+PSUseShouldProcessForStateChangingFunctions  164 Function 'Start-ExchangeHealthCheck' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'.
+PSUseSingularNouns                           510 The cmdlet 'Test-SecurityServices' uses a plural noun. A singular noun should be used instead.
+PSUseProcessBlockForPipelineCommand           17 Command accepts pipeline input but has not defined a process block.
+PSUseProcessBlockForPipelineCommand          105 Command accepts pipeline input but has not defined a process block.
+
+

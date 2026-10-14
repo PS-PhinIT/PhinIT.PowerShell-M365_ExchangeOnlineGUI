@@ -208,9 +208,8 @@ function Initialize-TabNavigation {
                 
                 if ($null -ne $targetTabItem) {
                     $button.Add_Click({
-                        param($sender, $e)
+                        param($clickedButton)
                         try {
-                            $clickedButton = $sender
                             $buttonName = $clickedButton.Name
                             $targetTabName = $script:tabMapping[$buttonName]
                             
@@ -274,7 +273,7 @@ function Initialize-ApplicationUI {
             Write-Log "Dashboard-Tab oder Haupt-TabControl nicht gefunden. Kann Startansicht nicht festlegen." -Type "Warning"
         }
 
-        # 3. Asynchrone Initialisierung der restlichen Tabs über Background-Job starten
+        # 3. Restliche Tabs nachgelagert initialisieren (Dispatcher-Priorität "Background", gleicher UI-Thread)
         Start-AsyncTabInitialization
         
         return $true
@@ -286,7 +285,6 @@ function Initialize-ApplicationUI {
     }
 }
 
-# Initialisiert die restlichen Tabs im Hintergrund über einen separaten Thread
 # Zentrale Liste aller Tab-Initialisierungen (Name -> Funktion), von
 # Initialize-RemainingTabs und Start-AsyncTabInitialization gemeinsam genutzt.
 $script:TabInitializers = [ordered]@{
@@ -381,11 +379,11 @@ function Start-AsyncTabInitialization {
     try {
         Write-Log "Starte asynchrone Tab-Initialisierung..." -Type "Info"
         
-        # Statt Runspace verwenden wir die echte Initialisierung direkt
-        # aber in einem Background-Thread über Dispatcher
+        # Kein Runspace/Thread: Die Initialisierung läuft im UI-Thread mit niedriger Dispatcher-Priorität,
+        # damit das Fenster zuerst gezeichnet wird und bedienbar bleibt.
         $script:Form.Dispatcher.BeginInvoke([Action]{
             try {
-                Write-Log "Beginne synchrone Tab-Initialisierung im Hintergrund..." -Type "Debug"
+                Write-Log "Beginne nachgelagerte Tab-Initialisierung..." -Type "Debug"
                 
                 $results = Invoke-TabInitializers
                 

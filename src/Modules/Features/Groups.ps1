@@ -7,245 +7,6 @@
 # Nicht direkt ausführen.
 # =====================================================================
 
-function Remove-DistributionGroupAction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$GroupName
-    )
-    
-    try {
-        Write-Log  "Lösche Gruppe: $GroupName" -Type "Info"
-        
-        # Prüfen, welcher Gruppentyp vorliegt
-        $isUnifiedGroup = $false
-        try {
-            $group = Get-UnifiedGroup -Identity $GroupName -ErrorAction SilentlyContinue
-            if ($null -ne $group) {
-                $isUnifiedGroup = $true
-            }
-        }
-        catch {
-            $isUnifiedGroup = $false
-        }
-        
-        # Je nach Gruppentyp die passende Funktion aufrufen
-        if ($isUnifiedGroup) {
-            Remove-UnifiedGroup -Identity $GroupName -Confirm:$false -ErrorAction Stop
-            Write-Log  "Microsoft 365-Gruppe $GroupName erfolgreich gelöscht" -Type "Success"
-        }
-        else {
-            Remove-DistributionGroup -Identity $GroupName -Confirm:$false -ErrorAction Stop
-            Write-Log  "Verteilerliste/Sicherheitsgruppe $GroupName erfolgreich gelöscht" -Type "Success"
-        }
-        
-        Log-Action "Gruppe $GroupName wurde gelöscht"
-        
-        # Status aktualisieren
-        if ($null -ne $txtStatus) {
-            $txtStatus.Text = "Gruppe $GroupName erfolgreich gelöscht."
-        }
-        
-        return $true
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Löschen der Gruppe: $errorMsg" -Type "Error"
-        Log-Action "Fehler beim Löschen der Gruppe $GroupName - $errorMsg"
-        
-        # Status aktualisieren
-        if ($null -ne $txtStatus) {
-            $txtStatus.Text = "Fehler beim Löschen der Gruppe: $errorMsg"
-        }
-        
-        return $false
-    }
-}
-
-function Add-GroupMemberAction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$GroupName,
-        
-        [Parameter(Mandatory = $true)]
-        [string]$MemberIdentity
-    )
-    
-    try {
-        Write-Log  "Füge $MemberIdentity zu Gruppe $GroupName hinzu" -Type "Info"
-        
-        # Prüfen, welcher Gruppentyp vorliegt
-        $isUnifiedGroup = $false
-        try {
-            $group = Get-UnifiedGroup -Identity $GroupName -ErrorAction SilentlyContinue
-            if ($null -ne $group) {
-                $isUnifiedGroup = $true
-            }
-        }
-        catch {
-            $isUnifiedGroup = $false
-        }
-        
-        # Je nach Gruppentyp die passende Funktion aufrufen
-        if ($isUnifiedGroup) {
-            Add-UnifiedGroupLinks -Identity $GroupName -LinkType Members -Links $MemberIdentity -ErrorAction Stop
-            Write-Log  "$MemberIdentity erfolgreich zur Microsoft 365-Gruppe $GroupName hinzugefügt" -Type "Success"
-        }
-        else {
-            Add-DistributionGroupMember -Identity $GroupName -Member $MemberIdentity -ErrorAction Stop
-            Write-Log  "$MemberIdentity erfolgreich zur Gruppe $GroupName hinzugefügt" -Type "Success"
-        }
-        
-        Log-Action "Benutzer $MemberIdentity zur Gruppe $GroupName hinzugefügt"
-        
-        # Status aktualisieren
-        if ($null -ne $txtStatus) {
-            $txtStatus.Text = "Benutzer $MemberIdentity erfolgreich zur Gruppe hinzugefügt."
-        }
-        
-        return $true
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Hinzufügen des Benutzers zur Gruppe: $errorMsg" -Type "Error"
-        Log-Action "Fehler beim Hinzufügen von $MemberIdentity zu $GroupName - $errorMsg"
-        
-        # Status aktualisieren
-        if ($null -ne $txtStatus) {
-            $txtStatus.Text = "Fehler beim Hinzufügen des Benutzers zur Gruppe: $errorMsg"
-        }
-        
-        return $false
-    }
-}
-
-function Remove-GroupMemberAction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$GroupName,
-        
-        [Parameter(Mandatory = $true)]
-        [string]$MemberIdentity
-    )
-    
-    try {
-        Write-Log  "Entferne $MemberIdentity aus Gruppe $GroupName" -Type "Info"
-        
-        # Prüfen, welcher Gruppentyp vorliegt
-        $isUnifiedGroup = $false
-        try {
-            $group = Get-UnifiedGroup -Identity $GroupName -ErrorAction SilentlyContinue
-            if ($null -ne $group) {
-                $isUnifiedGroup = $true
-            }
-        }
-        catch {
-            $isUnifiedGroup = $false
-        }
-        
-        # Je nach Gruppentyp die passende Funktion aufrufen
-        if ($isUnifiedGroup) {
-            Remove-UnifiedGroupLinks -Identity $GroupName -LinkType Members -Links $MemberIdentity -Confirm:$false -ErrorAction Stop
-            Write-Log  "$MemberIdentity erfolgreich aus Microsoft 365-Gruppe $GroupName entfernt" -Type "Success"
-        }
-        else {
-            Remove-DistributionGroupMember -Identity $GroupName -Member $MemberIdentity -Confirm:$false -ErrorAction Stop
-            Write-Log  "$MemberIdentity erfolgreich aus Gruppe $GroupName entfernt" -Type "Success"
-        }
-        
-        Log-Action "Benutzer $MemberIdentity aus Gruppe $GroupName entfernt"
-        
-        # Status aktualisieren
-        if ($null -ne $txtStatus) {
-            $txtStatus.Text = "Benutzer $MemberIdentity erfolgreich aus Gruppe entfernt."
-        }
-        
-        return $true
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Entfernen des Benutzers aus der Gruppe: $errorMsg" -Type "Error"
-        Log-Action "Fehler beim Entfernen von $MemberIdentity aus $GroupName - $errorMsg"
-        
-        # Status aktualisieren
-        if ($null -ne $txtStatus) {
-            $txtStatus.Text = "Fehler beim Entfernen des Benutzers aus der Gruppe: $errorMsg"
-        }
-        
-        return $false
-    }
-}
-
-function Create-DistributionGroupAction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
-        
-        [Parameter(Mandatory = $false)]
-        [string]$Alias,
-        
-        [Parameter(Mandatory = $true)]
-        [string]$Type, # 'Distribution' or 'Security'
-        
-        [Parameter(Mandatory = $false)]
-        [string]$Notes,
-
-        [Parameter(Mandatory = $false)]
-        [switch]$RequireSenderAuthentication
-    )
-    
-    try {
-        Write-Log "Erstelle neue Gruppe: $Name (Typ: $Type)" -Type "Info"
-        
-        # Parameter für die Gruppenerstellung vorbereiten
-        $params = @{
-            Name = $Name
-            Type = $Type
-            RequireSenderAuthenticationEnabled = $RequireSenderAuthentication
-            ErrorAction = "Stop"
-        }
-        
-        if (-not [string]::IsNullOrEmpty($Alias)) {
-            $params.Add("Alias", $Alias)
-        }
-        
-        if (-not [string]::IsNullOrEmpty($Notes)) {
-            $params.Add("Notes", $Notes)
-        }
-        
-        # Gruppe erstellen
-        $newGroup = New-DistributionGroup @params
-        
-        Write-Log "Gruppe '$($newGroup.DisplayName)' erfolgreich erstellt." -Type "Success"
-        Log-Action "Gruppe '$($newGroup.DisplayName)' (Typ: $Type) wurde erstellt."
-        
-        # Status aktualisieren
-        if ($null -ne $script:txtStatus) {
-            Update-GuiText -TextElement $script:txtStatus -Message "Gruppe '$($newGroup.DisplayName)' erfolgreich erstellt."
-        }
-        
-        return $newGroup
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log "Fehler beim Erstellen der Gruppe: $errorMsg" -Type "Error"
-        Log-Action "Fehler beim Erstellen der Gruppe '$Name': $errorMsg"
-        
-        # Status aktualisieren
-        if ($null -ne $script:txtStatus) {
-            Update-GuiText -TextElement $script:txtStatus -Message "Fehler beim Erstellen der Gruppe: $errorMsg"
-        }
-        
-        # Zeige Fehlermeldung an den Benutzer
-        Show-MessageBox -Message "Fehler beim Erstellen der Gruppe: $errorMsg" -Title "Fehler" -Type "Error"
-        
-        return $null
-    }
-}
-
 # Funktion zum Abrufen aller relevanten Exchange-Gruppentypen
 function Get-AllGroupTypesAction {
     [CmdletBinding()]
@@ -350,13 +111,13 @@ function Refresh-ExistingGroupsDropdown {
         
         Start-UIBusy -Message "Lade Gruppen..." -Title "Gruppenliste aktualisieren"
         try {
-            $groups = Get-AllGroupTypesAction # Diese Funktion hat bereits Logging und Status-Updates
+            $groups = @(Get-AllGroupTypesAction) # Diese Funktion hat bereits Logging und Status-Updates
         }
         finally {
             Stop-UIBusy
         }
 
-        if ($null -ne $groups -and $groups.Count -gt 0) {
+        if ($groups.Count -gt 0) {
             foreach ($group in $groups) {
                 $item = New-Object System.Windows.Controls.ComboBoxItem
                 $item.Content = $group.DisplayName
@@ -394,288 +155,7 @@ function Refresh-ExistingGroupsDropdown {
     }
 }
 
-function Get-GroupMembersAction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$GroupName
-    )
-    
-    try {
-        Write-Log  "Rufe Mitglieder der Gruppe $GroupName ab" -Type "Info"
-        
-        # Prüfen, welcher Gruppentyp vorliegt
-        $isUnifiedGroup = $false
-        try {
-            $group = Get-UnifiedGroup -Identity $GroupName -ErrorAction SilentlyContinue
-            if ($null -ne $group) {
-                $isUnifiedGroup = $true
-                $groupObj = $group
-            }
-        }
-        catch {
-            $isUnifiedGroup = $false
-            try {
-                $groupObj = Get-DistributionGroup -Identity $GroupName -ErrorAction Stop
-            }
-            catch {
-                throw "Gruppe $GroupName nicht gefunden."
-            }
-        }
-        
-        # Je nach Gruppentyp die passende Funktion aufrufen
-        if ($isUnifiedGroup) {
-            $members = Get-UnifiedGroupLinks -Identity $GroupName -LinkType Members -ResultSize Unlimited -ErrorAction Stop
-        }
-        else {
-            $members = Get-DistributionGroupMember -Identity $GroupName -ResultSize Unlimited -ErrorAction Stop
-        }
-        
-        # Objekte für die DataGrid-Anzeige aufbereiten
-        $memberList = New-Object 'System.Collections.Generic.List[object]'
-        foreach ($member in $members) {
-            $memberObj = [PSCustomObject]@{
-                DisplayName = $member.DisplayName
-                PrimarySmtpAddress = $member.PrimarySmtpAddress
-                RecipientType = $member.RecipientType
-                HiddenFromAddressListsEnabled = $member.HiddenFromAddressListsEnabled
-            }
-            $memberList.Add($memberObj)
-        }
-        
-        Write-Log  "Mitglieder der Gruppe $GroupName erfolgreich abgerufen: $($memberList.Count)" -Type "Success"
-        
-        return $memberList
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Abrufen der Gruppenmitglieder: $errorMsg" -Type "Error"
-        Log-Action "Fehler beim Abrufen der Mitglieder von $GroupName - $errorMsg"
-        
-        # Status aktualisieren
-        if ($null -ne $txtStatus) {
-            $txtStatus.Text = "Fehler beim Abrufen der Gruppenmitglieder: $errorMsg"
-        }
-        
-        return @()
-    }
-}
-
-function Get-GroupSettingsAction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$GroupName
-    )
-    
-    try {
-        Write-Log  "Rufe Einstellungen der Gruppe $GroupName ab" -Type "Info"
-        
-        # Prüfen, welcher Gruppentyp vorliegt
-        $isUnifiedGroup = $false
-        try {
-            $group = Get-UnifiedGroup -Identity $GroupName -ErrorAction SilentlyContinue
-            if ($null -ne $group) {
-                $isUnifiedGroup = $true
-                return $group
-            }
-        }
-        catch {
-            $isUnifiedGroup = $false
-        }
-        
-        # Für normale Verteilerlisten/Sicherheitsgruppen
-        $group = Get-DistributionGroup -Identity $GroupName -ErrorAction Stop
-        return $group
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Abrufen der Gruppeneinstellungen: $errorMsg" -Type "Error"
-        Log-Action "Fehler beim Abrufen der Einstellungen von $GroupName - $errorMsg"
-        return $null
-    }
-}
-
-function Update-GroupSettingsAction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$GroupName,
-        
-        [Parameter(Mandatory = $false)]
-        [bool]$HiddenFromAddressListsEnabled,
-        
-        [Parameter(Mandatory = $false)]
-        [bool]$RequireSenderAuthenticationEnabled,
-        
-        [Parameter(Mandatory = $false)]
-        [bool]$AllowExternalSenders
-    )
-    
-    try {
-        # Validierung der Eingabeparameter
-        if ([string]::IsNullOrWhiteSpace($GroupName)) {
-            throw "Der Parameter 'Identity' darf nicht leer sein."
-        }
-
-        Write-Log "Aktualisiere Einstellungen für Gruppe $GroupName" -Type "Info"
-        
-        # Prüfen, welcher Gruppentyp vorliegt
-        $isUnifiedGroup = $false
-        try {
-            $group = Get-ExoUnifiedGroup -Identity $GroupName -ErrorAction Stop
-            if ($null -ne $group) {
-                $isUnifiedGroup = $true
-                
-                # Parameter für das Update vorbereiten
-                $params = @{
-                    Identity = $GroupName
-                    HiddenFromAddressListsEnabled = $HiddenFromAddressListsEnabled
-                }
-                
-                # Microsoft 365-Gruppe aktualisieren
-                Set-UnifiedGroup @params -ErrorAction Stop
-                
-                # AllowExternalSenders für Microsoft 365-Gruppen setzen
-                Set-UnifiedGroup -Identity $GroupName -AcceptMessagesOnlyFromSendersOrMembers $(-not $AllowExternalSenders) -ErrorAction Stop
-                
-                Write-Log "Microsoft 365-Gruppe $GroupName erfolgreich aktualisiert" -Type "Success"
-            }
-        }
-        catch {
-            Write-Log "Gruppe $GroupName ist keine Microsoft 365-Gruppe, versuche als Verteilerliste" -Type "Info"
-            $isUnifiedGroup = $false
-        }
-        
-        if (-not $isUnifiedGroup) {
-            # Prüfen ob die Gruppe als Verteilerliste existiert
-            $distributionGroup = Get-DistributionGroup -Identity $GroupName -ErrorAction Stop
-            
-            if ($null -eq $distributionGroup) {
-                throw "Gruppe $GroupName wurde nicht gefunden"
-            }
-
-            # Parameter für das Update vorbereiten
-            $params = @{
-                Identity = $GroupName
-                HiddenFromAddressListsEnabled = $HiddenFromAddressListsEnabled
-                RequireSenderAuthenticationEnabled = $RequireSenderAuthenticationEnabled
-            }
-            
-            # Verteilerliste/Sicherheitsgruppe aktualisieren
-            Set-DistributionGroup @params -ErrorAction Stop
-            
-            # AcceptMessagesOnlyFromSendersOrMembers für normale Gruppen setzen
-            if (-not $AllowExternalSenders) {
-                Set-DistributionGroup -Identity $GroupName -AcceptMessagesOnlyFromSendersOrMembers @() -ErrorAction Stop
-            } else {
-                Set-DistributionGroup -Identity $GroupName -AcceptMessagesOnlyFrom $null -ErrorAction Stop
-            }
-            
-            Write-Log "Gruppe $GroupName erfolgreich aktualisiert" -Type "Success"
-        }
-        
-        Log-Action "Einstellungen für Gruppe $GroupName aktualisiert"
-        
-        # Status aktualisieren
-        if ($null -ne $txtStatus) {
-            $txtStatus.Text = "Gruppeneinstellungen für $GroupName erfolgreich aktualisiert."
-        }
-        
-        return $true
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log "Fehler beim Aktualisieren der Gruppeneinstellungen: $errorMsg" -Type "Error"
-        Log-Action "Fehler beim Aktualisieren der Einstellungen von $GroupName - $errorMsg"
-        
-        # Status aktualisieren
-        if ($null -ne $txtStatus) {
-            $txtStatus.Text = "Fehler beim Aktualisieren der Gruppeneinstellungen: $errorMsg"
-        }
-        
-        return $false
-    }
-}
-
 #endregion EXOSettings Main Functions
-
-function Get-ExoDistributionGroup {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Identity
-    )
-
-    Write-Log "Get-ExoDistributionGroup: Aktion gestartet für Identity '$Identity'." -Type Info
-    Update-StatusBar -Message "Rufe Verteilergruppe '$Identity' ab..." -Type Info
-
-    try {
-        if (-not $script:isConnected) {
-            Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
-            Update-StatusBar -Message "Nicht verbunden." -Type Warning
-            return $null
-        }
-
-        $group = Get-DistributionGroup -Identity $Identity -ErrorAction Stop
-        
-        if ($group) {
-            Write-Log "Get-ExoDistributionGroup: Verteilergruppe '$($group.DisplayName)' (Identity: '$Identity') erfolgreich abgerufen." -Type Success
-            Update-StatusBar -Message "Verteilergruppe '$($group.DisplayName)' erfolgreich abgerufen." -Type Success
-            return $group
-        } else {
-            # Dieser Fall sollte durch ErrorAction Stop eigentlich nicht eintreten, aber zur Sicherheit
-            Write-Log "Get-ExoDistributionGroup: Verteilergruppe mit Identity '$Identity' nicht gefunden (nach Get-DistributionGroup Aufruf)." -Type Warning
-            Update-StatusBar -Message "Verteilergruppe '$Identity' nicht gefunden." -Type Warning
-            return $null
-        }
-
-    } catch {
-        $errMsg = $_.Exception.Message
-        Write-Log "Get-ExoDistributionGroup: Fehler beim Abrufen der Verteilergruppe '$Identity': $errMsg" -Type Error
-        Update-StatusBar -Message "Fehler beim Abrufen der Verteilergruppe '$Identity'." -Type Error
-        return $null
-    }
-}
-
-function Get-ExoDynamicDistributionGroup {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Identity
-    )
-
-    Write-Log "Get-ExoDynamicDistributionGroup: Aktion gestartet für Identity '$Identity'." -Type Info
-    Update-StatusBar -Message "Rufe dynamische Verteilergruppe '$Identity' ab..." -Type Info
-
-    try {
-        if (-not $script:isConnected) {
-            Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
-            Update-StatusBar -Message "Nicht verbunden." -Type Warning
-            return $null
-        }
-
-        $group = Get-DynamicDistributionGroup -Identity $Identity -ErrorAction Stop
-        
-        if ($group) {
-            Write-Log "Get-ExoDynamicDistributionGroup: Dynamische Verteilergruppe '$($group.DisplayName)' (Identity: '$Identity') erfolgreich abgerufen." -Type Success
-            Update-StatusBar -Message "Dynamische Verteilergruppe '$($group.DisplayName)' erfolgreich abgerufen." -Type Success
-            return $group
-        } else {
-            # Dieser Fall sollte durch ErrorAction Stop eigentlich nicht eintreten, aber zur Sicherheit
-            Write-Log "Get-ExoDynamicDistributionGroup: Dynamische Verteilergruppe mit Identity '$Identity' nicht gefunden (nach Get-DynamicDistributionGroup Aufruf)." -Type Warning
-            Update-StatusBar -Message "Dynamische Verteilergruppe '$Identity' nicht gefunden." -Type Warning
-            return $null
-        }
-
-    } catch {
-        $errMsg = $_.Exception.Message
-        Write-Log "Get-ExoDynamicDistributionGroup: Fehler beim Abrufen der dynamischen Verteilergruppe '$Identity': $errMsg" -Type Error
-        Update-StatusBar -Message "Fehler beim Abrufen der dynamischen Verteilergruppe '$Identity'." -Type Error
-        return $null
-    }
-}
 
 function Get-ExoUnifiedGroup {
     [CmdletBinding()]
@@ -820,109 +300,6 @@ function Get-ExoGroupRecipientAction {
     catch {
         $errorMsg = $_.Exception.Message
         Write-Log "Get-ExoGroupRecipientAction: Allgemeiner Fehler beim Abrufen der Gruppe '$Identity': $errorMsg" -Type "Error"
-        return $null
-    }
-}
-
-function Get-ExoGroupSettingsAction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Identity # Erwartet wird $groupObject.Identity oder eine ähnliche eindeutige ID
-    )
-
-    Write-Log "Get-ExoGroupSettingsAction: Aktion gestartet für Identity '$Identity'." -Type Info
-    Update-StatusBar -Message "Lade Gruppeneinstellungen für '$Identity'..." -Type Info 
-
-    $groupObjectForDetails = $null # Um Verwechslung mit $groupObject im Catch-Block zu vermeiden, falls es aus UI kommt
-
-    try {
-        if (-not $script:isConnected) {
-            Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
-            Update-StatusBar -Message "Nicht verbunden." -Type Warning
-            return $null
-        }
-
-        # Das Gruppenobjekt basierend auf der übergebenen Identity abrufen, um RecipientTypeDetails und DisplayName zu bestimmen
-        # Get-ExoGroupRecipientAction ist eine angenommene Hilfsfunktion, die verschiedene Gruppentypen handhaben kann
-        $groupObjectForDetails = Get-ExoGroupRecipientAction -Identity $Identity
-        if ($null -eq $groupObjectForDetails) {
-            Write-Log "Get-ExoGroupSettingsAction: Gruppe mit Identity '$Identity' nicht gefunden oder Typ konnte nicht ermittelt werden." -Type Warning
-            Show-MessageBox -Message "Gruppe '$Identity' nicht gefunden. Einstellungen können nicht geladen werden." -Title "Aktion fehlgeschlagen" -Type Warning
-            Update-StatusBar -Message "Gruppe '$Identity' nicht gefunden." -Type Warning
-            return $null
-        }
-        
-        $groupDisplayName = $groupObjectForDetails.DisplayName
-        $recipientType = $groupObjectForDetails.RecipientTypeDetails
-        
-        Write-Log "Get-ExoGroupSettingsAction: Rufe Einstellungen für Gruppe '$groupDisplayName' (Identity: '$Identity', Typ: '$recipientType') ab." -Type Info
-        Update-StatusBar -Message "Lade Einstellungen für Gruppe '$groupDisplayName'..." -Type Info
-
-        $detailsFromExo = $null
-        # Die übergebene $Identity (oder die aufgelöste Identity des groupObjectForDetails) für den EXO-Aufruf verwenden
-        $paramsForExoCall = @{ Identity = $groupObjectForDetails.Identity } 
-
-        if ($recipientType -eq "GroupMailbox") { # Microsoft 365 Gruppe
-            $rawExoObject = Get-UnifiedGroup @paramsForExoCall -ErrorAction SilentlyContinue # Fehler hier abfangen
-            if ($rawExoObject) {
-                $detailsFromExo = [PSCustomObject]@{
-                    DisplayName                        = $rawExoObject.DisplayName
-                    HiddenFromAddressListsEnabled      = $rawExoObject.HiddenFromExchangeAddressListsEnabled
-                    RequireSenderAuthenticationEnabled = $rawExoObject.RequireSenderAuthenticationEnabled
-                }
-            }
-        } elseif ($recipientType -in ("MailUniversalDistributionGroup", "MailNonUniversalGroup", "MailUniversalSecurityGroup")) { # Verteilerliste oder E-Mail-aktivierte Sicherheitsgruppe
-            $rawExoObject = Get-DistributionGroup @paramsForExoCall -ErrorAction SilentlyContinue # Fehler hier abfangen
-            if ($rawExoObject) {
-                $detailsFromExo = [PSCustomObject]@{
-                    DisplayName                        = $rawExoObject.DisplayName
-                    HiddenFromAddressListsEnabled      = $rawExoObject.HiddenFromAddressListsEnabled
-                    RequireSenderAuthenticationEnabled = $rawExoObject.RequireSenderAuthenticationEnabled
-                }
-            }
-        } elseif ($recipientType -eq "DynamicDistributionGroup") {
-             $rawExoObject = Get-DynamicDistributionGroup @paramsForExoCall -ErrorAction SilentlyContinue
-             if ($rawExoObject) {
-                $detailsFromExo = [PSCustomObject]@{
-                    DisplayName                        = $rawExoObject.DisplayName
-                    HiddenFromAddressListsEnabled      = $rawExoObject.HiddenFromAddressListsEnabled
-                    RequireSenderAuthenticationEnabled = $rawExoObject.RequireSenderAuthenticationEnabled # Dynamische Gruppen haben dies auch
-                }
-            }
-        } else {
-            Write-Log "Get-ExoGroupSettingsAction: Nicht unterstützter Gruppentyp '$recipientType' für Gruppe '$groupDisplayName' (Identity '$Identity')." -Type Error
-            Show-MessageBox -Message "Der Gruppentyp '$recipientType' für '$groupDisplayName' wird für das Abrufen von Einstellungen nicht unterstützt." -Title "Nicht unterstützter Typ" -Type Warning
-            Update-StatusBar -Message "Nicht unterstützter Gruppentyp: $recipientType" -Type Warning
-            return $null
-        }
-
-        if ($null -eq $detailsFromExo) {
-            Write-Log "Get-ExoGroupSettingsAction: Konnte keine Detailinformationen für Gruppe '$groupDisplayName' (Identity: '$Identity', Typ: '$recipientType') abrufen. EXO-Cmdlet hat nichts zurückgegeben oder ein Fehler ist aufgetreten." -Type Error
-            Show-MessageBox -Message "Keine Detailinformationen für Gruppe '$groupDisplayName' gefunden." -Title "Fehler" -Type Error
-            Update-StatusBar -Message "Keine Details für '$groupDisplayName' gefunden." -Type Error
-            return $null
-        }
-
-        $settingsResult = [PSCustomObject]@{
-            HiddenFromAddressListsEnabled      = [bool]$detailsFromExo.HiddenFromAddressListsEnabled
-            RequireSenderAuthenticationEnabled = [bool]$detailsFromExo.RequireSenderAuthenticationEnabled
-            AllowExternalSenders               = -not ([bool]$detailsFromExo.RequireSenderAuthenticationEnabled) 
-            DisplayName                        = $detailsFromExo.DisplayName
-        }
-
-        Write-Log "Get-ExoGroupSettingsAction: Einstellungen für '$($detailsFromExo.DisplayName)' erfolgreich abgerufen." -Type Success
-        Update-StatusBar -Message "Einstellungen für '$($detailsFromExo.DisplayName)' geladen." -Type Success
-        return $settingsResult
-
-    } catch {
-        $errMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Unbekannter Fehler beim Abrufen der Gruppeneinstellungen."
-        $groupNameForErrorMsg = if ($groupObjectForDetails -and $groupObjectForDetails.DisplayName) { $groupObjectForDetails.DisplayName } else { $Identity }
-        
-        Write-Log "Fehler in Get-ExoGroupSettingsAction für Gruppe '$groupNameForErrorMsg' (Identity: '$Identity'): $errMsg" -Type Error
-        if (Test-Path Function:\Log-Action) { Log-Action "Fehler Get-ExoGroupSettingsAction '$groupNameForErrorMsg': $errMsg" }
-        Show-MessageBox -Message "Fehler beim Abrufen der Einstellungen für Gruppe '$groupNameForErrorMsg':`n$($_.Exception.Message)" -Title "Fehler bei Einstellungen" -Type Error
-        Update-StatusBar -Message "Fehler beim Laden der Einstellungen für '$groupNameForErrorMsg'." -Type Error
         return $null
     }
 }
@@ -1126,13 +503,11 @@ function New-ExoGroupAction {
                         AccessType = "Private"
                         PrimarySmtpAddress = $GroupEmail
                     } + $commonParams
-                    # Notes ist für UnifiedGroup nicht gültig
-                    if ($params.ContainsKey("Notes")) { $params.Remove("Notes") | Out-Null }
-
-                    if (-not [string]::IsNullOrWhiteSpace($Description)) { $params.Description = $Description }
+                    # New-UnifiedGroup: Beschreibung über -Notes, Besitzer über -Owner (genau ein Empfänger)
+                    if (-not [string]::IsNullOrWhiteSpace($Description)) { $params.Notes = $Description }
 
                     if ($PSBoundParameters.ContainsKey('Owner') -and -not [string]::IsNullOrWhiteSpace($Owner)) {
-                        $params.Owners = $Owner
+                        $params.Owner = $Owner
                     } else {
                         try {
                             # Angemeldeten Benutzer (UPN der Exchange-Online-Verbindung) als Owner verwenden.
@@ -1140,7 +515,7 @@ function New-ExoGroupAction {
                             if (-not [string]::IsNullOrWhiteSpace($script:userPrincipalName)) {
                                 $currentUserPrincipalName = Get-User -Identity $script:userPrincipalName -ErrorAction Stop | Select-Object -ExpandProperty UserPrincipalName
                                 if(-not [string]::IsNullOrWhiteSpace($currentUserPrincipalName)){
-                                    $params.Owners = $currentUserPrincipalName
+                                    $params.Owner = $currentUserPrincipalName
                                     Write-Log "New-ExoGroupAction: Aktueller Benutzer '$currentUserPrincipalName' wird als Owner für M365-Gruppe '$GroupName' gesetzt." -Type Info
                                 } else {
                                     Write-Log "New-ExoGroupAction: Owner für M365-Gruppe '$GroupName' konnte nicht aus aktuellem Benutzer '$($script:userPrincipalName)' ermittelt werden." -Type Warning
@@ -1660,7 +1035,7 @@ function Get-ExoGroupMembersAction {
             if ($recipientType -eq "GroupMailbox") {
                 $groupDetailsForSettings = Get-UnifiedGroup -Identity $effectiveIdentityForExo -ErrorAction Stop
                 if ($groupDetailsForSettings) {
-                    $script:chkHiddenFromGAL.IsChecked = $groupDetailsForSettings.HiddenFromExchangeAddressListsEnabled
+                    $script:chkHiddenFromGAL.IsChecked = $groupDetailsForSettings.HiddenFromAddressListsEnabled
                     $script:chkRequireSenderAuth.IsChecked = $groupDetailsForSettings.RequireSenderAuthenticationEnabled
                     $script:chkAllowExternalSenders.IsChecked = (-not $groupDetailsForSettings.RequireSenderAuthenticationEnabled)
                 }
@@ -1784,6 +1159,18 @@ function Initialize-GroupsTab {
             }
             if ($script:cmbGroupType.Items.Count -gt 0) {
                 $script:cmbGroupType.SelectedIndex = 0 
+            }
+        }
+
+        # Beide Checkboxen bilden RequireSenderAuthenticationEnabled ab (invertiert) und werden bei
+        # Benutzereingaben synchron gehalten. Click statt Checked/Unchecked, damit das programmatische
+        # Setzen beim Laden/Zurücksetzen keine Rückkopplung auslöst.
+        if ($null -ne $script:chkRequireSenderAuth -and $null -ne $script:chkAllowExternalSenders) {
+            $null = Register-EventHandler -Control $script:chkRequireSenderAuth -ControlName "chkRequireSenderAuth" -Handler {
+                $script:chkAllowExternalSenders.IsChecked = -not [bool]$script:chkRequireSenderAuth.IsChecked
+            }
+            $null = Register-EventHandler -Control $script:chkAllowExternalSenders -ControlName "chkAllowExternalSenders" -Handler {
+                $script:chkRequireSenderAuth.IsChecked = -not [bool]$script:chkAllowExternalSenders.IsChecked
             }
         }
 
@@ -2114,7 +1501,13 @@ function Initialize-GroupsTab {
                     # Benutzer aus Gruppe entfernen mit ErrorAction Stop
                     $removeResult = Remove-ExoGroupMemberAction -GroupIdentity $groupIdentity -UserIdentity $userEmail -ErrorAction Stop
 
-                    # Wenn wir hier ankommen, war die Operation erfolgreich (sonst wäre eine Exception geworfen worden)
+                    # $false ohne Exception: Gruppe nicht gefunden, dynamische/nicht unterstützte Gruppe oder abgebrochen.
+                    # Statusleiste bzw. Meldung wurden bereits in Remove-ExoGroupMemberAction gesetzt.
+                    if (-not $removeResult) {
+                        Write-Log "Benutzer '$userEmail' wurde nicht aus Gruppe '$($groupObject.DisplayName)' entfernt." -Type "Warning"
+                        return
+                    }
+
                     $successMsg = "Benutzer '$userEmail' aus Gruppe '$($groupObject.DisplayName)' entfernt."
                     Update-StatusBar -Message $successMsg -Type Success
                     Write-Log $successMsg -Type "Success"
@@ -2170,11 +1563,14 @@ function Initialize-GroupsTab {
                     if ($script:chkHiddenFromGAL.IsEnabled -and $null -ne $script:chkHiddenFromGAL.IsChecked) {
                         $settingsParams.HiddenFromAddressListsEnabled = [bool]$script:chkHiddenFromGAL.IsChecked
                     }
+                    # "Absender-Authentifizierung" und "Externe Absender zulassen" sind dieselbe Exchange-Einstellung
+                    # (RequireSenderAuthenticationEnabled, invertiert). Die Checkboxen werden per Click-Handler
+                    # synchron gehalten; übergeben wird nur ein Wert, damit keine Checkbox die andere überschreibt.
                     if ($script:chkRequireSenderAuth.IsEnabled -and $null -ne $script:chkRequireSenderAuth.IsChecked) {
                         $settingsParams.RequireSenderAuthenticationEnabled = [bool]$script:chkRequireSenderAuth.IsChecked
                     }
-                    if ($script:chkAllowExternalSenders.IsEnabled -and $null -ne $script:chkAllowExternalSenders.IsChecked) {
-                        $settingsParams.AllowExternalSenders = [bool]$script:chkAllowExternalSenders.IsChecked
+                    elseif ($script:chkAllowExternalSenders.IsEnabled -and $null -ne $script:chkAllowExternalSenders.IsChecked) {
+                        $settingsParams.RequireSenderAuthenticationEnabled = -not [bool]$script:chkAllowExternalSenders.IsChecked
                     }
 
                     # Prüfen ob überhaupt Parameter zum Aktualisieren vorhanden sind

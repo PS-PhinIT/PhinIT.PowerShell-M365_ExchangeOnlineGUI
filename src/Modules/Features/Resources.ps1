@@ -36,11 +36,6 @@ function New-ResourceAction {
             ResourceCapacity = if ([string]::IsNullOrEmpty($Capacity)) { $null } else { [int]$Capacity }
         }
         
-        # Standort hinzufügen, wenn angegeben
-        if (-not [string]::IsNullOrEmpty($Location)) {
-            $params.Add("Location", $Location)
-        }
-        
         # Ressource basierend auf Typ erstellen
         if ($ResourceType -eq "Room") {
             $result = New-Mailbox -Room @params -ErrorAction Stop

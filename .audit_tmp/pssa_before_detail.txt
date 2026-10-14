@@ -1,0 +1,42 @@
+Security.ps1:528 PSAvoidUsingEmptyCatchBlock Empty catch block is used. Please use Write-Error or throw statements in catch blocks.
+Security.ps1:1496 PSAvoidUsingEmptyCatchBlock Empty catch block is used. Please use Write-Error or throw statements in catch blocks.
+Security.ps1:1325 PSUseApprovedVerbs The cmdlet 'Release-QuarantineMessageAction' uses an unapproved verb.
+Security.ps1:1371 PSUseApprovedVerbs The cmdlet 'Delete-QuarantineMessageAction' uses an unapproved verb.
+Security.ps1:28 PSUseShouldProcessForStateChangingFunctions Function 'New-AntiPhishingPolicyAction' has verb that could change system state. Therefore, the func
+Security.ps1:160 PSUseShouldProcessForStateChangingFunctions Function 'Set-AntiPhishingPolicyAction' has verb that could change system state. Therefore, the func
+Security.ps1:377 PSUseShouldProcessForStateChangingFunctions Function 'New-SafeAttachmentPolicyAction' has verb that could change system state. Therefore, the fu
+Security.ps1:509 PSUseShouldProcessForStateChangingFunctions Function 'Set-SafeAttachmentPolicyAction' has verb that could change system state. Therefore, the fu
+Security.ps1:779 PSUseShouldProcessForStateChangingFunctions Function 'New-SafeLinksPolicyAction' has verb that could change system state. Therefore, the functio
+Security.ps1:934 PSUseShouldProcessForStateChangingFunctions Function 'Set-SafeLinksPolicyAction' has verb that could change system state. Therefore, the functio
+MobileDevices.ps1:286 PSUseApprovedVerbs The cmdlet 'Allow-QuarantinedDeviceAction' uses an unapproved verb.
+MobileDevices.ps1:414 PSAvoidAssignmentToAutomaticVariable The Variable 'sender' is an automatic variable that is built into PowerShell, assigning to it might 
+MobileDevices.ps1:52 PSUseShouldProcessForStateChangingFunctions Function 'New-MobileDevicePolicyAction' has verb that could change system state. Therefore, the func
+MobileDevices.ps1:256 PSUseShouldProcessForStateChangingFunctions Function 'Set-MobileDeviceAccessState' has verb that could change system state. Therefore, the funct
+MobileDevices.ps1:414 PSReviewUnusedParameter The parameter 'e' has been declared but not used.
+OrganizationSettings.ps1:364 PSAvoidUsingEmptyCatchBlock Empty catch block is used. Please use Write-Error or throw statements in catch blocks.
+OrganizationSettings.ps1:365 PSAvoidUsingEmptyCatchBlock Empty catch block is used. Please use Write-Error or throw statements in catch blocks.
+OrganizationSettings.ps1:182 PSAvoidAssignmentToAutomaticVariable The Variable 'sender' is an automatic variable that is built into PowerShell, assigning to it might 
+OrganizationSettings.ps1:198 PSAvoidAssignmentToAutomaticVariable The Variable 'sender' is an automatic variable that is built into PowerShell, assigning to it might 
+OrganizationSettings.ps1:286 PSAvoidAssignmentToAutomaticVariable The Variable 'sender' is an automatic variable that is built into PowerShell, assigning to it might 
+OrganizationSettings.ps1:710 PSUseShouldProcessForStateChangingFunctions Function 'Set-CustomOrganizationConfig' has verb that could change system state. Therefore, the func
+OrganizationSettings.ps1:914 PSUseShouldProcessForStateChangingFunctions Function 'Set-EXOSettingsDebugLogging' has verb that could change system state. Therefore, the funct
+OrganizationSettings.ps1:167 PSUseSingularNouns The cmdlet 'Initialize-OrganizationConfigControls' uses a plural noun. A singular noun should be use
+OrganizationSettings.ps1:182 PSReviewUnusedParameter The parameter 'e' has been declared but not used.
+OrganizationSettings.ps1:198 PSReviewUnusedParameter The parameter 'e' has been declared but not used.
+OrganizationSettings.ps1:286 PSReviewUnusedParameter The parameter 'e' has been declared but not used.
+RegionSettings.ps1:1240 PSAvoidAssignmentToAutomaticVariable The Variable 'sender' is an automatic variable that is built into PowerShell, assigning to it might 
+RegionSettings.ps1:698 PSPossibleIncorrectComparisonWithNull $null should be on the left side of equality comparisons.
+RegionSettings.ps1:698 PSPossibleIncorrectComparisonWithNull $null should be on the left side of equality comparisons.
+RegionSettings.ps1:756 PSPossibleIncorrectComparisonWithNull $null should be on the left side of equality comparisons.
+RegionSettings.ps1:756 PSPossibleIncorrectComparisonWithNull $null should be on the left side of equality comparisons.
+RegionSettings.ps1:835 PSPossibleIncorrectComparisonWithNull $null should be on the left side of equality comparisons.
+RegionSettings.ps1:835 PSPossibleIncorrectComparisonWithNull $null should be on the left side of equality comparisons.
+RegionSettings.ps1:898 PSPossibleIncorrectComparisonWithNull $null should be on the left side of equality comparisons.
+RegionSettings.ps1:898 PSPossibleIncorrectComparisonWithNull $null should be on the left side of equality comparisons.
+RegionSettings.ps1:686 PSUseApprovedVerbs The cmdlet 'Populate-TimeFormatComboBox' uses an unapproved verb.
+RegionSettings.ps1:746 PSUseApprovedVerbs The cmdlet 'Populate-LanguageComboBox' uses an unapproved verb.
+RegionSettings.ps1:822 PSUseApprovedVerbs The cmdlet 'Populate-DateFormatComboBox' uses an unapproved verb.
+RegionSettings.ps1:886 PSUseApprovedVerbs The cmdlet 'Populate-TimezoneComboBox' uses an unapproved verb.
+RegionSettings.ps1:1240 PSReviewUnusedParameter The parameter 'e' has been declared but not used.
+RegionSettings.ps1:980 PSUseSingularNouns The cmdlet 'Get-ExoMailboxRegionalSettings' uses a plural noun. A singular noun should be used inste
+RegionSettings.ps1:1046 PSUseSingularNouns The cmdlet 'Set-ExoMailboxRegionalSettings' uses a plural noun. A singular noun should be used inste

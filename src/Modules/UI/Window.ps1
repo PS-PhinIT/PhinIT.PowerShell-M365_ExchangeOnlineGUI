@@ -22,12 +22,8 @@ function Load-XAML {
         # Lade XAML aus dem übergebenen String
         Write-Log "Lade XAML aus String-Variable..." -Type "Info"
         
-        # Problematische Event-Handler entfernen
-        $xamlString = $XamlContent
-        $xamlString = $xamlString -replace 'SelectionChanged="lstContacts_SelectionChanged"', ''
-        
-        # XML parsen
-        [xml]$xmlContent = $xamlString
+        # XML parsen (Event-Handler werden ausschließlich im Code registriert, nicht per XAML-Attribut)
+        [xml]$xmlContent = $XamlContent
         
         # Parse XAML
         $reader = New-Object System.Xml.XmlNodeReader $xmlContent
@@ -83,35 +79,29 @@ function Load-XAML {
 # Abschnitt: GUI-Elemente referenzieren
 # -------------------------------------------------
 function Get-XamlElement {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
         [string]$ElementName,
-        
+
         [Parameter(Mandatory = $false)]
-        [switch]$Required = $false
+        [switch]$Required
     )
-    
+
     try {
-        
         if ($null -eq $script:Form) {
             throw "Form-Objekt ist nicht initialisiert"
         }
-        
-        
+
         $element = $script:Form.FindName($ElementName)
-        
         if ($null -eq $element -and $Required.IsPresent) {
             throw "Erforderliches Element nicht gefunden: $ElementName"
-        }
-        elseif ($null -eq $element) {
-        }
-        else {
         }
         return $element
     }
     catch {
-        $errorMsg = $_.Exception.Message
         if ($Required.IsPresent) { throw }
+        Write-Log "Get-XamlElement '$ElementName': $($_.Exception.Message)" -Type "Debug"
         return $null
     }
 }

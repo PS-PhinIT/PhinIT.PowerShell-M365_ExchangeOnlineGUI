@@ -6,7 +6,7 @@
     Height="1000"
     MinWidth="950"
     MinHeight="650"
-    Background="#F5F7FA"
+    Background="{DynamicResource WindowBackgroundBrush}"
     FontFamily="Segoe UI"
     FontSize="12"
     WindowStartupLocation="CenterScreen">
@@ -25,8 +25,8 @@
         <!--  Header mit modernem Design  -->
         <Border
             Grid.Row="0"
-            Background="#0F1B2D"
-            BorderBrush="#E0E0E0"
+            Background="{StaticResource HeaderBackgroundBrush}"
+            BorderBrush="{StaticResource CardBorderBrush}"
             BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <Grid.ColumnDefinitions>
@@ -44,51 +44,23 @@
                         Margin="0,0,10,0"
                         VerticalAlignment="Center"
                         FontSize="32"
-                        Foreground="#e2e2e2"
+                        Foreground="{StaticResource HeaderTextBrush}"
                         Text="🔄" />
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock
                             VerticalAlignment="Center"
                             FontSize="18"
                             FontWeight="SemiBold"
-                            Foreground="#E6EDF3"
+                            Foreground="{StaticResource NavTextBrush}"
                             Text="PSscripts.de  |  easyIT - Exchange Online" />
                         <TextBlock
                             x:Name="txtVersion"
                             FontSize="11"
-                            Foreground="#9FB3C8"
+                            Foreground="{StaticResource HeaderSubtleTextBrush}"
                             Text="" />
                     </StackPanel>
                 </StackPanel>
 
-                <!--  Mittlerer Bereich - Status  -->
-                <Border
-                    x:Name="headerStatusContainer"
-                    Grid.Column="1"
-                    Margin="20,12,20,12"
-                    Background="#0078D7"
-                    CornerRadius="4"
-                    Visibility="Collapsed">
-                    <Grid Margin="10,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock
-                            Margin="0,0,10,0"
-                            VerticalAlignment="Center"
-                            FontSize="16"
-                            Foreground="White"
-                            Text="🔔" />
-                        <TextBlock
-                            x:Name="headerStatus"
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Foreground="White"
-                            Text="Status-Nachricht"
-                            TextTrimming="CharacterEllipsis" />
-                    </Grid>
-                </Border>
 
                 <!--  Rechter Bereich mit Buttons  -->
                 <StackPanel
@@ -119,13 +91,13 @@
                             <Ellipse
                                 Width="20"
                                 Height="20"
-                                Fill="#e2e2e2" />
+                                Fill="{StaticResource HeaderTextBrush}" />
                             <TextBlock
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 FontSize="16"
                                 FontWeight="Bold"
-                                Foreground="#0F1B2D"
+                                Foreground="{StaticResource HeaderBackgroundBrush}"
                                 Text="i" />
                         </Grid>
                     </Button>
@@ -139,7 +111,7 @@
                         <TextBlock
                             FontSize="20"
                             FontWeight="Bold"
-                            Foreground="#FF5252"
+                            Foreground="{StaticResource HeaderCloseBrush}"
                             Text="✕" />
                     </Button>
                 </StackPanel>
@@ -156,8 +128,8 @@
             <!--  Navigation Panel mit modernem Design  -->
             <Border
                 Grid.Column="0"
-                Background="#16253A"
-                BorderBrush="#0F1B2D"
+                Background="{StaticResource NavBackgroundBrush}"
+                BorderBrush="{StaticResource HeaderBackgroundBrush}"
                 BorderThickness="0,0,1,0">
                 <StackPanel Margin="0,10">
                     <Button
@@ -179,17 +151,17 @@
                     <GroupBox
                         Margin="8,0,8,25"
                         Padding="8"
-                        Background="#22344D"
-                        BorderBrush="#2F4560"
+                        Background="{StaticResource NavPanelBrush}"
+                        BorderBrush="{StaticResource NavPanelBorderBrush}"
                         BorderThickness="1"
-                        Foreground="#E6EDF3"
+                        Foreground="{StaticResource NavTextBrush}"
                         Header="Verbindungsstatus">
                         <StackPanel>
                             <TextBlock
                                 x:Name="txtConnectionStatus"
                                 Margin="8,0,8,0"
                                 FontWeight="SemiBold"
-                                Foreground="#E6EDF3"
+                                Foreground="{StaticResource NavTextBrush}"
                                 Text="Nicht verbunden" />
                         </StackPanel>
                     </GroupBox>
@@ -345,7 +317,7 @@
             <Border
                 Grid.Column="1"
                 Padding="20"
-                Background="#FFFFFF">
+                Background="{StaticResource SurfaceBrush}">
                 <TabControl
                     x:Name="tabContent"
                     Background="Transparent"
@@ -372,7 +344,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Kalenderberechtigungen"
                                 TextDecorations="Underline" />
 
@@ -385,7 +357,7 @@
                                 <!--  Berechtigung hinzufügen/entfernen  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Berechtigungen verwalten">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -470,7 +442,7 @@
                                 <!--  Standard-Berechtigungen  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Standardberechtigungen">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -530,7 +502,7 @@
                                 </GroupBox>
 
                                 <!--  Berechtigungen anzeigen  -->
-                                <GroupBox Background="#ffffff" Header="Berechtigungen anzeigen">
+                                <GroupBox Background="{StaticResource SurfaceBrush}" Header="Berechtigungen anzeigen">
                                     <StackPanel Margin="10">
                                         <Grid>
                                             <Grid.RowDefinitions>
@@ -575,7 +547,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Aktuelle Berechtigungen für das angezeigte Postfach">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -640,7 +612,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Postfachberechtigungen"
                                 TextDecorations="Underline" />
 
@@ -653,7 +625,7 @@
                                 <!--  Postfach und Benutzer auswählen  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Postfach und Benutzer auswählen">
                                     <Grid Margin="10">
                                         <Grid.RowDefinitions>
@@ -700,7 +672,7 @@
                                 <!--  Berechtigungen verwalten  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Berechtigungen verwalten">
                                     <StackPanel Margin="10">
                                         <!--  FullAccess Berechtigungen  -->
@@ -762,7 +734,7 @@
                                 <!--  Berechtigungen anzeigen  -->
                                 <GroupBox
                                     Margin="0,15,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Berechtigungen für ein Postfach anzeigen">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -825,7 +797,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Aktuelle Berechtigungen für das angezeigte Postfach">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -894,7 +866,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Audit &amp; Information"
                                 TextDecorations="Underline" />
 
@@ -903,7 +875,7 @@
                                 Grid.Row="1"
                                 Grid.Column="0"
                                 Margin="0,0,10,0"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Exchange Audit &amp; Information">
                                 <StackPanel Margin="10">
                                     <Grid>
@@ -979,7 +951,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Audit-Ergebnisse">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -1033,7 +1005,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zum Troubleshooting"
                                 TextDecorations="Underline" />
 
@@ -1044,7 +1016,7 @@
                                 Margin="0,0,10,0">
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Diagnose-Optionen">
                                     <Grid Margin="10">
                                         <Grid.RowDefinitions>
@@ -1062,14 +1034,14 @@
                                             Grid.Row="1"
                                             Height="440"
                                             Margin="0,0,0,0"
-                                            BorderBrush="#e4e4e4"
+                                            BorderBrush="{StaticResource CardBorderBrush}"
                                             BorderThickness="1" />
                                     </Grid>
                                 </GroupBox>
 
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Parameter">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -1156,7 +1128,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Diagnose-Ergebnisse">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -1209,14 +1181,14 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Exchange Online Organisationseinstellungen"
                                 TextDecorations="Underline" />
 
                             <!--  OrganizationConfig Einstellungen  -->
                             <GroupBox
                                 Grid.Row="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="EXO Organisationseinstellungen (Get-OrganizationConfig and Set-OrganizationConfig)">
                                 <Grid Margin="12">
                                     <Grid.RowDefinitions>
@@ -1238,7 +1210,7 @@
                                                 <StackPanel Grid.Column="0" Margin="0,0,5,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Outlook - Kernfunktionen">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1280,7 +1252,7 @@
                                                     </GroupBox>
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Kalenderoptionen">
                                                         <StackPanel Margin="10">
                                                             <TextBlock
@@ -1331,7 +1303,7 @@
                                                 <StackPanel Grid.Column="1" Margin="5,0,0,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Outlook Web App (OWA) - Verhalten">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1358,7 +1330,7 @@
                                                     </GroupBox>
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Weitere Outlook &amp; OWA Features">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1385,7 +1357,7 @@
                                                     </GroupBox>
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Sitzungs-Timeout (OWA)">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1436,7 +1408,7 @@
                                                 <StackPanel Grid.Column="0" Margin="0,0,5,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Bookings - Aktivierung &amp; Zugriff">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1496,7 +1468,7 @@
                                                 <StackPanel Grid.Column="1" Margin="5,0,0,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Bookings - Features &amp; Integration">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1575,7 +1547,7 @@
                                                 <StackPanel Grid.Column="0" Margin="0,0,5,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Bookings - Benennungsrichtlinie &amp; Blockierte Wörter">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1659,7 +1631,7 @@
                                                 <StackPanel Grid.Column="0" Margin="0,0,5,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="MailTips">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1718,7 +1690,7 @@
                                                     </GroupBox>
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Sicherheit">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1776,7 +1748,7 @@
                                                 <StackPanel Grid.Column="1" Margin="5,0,0,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Öffentliche Ordner">
                                                         <StackPanel Margin="10">
                                                             <StackPanel Margin="0,0,0,5" Orientation="Horizontal">
@@ -1856,7 +1828,7 @@
                                                 <StackPanel Grid.Column="0" Margin="0,0,5,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="OAuth &amp; Standardauthentifizierung">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1883,7 +1855,7 @@
                                                     </GroupBox>
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="WAC (Office Online Server)">
                                                         <StackPanel Margin="10">
                                                             <TextBlock Margin="0,5,0,0" Text="WAC Discovery Endpoint:" />
@@ -1899,7 +1871,7 @@
                                                 <StackPanel Grid.Column="1" Margin="5,0,0,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Exchange Web Services (EWS)">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1969,7 +1941,7 @@
                                                 <StackPanel Grid.Column="0" Margin="0,0,5,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Mobiler Zugriff">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -1986,7 +1958,7 @@
                                                     </GroupBox>
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Konnektoren &amp; Integrationen">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -2032,7 +2004,7 @@
                                                 <StackPanel Grid.Column="1" Margin="5,0,0,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Zugriffskontrolle &amp; Weiterleitung">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -2073,7 +2045,7 @@
                                                 <StackPanel Grid.Column="0" Margin="0,0,5,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Protokolle &amp; Leistung">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -2105,7 +2077,7 @@
                                                     </GroupBox>
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Internationalisierung &amp; Suche">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -2151,7 +2123,7 @@
                                                 <StackPanel Grid.Column="1" Margin="5,0,0,0">
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Diverse Features">
                                                         <StackPanel Margin="10">
                                                             <CheckBox
@@ -2193,7 +2165,7 @@
                                                     </GroupBox>
                                                     <GroupBox
                                                         Margin="0,0,0,10"
-                                                        Background="#ffffff"
+                                                        Background="{StaticResource SurfaceBrush}"
                                                         Header="Ratelimiting">
                                                         <StackPanel Margin="10">
                                                             <TextBlock
@@ -2303,7 +2275,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Gruppen &amp; Verteilern"
                                 TextDecorations="Underline" />
 
@@ -2316,7 +2288,7 @@
                                 <!--  Neue Gruppe erstellen  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Neue Gruppe erstellen">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -2440,7 +2412,7 @@
                                 <!--  Gruppenmitglieder verwalten  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Gruppenmitglieder verwalten">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -2523,7 +2495,7 @@
                                 </GroupBox>
 
                                 <!--  Gruppeneinstellungen  -->
-                                <GroupBox Background="#ffffff" Header="Gruppeneinstellungen">
+                                <GroupBox Background="{StaticResource SurfaceBrush}" Header="Gruppeneinstellungen">
                                     <StackPanel Margin="10">
                                         <Grid>
                                             <Grid.RowDefinitions>
@@ -2570,7 +2542,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Aktuelle Gruppeninformationen / Mitglieder">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -2651,7 +2623,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Hybrid Exchange-Konfiguration"
                                 TextDecorations="Underline" />
 
@@ -2664,7 +2636,7 @@
                                 <!--  Hybrid-Konfigurations-Assistent  -->
                                 <GroupBox
                                     Margin="0,0,0,15"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Hybrid-Konfigurations-Assistent (HCW)">
                                     <StackPanel Margin="10">
                                         <TextBlock
@@ -2683,7 +2655,7 @@
                                 <!--  Status-Überprüfung  -->
                                 <GroupBox
                                     Margin="0,0,0,15"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Status-Überprüfung">
                                     <StackPanel Margin="10">
                                         <TextBlock
@@ -2709,7 +2681,7 @@
                                 </GroupBox>
 
                                 <!--  Informationen  -->
-                                <GroupBox Background="#ffffff" Header="Wichtige Informationen">
+                                <GroupBox Background="{StaticResource SurfaceBrush}" Header="Wichtige Informationen">
                                     <StackPanel Margin="10">
                                         <TextBlock
                                             Margin="0,0,0,5"
@@ -2734,7 +2706,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Hybrid-Konfigurationsstatus">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -2820,7 +2792,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Multi-Forest-Verwaltung"
                                 TextDecorations="Underline" />
 
@@ -2833,7 +2805,7 @@
                                 <!--  Forest-Auswahl  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Forest-Auswahl (Domänen des Tenants)">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -2878,7 +2850,7 @@
                                 <!--  Cross-Forest Aktionen  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Cross-Forest Aktionen">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -2951,7 +2923,7 @@
                                 </GroupBox>
 
                                 <!--  Forest-Synchronisation (Microsoft Entra Connect)  -->
-                                <GroupBox Background="#ffffff" Header="Synchronisation (Microsoft Entra Connect)">
+                                <GroupBox Background="{StaticResource SurfaceBrush}" Header="Synchronisation (Microsoft Entra Connect)">
                                     <StackPanel Margin="10">
                                         <TextBlock
                                             Margin="0,0,0,10"
@@ -2992,7 +2964,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Cross-Forest Objekte">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -3055,7 +3027,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Advanced Threat Protection"
                                 TextDecorations="Underline" />
 
@@ -3078,13 +3050,13 @@
                                             Grid.RowSpan="2"
                                             Grid.Column="0"
                                             Margin="0,0,10,0"
-                                            Background="#ffffff"
+                                            Background="{StaticResource SurfaceBrush}"
                                             Header="Anti-Phishing Richtlinien verwalten">
                                             <StackPanel Margin="10">
                                                 <TextBlock
                                                     Margin="0,0,0,15"
                                                     FontSize="12"
-                                                    Foreground="#666666"
+                                                    Foreground="{StaticResource TextSecondaryBrush}"
                                                     Text="Verwalten Sie Anti-Phishing-Richtlinien zum Schutz vor Phishing-Angriffen."
                                                     TextWrapping="Wrap" />
 
@@ -3107,13 +3079,23 @@
                                                         Content="Neue Richtlinie" />
                                                 </StackPanel>
 
-                                                <Button
-                                                    Style="{StaticResource WarningButton}"
-                                                    x:Name="btnSetAntiPhishing"
-                                                    Width="350"
-                                                    Height="30"
-                                                    HorizontalAlignment="Center"
-                                                    Content="Ausgewählte Richtlinie bearbeiten" />
+                                                <StackPanel
+                                                        HorizontalAlignment="Center"
+                                                        Orientation="Horizontal">
+                                                    <Button
+                                                        Style="{StaticResource WarningButton}"
+                                                        x:Name="btnSetAntiPhishing"
+                                                        Width="170"
+                                                        Height="30"
+                                                        Margin="0,0,10,0"
+                                                        Content="Ausgewählte bearbeiten" />
+                                                    <Button
+                                                        Style="{StaticResource DangerButton}"
+                                                        x:Name="btnRemoveAntiPhishing"
+                                                        Width="170"
+                                                        Height="30"
+                                                        Content="Ausgewählte löschen" />
+                                                </StackPanel>
                                             </StackPanel>
                                         </GroupBox>
 
@@ -3122,7 +3104,7 @@
                                             Grid.Row="0"
                                             Grid.RowSpan="2"
                                             Grid.Column="1"
-                                            Background="#ffffff"
+                                            Background="{StaticResource SurfaceBrush}"
                                             Header="Aktuelle Anti-Phishing Richtlinien">
                                             <Grid>
                                                 <Grid.RowDefinitions>
@@ -3182,13 +3164,13 @@
                                             Grid.RowSpan="2"
                                             Grid.Column="0"
                                             Margin="0,0,10,0"
-                                            Background="#ffffff"
+                                            Background="{StaticResource SurfaceBrush}"
                                             Header="Safe Attachments Richtlinien verwalten">
                                             <StackPanel Margin="10">
                                                 <TextBlock
                                                     Margin="0,0,0,15"
                                                     FontSize="12"
-                                                    Foreground="#666666"
+                                                    Foreground="{StaticResource TextSecondaryBrush}"
                                                     Text="Verwalten Sie Richtlinien für sichere Anhänge zum Schutz vor schädlichen Dateien."
                                                     TextWrapping="Wrap" />
 
@@ -3211,13 +3193,23 @@
                                                         Content="Neue Richtlinie" />
                                                 </StackPanel>
 
-                                                <Button
-                                                    Style="{StaticResource WarningButton}"
-                                                    x:Name="btnSetSafeAttachment"
-                                                    Width="350"
-                                                    Height="30"
-                                                    HorizontalAlignment="Center"
-                                                    Content="Ausgewählte Richtlinie bearbeiten" />
+                                                <StackPanel
+                                                        HorizontalAlignment="Center"
+                                                        Orientation="Horizontal">
+                                                    <Button
+                                                        Style="{StaticResource WarningButton}"
+                                                        x:Name="btnSetSafeAttachment"
+                                                        Width="170"
+                                                        Height="30"
+                                                        Margin="0,0,10,0"
+                                                        Content="Ausgewählte bearbeiten" />
+                                                    <Button
+                                                        Style="{StaticResource DangerButton}"
+                                                        x:Name="btnRemoveSafeAttachment"
+                                                        Width="170"
+                                                        Height="30"
+                                                        Content="Ausgewählte löschen" />
+                                                </StackPanel>
                                             </StackPanel>
                                         </GroupBox>
 
@@ -3226,7 +3218,7 @@
                                             Grid.Row="0"
                                             Grid.RowSpan="2"
                                             Grid.Column="1"
-                                            Background="#ffffff"
+                                            Background="{StaticResource SurfaceBrush}"
                                             Header="Aktuelle Safe Attachments Richtlinien">
                                             <Grid>
                                                 <Grid.RowDefinitions>
@@ -3246,7 +3238,7 @@
                                                             Header="Name" />
                                                         <DataGridCheckBoxColumn
                                                             Width="100"
-                                                            Binding="{Binding Enabled}"
+                                                            Binding="{Binding Enable}"
                                                             Header="Aktiviert" />
                                                         <DataGridTextColumn
                                                             Width="150"
@@ -3286,13 +3278,13 @@
                                             Grid.RowSpan="2"
                                             Grid.Column="0"
                                             Margin="0,0,10,0"
-                                            Background="#ffffff"
+                                            Background="{StaticResource SurfaceBrush}"
                                             Header="Safe Links Richtlinien verwalten">
                                             <StackPanel Margin="10">
                                                 <TextBlock
                                                     Margin="0,0,0,15"
                                                     FontSize="12"
-                                                    Foreground="#666666"
+                                                    Foreground="{StaticResource TextSecondaryBrush}"
                                                     Text="Verwalten Sie Richtlinien für sichere Links zum Schutz vor schädlichen URLs."
                                                     TextWrapping="Wrap" />
 
@@ -3315,13 +3307,23 @@
                                                         Content="Neue Richtlinie" />
                                                 </StackPanel>
 
-                                                <Button
-                                                    Style="{StaticResource WarningButton}"
-                                                    x:Name="btnSetSafeLinks"
-                                                    Width="350"
-                                                    Height="30"
-                                                    HorizontalAlignment="Center"
-                                                    Content="Ausgewählte Richtlinie bearbeiten" />
+                                                <StackPanel
+                                                        HorizontalAlignment="Center"
+                                                        Orientation="Horizontal">
+                                                    <Button
+                                                        Style="{StaticResource WarningButton}"
+                                                        x:Name="btnSetSafeLinks"
+                                                        Width="170"
+                                                        Height="30"
+                                                        Margin="0,0,10,0"
+                                                        Content="Ausgewählte bearbeiten" />
+                                                    <Button
+                                                        Style="{StaticResource DangerButton}"
+                                                        x:Name="btnRemoveSafeLinks"
+                                                        Width="170"
+                                                        Height="30"
+                                                        Content="Ausgewählte löschen" />
+                                                </StackPanel>
                                             </StackPanel>
                                         </GroupBox>
 
@@ -3330,7 +3332,7 @@
                                             Grid.Row="0"
                                             Grid.RowSpan="2"
                                             Grid.Column="1"
-                                            Background="#ffffff"
+                                            Background="{StaticResource SurfaceBrush}"
                                             Header="Aktuelle Safe Links Richtlinien">
                                             <Grid>
                                                 <Grid.RowDefinitions>
@@ -3350,8 +3352,8 @@
                                                             Header="Name" />
                                                         <DataGridCheckBoxColumn
                                                             Width="100"
-                                                            Binding="{Binding Enabled}"
-                                                            Header="Aktiviert" />
+                                                            Binding="{Binding EnableSafeLinksForEmail}"
+                                                            Header="E-Mail-Schutz" />
                                                     </DataGrid.Columns>
                                                 </DataGrid>
                                                 <Button
@@ -3386,13 +3388,13 @@
                                             Grid.RowSpan="2"
                                             Grid.Column="0"
                                             Margin="0,0,10,0"
-                                            Background="#ffffff"
+                                            Background="{StaticResource SurfaceBrush}"
                                             Header="Quarantäne-Nachrichten verwalten">
                                             <StackPanel Margin="10">
                                                 <TextBlock
                                                     Margin="0,0,0,15"
                                                     FontSize="12"
-                                                    Foreground="#666666"
+                                                    Foreground="{StaticResource TextSecondaryBrush}"
                                                     Text="Verwalten Sie Nachrichten, die in der Quarantäne gehalten werden."
                                                     TextWrapping="Wrap" />
 
@@ -3428,7 +3430,7 @@
                                             Grid.Row="0"
                                             Grid.RowSpan="2"
                                             Grid.Column="1"
-                                            Background="#ffffff"
+                                            Background="{StaticResource SurfaceBrush}"
                                             Header="Quarantäne-Nachrichten">
                                             <Grid>
                                                 <Grid.RowDefinitions>
@@ -3480,7 +3482,7 @@
                                 Margin="10,10,10,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu DLP &amp; Compliance"
                                 TextDecorations="Underline" />
 
@@ -3492,20 +3494,20 @@
                                 <Border
                                     Margin="0,0,0,10"
                                     Padding="10"
-                                    Background="#FFF3CD"
-                                    BorderBrush="#FFEAA7"
+                                    Background="{StaticResource HintBackgroundBrush}"
+                                    BorderBrush="{StaticResource HintBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="3">
                                     <TextBlock
                                         FontSize="12"
-                                        Foreground="#856404"
+                                        Foreground="{StaticResource HintTextBrush}"
                                         Text="Voraussetzung: links auf 'Compliance verbinden' klicken (Security &amp; Compliance PowerShell)."
                                         TextWrapping="Wrap" />
                                 </Border>
 
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Richtlinien und Bezeichnungen laden">
                                     <StackPanel Margin="10">
                                         <Button
@@ -3534,7 +3536,7 @@
                                     </StackPanel>
                                 </GroupBox>
 
-                                <GroupBox Background="#ffffff" Header="Modus der ausgewählten DLP-Richtlinie">
+                                <GroupBox Background="{StaticResource SurfaceBrush}" Header="Modus der ausgewählten DLP-Richtlinie">
                                     <StackPanel Margin="10">
                                         <ComboBox
                                             x:Name="cmbDlpPolicyMode"
@@ -3559,7 +3561,7 @@
                                 Grid.Row="1"
                                 Grid.Column="1"
                                 Margin="0,0,10,10"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Ergebnisse">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -3608,7 +3610,7 @@
                                     VerticalAlignment="Center"
                                     Cursor="Hand"
                                     DockPanel.Dock="Right"
-                                    Foreground="#0067c0"
+                                    Foreground="{StaticResource LinkBrush}"
                                     Text="Hilfe zu eDiscovery &amp; Legal Hold"
                                     TextDecorations="Underline" />
                                 <TextBlock
@@ -3643,7 +3645,7 @@
                                             <TextBlock
                                                 Margin="10,0,0,0"
                                                 VerticalAlignment="Center"
-                                                Foreground="#666666"
+                                                Foreground="{StaticResource TextSecondaryBrush}"
                                                 Text="Erfordert 'Compliance verbinden'."
                                                 TextWrapping="Wrap" />
                                         </StackPanel>
@@ -3860,7 +3862,7 @@
                                                     Header="Geräte-ID" />
                                                 <DataGridTextColumn
                                                     Width="200"
-                                                    Binding="{Binding User}"
+                                                    Binding="{Binding UserDisplayName}"
                                                     Header="Benutzer" />
                                                 <DataGridTextColumn
                                                     Width="150"
@@ -3868,7 +3870,7 @@
                                                     Header="Gerätetyp" />
                                                 <DataGridTextColumn
                                                     Width="120"
-                                                    Binding="{Binding Status}"
+                                                    Binding="{Binding DeviceAccessState}"
                                                     Header="Status" />
                                             </DataGrid.Columns>
                                         </DataGrid>
@@ -3930,7 +3932,7 @@
                                                     Header="Name" />
                                                 <DataGridTextColumn
                                                     Width="120"
-                                                    Binding="{Binding ConnectorType}"
+                                                    Binding="{Binding Type}"
                                                     Header="Typ" />
                                                 <DataGridCheckBoxColumn
                                                     Width="100"
@@ -4114,7 +4116,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Shared Mailboxes"
                                 TextDecorations="Underline" />
 
@@ -4127,7 +4129,7 @@
                                 <!--  Neue Shared Mailbox erstellen & verwalten  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Shared Mailbox erstellen &amp; verwalten">
                                     <Grid Margin="10">
                                         <Grid.RowDefinitions>
@@ -4250,7 +4252,7 @@
                                 <!--  Berechtigungen verwalten  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Berechtigungen &amp; Sichtbarkeit">
                                     <Grid Margin="10">
                                         <Grid.RowDefinitions>
@@ -4353,7 +4355,7 @@
                                 <!--  Weiterleitungen & Auto-Mapping  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Weiterleitungen &amp; Auto-Mapping">
                                     <Grid Margin="10">
                                         <Grid.RowDefinitions>
@@ -4443,7 +4445,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Aktuelle Berechtigungen für ausgewählte Shared Mailbox">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -4516,7 +4518,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Ressourcen"
                                 TextDecorations="Underline" />
 
@@ -4529,7 +4531,7 @@
                                 <!--  Neue Ressource erstellen  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Neue Ressource erstellen">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -4592,7 +4594,7 @@
                                 <!--  Ressourcen suchen  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Ressourcen suchen">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -4664,7 +4666,7 @@
                                 </GroupBox>
 
                                 <!--  Ressourceneinstellungen  -->
-                                <GroupBox Background="#ffffff" Header="Ressourceneinstellungen">
+                                <GroupBox Background="{StaticResource SurfaceBrush}" Header="Ressourceneinstellungen">
                                     <StackPanel Margin="10">
                                         <Grid>
                                             <Grid.RowDefinitions>
@@ -4733,7 +4735,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Aktuelle Ressourcen">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -4806,7 +4808,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Kontakten"
                                 TextDecorations="Underline" />
 
@@ -4819,7 +4821,7 @@
                                 <!--  Neuen Kontakt erstellen  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Neuen externen Kontakt erstellen">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -4893,7 +4895,7 @@
                                 <!-- Kontakt aktualisieren -->
                                 <GroupBox 
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Ausgewählten Kontakt aktualisieren">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -4949,7 +4951,7 @@
                                 </GroupBox>
 
                                 <!--  Kontakte suchen und verwalten  -->
-                                <GroupBox Background="#ffffff" Header="Kontakte suchen und verwalten">
+                                <GroupBox Background="{StaticResource SurfaceBrush}" Header="Kontakte suchen und verwalten">
                                     <StackPanel Margin="10">
                                         <Grid>
                                             <Grid.RowDefinitions>
@@ -5016,7 +5018,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Aktuelle Kontakte">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -5029,8 +5031,7 @@
                                         Margin="8,8,8,0"
                                         AutoGenerateColumns="False"
                                         IsReadOnly="True"
-                                        SelectionMode="Single"
-                                        SelectionChanged="lstContacts_SelectionChanged">
+                                        SelectionMode="Single">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn
                                                 Width="*"
@@ -5087,7 +5088,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Berichten"
                                 TextDecorations="Underline" />
 
@@ -5100,7 +5101,7 @@
                                 <!--  Berichtsauswahl  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Berichtsart auswählen">
                                     <StackPanel Margin="10">
                                         <TextBlock
@@ -5111,7 +5112,7 @@
                                             x:Name="lstReportCategories"
                                             Height="150"
                                             Margin="0,0,0,15"
-                                            BorderBrush="#d4d4d4"
+                                            BorderBrush="{StaticResource ControlBorderBrush}"
                                             BorderThickness="1">
                                             <ListBoxItem
                                                 Content="Alle Berichte"
@@ -5138,7 +5139,7 @@
                                 <!--  Berichtsparameter  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Berichtsparameter">
                                     <StackPanel Margin="10">
                                         <Grid>
@@ -5203,7 +5204,7 @@
                                 <!--  Export-Optionen  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Export-Optionen">
                                     <StackPanel Margin="10">
                                         <CheckBox
@@ -5219,7 +5220,7 @@
                                 </GroupBox>
 
                                 <!--  Aktionen  -->
-                                <GroupBox Background="#ffffff" Header="Aktionen">
+                                <GroupBox Background="{StaticResource SurfaceBrush}" Header="Aktionen">
                                     <StackPanel Margin="10">
                                         <Button
                                             Style="{StaticResource SuccessButton}"
@@ -5254,7 +5255,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Berichtsergebnisse">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -5295,7 +5296,7 @@
                                 Margin="0,0,0,10"
                                 HorizontalAlignment="Right"
                                 Cursor="Hand"
-                                Foreground="#0067c0"
+                                Foreground="{StaticResource LinkBrush}"
                                 Text="Hilfe zu Regionaleinstellungen"
                                 TextDecorations="Underline" />
 
@@ -5306,7 +5307,7 @@
                                 Margin="0,0,10,0">
 
                                 <!--  Einstellungen abrufen  -->
-                                <GroupBox Background="#ffffff" Header="Aktuelle Einstellungen abrufen">
+                                <GroupBox Background="{StaticResource SurfaceBrush}" Header="Aktuelle Einstellungen abrufen">
                                     <Grid Margin="10">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
@@ -5348,13 +5349,13 @@
                                 <Border
                                     Margin="0,10,0,10"
                                     Padding="10"
-                                    Background="#FFF3CD"
-                                    BorderBrush="#FFEAA7"
+                                    Background="{StaticResource HintBackgroundBrush}"
+                                    BorderBrush="{StaticResource HintBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="3">
                                     <TextBlock
                                         FontSize="11"
-                                        Foreground="#856404"
+                                        Foreground="{StaticResource HintTextBrush}"
                                         Text="Das Setzen von 'ALL' kann je nach Anzahl der Postfächer dauern!"
                                         TextWrapping="Wrap" />
                                 </Border>
@@ -5362,7 +5363,7 @@
                                 <!--  Einstellungen für Postfächer festlegen  -->
                                 <GroupBox
                                     Margin="0,0,0,10"
-                                    Background="#ffffff"
+                                    Background="{StaticResource SurfaceBrush}"
                                     Header="Einstellungen für Postfächer festlegen">
                                     <Grid Margin="10">
                                         <Grid.RowDefinitions>
@@ -5512,13 +5513,13 @@
                                             Grid.ColumnSpan="2"
                                             Margin="0,10,0,10"
                                             Padding="10"
-                                            Background="#FFF3CD"
-                                            BorderBrush="#FFEAA7"
+                                            Background="{StaticResource HintBackgroundBrush}"
+                                            BorderBrush="{StaticResource HintBorderBrush}"
                                             BorderThickness="1"
                                             CornerRadius="3">
                                             <TextBlock
                                                 FontSize="11"
-                                                Foreground="#856404"
+                                                Foreground="{StaticResource HintTextBrush}"
                                                 Text="Bei 'Ordnernamen anpassen' bedeutet: Angehakt = Ja (Anpassen), Nicht Angehakt = Nein (Nicht anpassen)."
                                                 TextWrapping="Wrap" />
                                         </Border>
@@ -5542,7 +5543,7 @@
                             <GroupBox
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                Background="#ffffff"
+                                Background="{StaticResource SurfaceBrush}"
                                 Header="Ergebnis / Status">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -6248,55 +6249,55 @@
                             <StackPanel Margin="15" MaxWidth="1400" HorizontalAlignment="Center">
 
                                 <!--  Statistik-Karten  -->
-                                <GroupBox Header="Exchange Online auf einen Blick" Padding="10" Margin="0,0,0,20" BorderBrush="#E0E0E0">
+                                <GroupBox Header="Exchange Online auf einen Blick" Padding="10" Margin="0,0,0,20" BorderBrush="{StaticResource CardBorderBrush}">
                                     <WrapPanel HorizontalAlignment="Center">
                                         <!--  Statistik-Karte Vorlage  -->
-                                        <Border Width="220" Height="120" Margin="10" Background="White" BorderBrush="#E0E0E0" BorderThickness="1">
+                                        <Border Width="220" Height="120" Margin="10" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
                                             <Border.Effect>
-                                                <DropShadowEffect ShadowDepth="1" Color="#CCCCCC" Opacity="0.3" BlurRadius="5"/>
+                                                <DropShadowEffect ShadowDepth="1" Color="{StaticResource CardShadowColor}" Opacity="0.3" BlurRadius="5"/>
                                             </Border.Effect>
                                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                                <TextBlock x:Name="txtStatTotalMailboxes" Text="0" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#0078D4"/>
+                                                <TextBlock x:Name="txtStatTotalMailboxes" Text="0" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource StatMailboxesBrush}"/>
                                                 <TextBlock Text="Benutzerpostfächer" FontSize="14" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                                             </StackPanel>
                                         </Border>
 
-                                        <Border Width="220" Height="120" Margin="10" Background="White" BorderBrush="#E0E0E0" BorderThickness="1">
+                                        <Border Width="220" Height="120" Margin="10" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
                                             <Border.Effect>
-                                                <DropShadowEffect ShadowDepth="1" Color="#CCCCCC" Opacity="0.3" BlurRadius="5"/>
+                                                <DropShadowEffect ShadowDepth="1" Color="{StaticResource CardShadowColor}" Opacity="0.3" BlurRadius="5"/>
                                             </Border.Effect>
                                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                                <TextBlock x:Name="txtStatSharedMailboxes" Text="0" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#107C10"/>
+                                                <TextBlock x:Name="txtStatSharedMailboxes" Text="0" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource StatSharedMailboxesBrush}"/>
                                                 <TextBlock Text="Shared Mailboxes" FontSize="14" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                                             </StackPanel>
                                         </Border>
 
-                                        <Border Width="220" Height="120" Margin="10" Background="White" BorderBrush="#E0E0E0" BorderThickness="1">
+                                        <Border Width="220" Height="120" Margin="10" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
                                             <Border.Effect>
-                                                <DropShadowEffect ShadowDepth="1" Color="#CCCCCC" Opacity="0.3" BlurRadius="5"/>
+                                                <DropShadowEffect ShadowDepth="1" Color="{StaticResource CardShadowColor}" Opacity="0.3" BlurRadius="5"/>
                                             </Border.Effect>
                                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                                <TextBlock x:Name="txtStatGroups" Text="0" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#D83B01"/>
+                                                <TextBlock x:Name="txtStatGroups" Text="0" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource StatGroupsBrush}"/>
                                                 <TextBlock Text="Gruppen &amp; Verteiler" FontSize="14" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                                             </StackPanel>
                                         </Border>
 
-                                        <Border Width="220" Height="120" Margin="10" Background="White" BorderBrush="#E0E0E0" BorderThickness="1">
+                                        <Border Width="220" Height="120" Margin="10" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
                                             <Border.Effect>
-                                                <DropShadowEffect ShadowDepth="1" Color="#CCCCCC" Opacity="0.3" BlurRadius="5"/>
+                                                <DropShadowEffect ShadowDepth="1" Color="{StaticResource CardShadowColor}" Opacity="0.3" BlurRadius="5"/>
                                             </Border.Effect>
                                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                                <TextBlock x:Name="txtStatResources" Text="0" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#5C2D91"/>
+                                                <TextBlock x:Name="txtStatResources" Text="0" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource StatResourcesBrush}"/>
                                                 <TextBlock Text="Ressourcen" FontSize="14" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                                             </StackPanel>
                                         </Border>
 
-                                        <Border Width="220" Height="120" Margin="10" Background="White" BorderBrush="#E0E0E0" BorderThickness="1">
+                                        <Border Width="220" Height="120" Margin="10" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
                                             <Border.Effect>
-                                                <DropShadowEffect ShadowDepth="1" Color="#CCCCCC" Opacity="0.3" BlurRadius="5"/>
+                                                <DropShadowEffect ShadowDepth="1" Color="{StaticResource CardShadowColor}" Opacity="0.3" BlurRadius="5"/>
                                             </Border.Effect>
                                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                                <TextBlock x:Name="txtStatDomains" Text="0" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#008272"/>
+                                                <TextBlock x:Name="txtStatDomains" Text="0" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource StatDomainsBrush}"/>
                                                 <TextBlock Text="Domänen" FontSize="14" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                                             </StackPanel>
                                         </Border>
@@ -6310,7 +6311,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <GroupBox Grid.Column="0" Header="Funktionsübersicht" Margin="0,0,10,0" Padding="15" BorderBrush="#E0E0E0">
+                                    <GroupBox Grid.Column="0" Header="Funktionsübersicht" Margin="0,0,10,0" Padding="15" BorderBrush="{StaticResource CardBorderBrush}">
                                         <TextBlock TextWrapping="Wrap" FontSize="13">
                                             <Run FontWeight="SemiBold" Text="  • Kalender- &amp; Postfachberechtigungen"/>
                                             <LineBreak />
@@ -6326,7 +6327,7 @@
                                         </TextBlock>
                                     </GroupBox>
 
-                                    <GroupBox Grid.Column="1" Header="Bedienungshinweise" Margin="10,0,0,0" Padding="15" BorderBrush="#E0E0E0">
+                                    <GroupBox Grid.Column="1" Header="Bedienungshinweise" Margin="10,0,0,0" Padding="15" BorderBrush="{StaticResource CardBorderBrush}">
                                         <TextBlock TextWrapping="Wrap" FontSize="13">
                                             <Run Text="1. "/>
                                             <Run FontWeight="SemiBold" Text="Verbindung herstellen:"/>
@@ -6493,13 +6494,13 @@
                                 <Border
                                     Margin="0,30,0,10"
                                     Padding="10"
-                                    Background="#FFF3CD"
-                                    BorderBrush="#FFEAA7"
+                                    Background="{StaticResource HintBackgroundBrush}"
+                                    BorderBrush="{StaticResource HintBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="3">
                                     <TextBlock
                                         FontSize="12"
-                                        Foreground="#856404"
+                                        Foreground="{StaticResource HintTextBrush}"
                                         Text="Zeilenumbrüche werden automatisch übernommen. Platzhalter {StartDate} und {EndDate} werden durch das gewählte Start- und Enddatum ersetzt."
                                         TextWrapping="Wrap" />
                                 </Border>
@@ -6509,7 +6510,7 @@
                                     Margin="0,0,0,10"
                                     HorizontalAlignment="Right"
                                     Cursor="Hand"
-                                    Foreground="#0067c0"
+                                    Foreground="{StaticResource LinkBrush}"
                                     Text="Hilfe zu automatischen Antworten"
                                     TextDecorations="Underline" />
 
@@ -6558,8 +6559,8 @@
         <!--  Status Bar  -->
         <Border
             Grid.Row="2"
-            Background="#0F1B2D"
-            BorderBrush="#E0E0E0"
+            Background="{StaticResource HeaderBackgroundBrush}"
+            BorderBrush="{StaticResource CardBorderBrush}"
             BorderThickness="0,1,0,0">
             <Grid Margin="20,0">
                 <Grid.ColumnDefinitions>
@@ -6571,9 +6572,13 @@
                 <TextBlock
                     x:Name="txtStatus"
                     Grid.Column="0"
+                    Grid.ColumnSpan="3"
+                    Margin="0,0,450,0"
+                    VerticalAlignment="Center"
                     FontSize="16"
-                    Foreground="#e2e2e2"
-                    Text="Bereit" Grid.ColumnSpan="3" Margin="0,0,450,0" />
+                    Foreground="{StaticResource StatusInfoBrush}"
+                    Text="Bereit"
+                    TextTrimming="CharacterEllipsis" />
 
                 <StackPanel
                     Grid.Column="2"
@@ -6581,20 +6586,20 @@
                     VerticalAlignment="Center"
                     Orientation="Horizontal">
                     <TextBlock
+                        x:Name="txtCopyright"
                         Margin="0,0,5,0"
                         FontSize="11"
-                        Foreground="#e2e2e2"
-                        Text="Copyright 2025 @" />
+                        Foreground="{StaticResource HeaderTextBrush}"
+                        Text="Copyright ©" />
                     <TextBlock
                         Margin="0,0,35,0"
                         FontSize="11"
-                        Foreground="#e2e2e2"
+                        Foreground="{StaticResource HeaderTextBrush}"
                         Text="by PhinIT | PSscripts.de" />
                     <TextBlock
-                        Cursor="Hand"
                         FontSize="11"
-                        Foreground="#d0e8ff"
-                        Text="www.phinit.de  or  www.psscripts.de" />
+                        Foreground="{StaticResource HeaderLinkBrush}"
+                        Text="www.phinit.de  |  www.psscripts.de" />
                 </StackPanel>
             </Grid>
         </Border>

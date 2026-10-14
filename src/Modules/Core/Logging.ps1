@@ -15,11 +15,12 @@ function Write-LogEntry {
         [string]$Message,
         [string]$Type = "Info"
     )
-    $logFolder = Join-Path -Path $script:AppRoot -ChildPath "Logs"
+    # Gleiche Datei wie Log-Action (Pfad aus den Einstellungen, siehe Initialize-Logging)
+    $logFile = if (-not [string]::IsNullOrWhiteSpace($script:logFilePath)) { $script:logFilePath } else { Join-Path -Path (Join-Path -Path $script:AppRoot -ChildPath "Logs") -ChildPath "ExchangeTool.log" }
+    $logFolder = Split-Path -Path $logFile -Parent
     if (-not (Test-Path $logFolder)) {
         New-Item -ItemType Directory -Path $logFolder -Force | Out-Null
     }
-    $logFile = Join-Path $logFolder "ExchangeTool.log"
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     # Steuerzeichen (z. B. Zeilenumbrüche aus Benutzereingaben) entfernen, um Log-Injection zu verhindern
     $sanitizedMessage = $Message -replace '[\x00-\x1F\x7F]', ' '
@@ -138,8 +139,9 @@ function Write-Log {
             }
         }
 
-        # Logging mit Log-Action, wenn nicht unterdrückt und Log-Pfad gesetzt ist
-        if (-not $NoLog -and $script:logFilePath) {
+        # Logging mit Log-Action, wenn nicht unterdrückt und Log-Pfad gesetzt ist.
+        # Debug-Meldungen nur im Debug-Modus schreiben (sonst wird die Log-Datei bei jeder Statusänderung vergrößert).
+        if (-not $NoLog -and $script:logFilePath -and ($Type -ne "Debug" -or $script:debugMode)) {
             try {
                 Log-Action -Message "[$Type] $Message"
             }
@@ -190,48 +192,48 @@ function Write-Log {
     }
 }
 
-# Funktion zur Initialisierung des Loggings für Log-Action
+# Legt die Log-Datei fest: Verzeichnis aus den Einstellungen (Registry-Wert "LogPath", Dialog "Einstellungen"),
+# sonst "Logs" neben dem Launcher. Ist das Verzeichnis nicht beschreibbar, wird der Standardordner verwendet.
 function Initialize-Logging {
     [CmdletBinding()]
+    [OutputType([bool])]
     param()
 
+    $logFileName = "ExchangeTool.log"
+    $defaultLogDirectory = Join-Path -Path $script:AppRoot -ChildPath "Logs"
+    $logDirectoryToUse = $defaultLogDirectory
+
     try {
-        # Standard-Logverzeichnis definieren
-        $defaultLogDirectory = Join-Path -Path $script:AppRoot -ChildPath "Logs"
-        $logDirectoryToUse = $defaultLogDirectory 
-        
-        # Versuchen, den Log-Pfad aus der Konfiguration zu laden
         if ($null -ne $script:config -and
             $script:config.ContainsKey("Paths") -and
-            ($null -ne $script:config["Paths"]) -and 
+            ($null -ne $script:config["Paths"]) -and
             $script:config["Paths"].ContainsKey("LogPath") -and
             -not [string]::IsNullOrWhiteSpace($script:config["Paths"]["LogPath"])) {
 
-            $configuredLogPathDir = $script:config["Paths"]["LogPath"]
+            $configuredLogPathDir = [string]$script:config["Paths"]["LogPath"]
 
-            # Überprüfen, ob der konfigurierte Pfad absolut oder relativ ist
-            if ([System.IO.Path]::IsPathRooted($configuredLogPathDir)) {
-                $logDirectoryToUse = [System.IO.Path]::GetFullPath($configuredLogPathDir)
-            } else {
-                # Wenn relativ, relativ zum Skriptverzeichnis auflösen
-                $pathForNormalization = Join-Path -Path $script:AppRoot -ChildPath $configuredLogPathDir
-                $logDirectoryToUse = [System.IO.Path]::GetFullPath($pathForNormalization)
+            # Relative Pfade beziehen sich auf den Programmordner
+            if (-not [System.IO.Path]::IsPathRooted($configuredLogPathDir)) {
+                $configuredLogPathDir = Join-Path -Path $script:AppRoot -ChildPath $configuredLogPathDir
             }
+            $configuredLogPathDir = [System.IO.Path]::GetFullPath($configuredLogPathDir)
+
+            if (-not (Test-Path -LiteralPath $configuredLogPathDir -PathType Container)) {
+                New-Item -ItemType Directory -Path $configuredLogPathDir -Force -ErrorAction Stop | Out-Null
+            }
+            $logDirectoryToUse = $configuredLogPathDir
         }
-
-        # Log-Dateiname festlegen (dieser Name wird von Log-Action für die Rotation verwendet)
-        $logFileName = "easyEXO_activity.log"
-        $script:logFilePath = Join-Path -Path $logDirectoryToUse -ChildPath $logFileName
-
-        Log-Action "Log-Action System initialisiert. Logdatei: $($script:logFilePath)"
-
-        return $true
     }
     catch {
-        $errorMsg = $_.Exception.Message
-        if ($script:debugMode) {
-            Write-Warning "FEHLER bei der Initialisierung des Log-Pfades für Log-Action: $errorMsg. Log-Action wird versuchen, den internen Fallback zu verwenden."
-        }
+        $logDirectoryToUse = $defaultLogDirectory
+        $script:logFilePath = Join-Path -Path $logDirectoryToUse -ChildPath $logFileName
+        Write-LogEntry "Konfiguriertes Log-Verzeichnis ist nicht verwendbar, Standard wird genutzt ($logDirectoryToUse): $($_.Exception.Message)" -Type "Warning"
         return $false
     }
+
+    $script:logFilePath = Join-Path -Path $logDirectoryToUse -ChildPath $logFileName
+    if ($logDirectoryToUse -ne $defaultLogDirectory) {
+        Write-LogEntry "Log-Datei: $($script:logFilePath)"
+    }
+    return $true
 }

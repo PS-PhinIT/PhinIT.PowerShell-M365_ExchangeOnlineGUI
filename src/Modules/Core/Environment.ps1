@@ -17,7 +17,6 @@ function Test-PowerShell7AndAdminRights {
         $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
         # Pfad des Startskripts (wird im Launcher gesetzt; $PSCommandPath wäre hier der Pfad der Moduldatei)
         $scriptPath = $script:AppScriptPath
-        $currentPSEnginePath = (Get-Process -Id $PID).Path # Pfad zur aktuellen powershell.exe oder pwsh.exe
 
         Write-LogEntry "Aktueller Status: PowerShell Version $($psVersion.ToString()), Läuft als Administrator: $isAdmin"
 
@@ -38,7 +37,7 @@ function Test-PowerShell7AndAdminRights {
                 # Versuche, pwsh.exe aus dem PATH zu finden, das nicht die Windows PowerShell ist
                 (Get-Command pwsh -ErrorAction SilentlyContinue | Where-Object { $_.Source -and $_.Source -notlike "*\System32\WindowsPowerShell\*" -and $_.Source -notlike "*\SysWOW64\WindowsPowerShell\*" } | Select-Object -ExpandProperty Source -First 1)
             )
-            $ps7ExecutablePath = $ps7SearchPaths | Where-Object { $_ -ne $null -and (Test-Path $_ -PathType Leaf) } | Select-Object -First 1
+            $ps7ExecutablePath = $ps7SearchPaths | Where-Object { $null -ne $_ -and (Test-Path $_ -PathType Leaf) } | Select-Object -First 1
             
             if ($ps7ExecutablePath) {
                 Write-LogEntry "PowerShell 7 gefunden unter: $ps7ExecutablePath"
@@ -48,7 +47,6 @@ function Test-PowerShell7AndAdminRights {
         }
 
         # Bedingungen für Neustart oder Installation
-        $needsAdminPrivileges = (-not $isAdmin)
         $needsPS7Upgrade = (-not $isPSCore -and $null -ne $ps7ExecutablePath) # PS7 ist da, aber wir nutzen es nicht
         $needsPS7Installation = (-not $isPSCore -and $null -eq $ps7ExecutablePath) # PS7 ist nicht da und wir nutzen es nicht
 
@@ -104,8 +102,9 @@ function Test-PowerShell7AndAdminRights {
                         throw "Die Signatur des heruntergeladenen Installationspakets ist ungültig (Status: $($signature.Status)). Installation abgebrochen."
                     }
                     Write-LogEntry "PowerShell 7 MSI heruntergeladen und Signatur geprüft ($($signature.SignerCertificate.Subject)). Starte Installation."
-                    # MSI Installation benötigt Admin. Start-Process mit RunAs. (Kein ENABLE_PSREMOTING - WinRM wird nicht aktiviert)
-                    Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$installerPath`" /quiet ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 REGISTER_MANIFEST=1" -Verb RunAs -Wait
+                    # MSI Installation benötigt Admin. Start-Process mit RunAs.
+                    # Keine optionalen Eingriffe ins System: kein ENABLE_PSREMOTING (WinRM bleibt aus), kein Explorer-Kontextmenü.
+                    Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$installerPath`" /quiet /norestart REGISTER_MANIFEST=1" -Verb RunAs -Wait
                     Write-LogEntry "MSI-Installation von PowerShell 7 abgeschlossen (oder versucht)."
                 } catch {
                     Write-LogEntry "FEHLER bei MSI Download/Installation: $($_.Exception.Message)"
@@ -123,46 +122,23 @@ function Test-PowerShell7AndAdminRights {
                 Join-Path $env:LOCALAPPDATA "Programs\PowerShell\7\pwsh.exe"
                 (Get-Command pwsh -ErrorAction SilentlyContinue | Where-Object { $_.Source -and $_.Source -notlike "*\System32\WindowsPowerShell\*" -and $_.Source -notlike "*\SysWOW64\WindowsPowerShell\*" } | Select-Object -ExpandProperty Source -First 1)
             )
-            $ps7ExecutablePath = $ps7SearchPathsAfterInstall | Where-Object { $_ -ne $null -and (Test-Path $_ -PathType Leaf) } | Select-Object -First 1
+            $ps7ExecutablePath = $ps7SearchPathsAfterInstall | Where-Object { $null -ne $_ -and (Test-Path $_ -PathType Leaf) } | Select-Object -First 1
 
             if (-not $ps7ExecutablePath) {
                 Write-LogEntry "PowerShell 7 konnte nach der Installation nicht gefunden werden."
-                [System.Windows.MessageBox]::Show("PowerShell 7 wurde installiert, konnte aber nicht automatisch gefunden werden. Bitte starten Sie das Skript manuell mit PowerShell 7 (und ggf. Administratorrechten).", "Installationshinweis", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+                [System.Windows.MessageBox]::Show("PowerShell 7 wurde installiert, konnte aber nicht automatisch gefunden werden. Bitte starten Sie das Skript manuell mit PowerShell 7.", "Installationshinweis", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
                 return $false
             }
             Write-LogEntry "PowerShell 7 nach Installation gefunden unter: $ps7ExecutablePath"
             $needsPS7Upgrade = $true # Da wir gerade installiert haben, wollen wir es auch nutzen.
-            $needsPS7Installation = $false # Nicht mehr relevant
         }
 
-        # Administratorrechte werden für den Betrieb nicht benötigt - nur ein PS7-Upgrade löst einen Neustart aus
-        $needsAdminPrivileges = $false
+        # Fall 2: Neustart mit PowerShell 7 (Administratorrechte werden für den Betrieb nicht benötigt)
+        if ($needsPS7Upgrade) {
+            $targetExecutableForRestart = $ps7ExecutablePath
 
-        # Fall 2: Neustart erforderlich (PS7-Upgrade)
-        # Die Bedingung ($needsAdminPrivileges -or $needsPS7Upgrade) deckt folgende Fälle ab:
-        # 1. PowerShell < 7 ohne Admin-Rechte: $needsAdminPrivileges ist true, $needsPS7Upgrade ist true (falls PS7 gefunden). Neustart mit PS7 und Admin.
-        # 2. PowerShell < 7 mit Admin-Rechten: $needsAdminPrivileges ist false, $needsPS7Upgrade ist true (falls PS7 gefunden). Neustart mit PS7 und Admin.
-        # 3. PowerShell 7 ohne Admin-Rechte: $needsAdminPrivileges ist true, $needsPS7Upgrade ist false. Neustart mit aktueller PS7 und Admin. (Dies erfüllt die Anforderung)
-        if ($needsAdminPrivileges -or $needsPS7Upgrade) {
-            $restartMsgParts = @()
-            $targetExecutableForRestart = $currentPSEnginePath # Standard: aktuelle PS-Engine
-
-            if ($needsPS7Upgrade) { # PS7 ist verfügbar (oder gerade installiert) und wir sind nicht in PS7
-                $restartMsgParts += "PowerShell 7"
-                $targetExecutableForRestart = $ps7ExecutablePath
-            }
-            if ($needsAdminPrivileges) {
-                $restartMsgParts += "Administratorrechten"
-            }
-            
-            $reasonForRestart = $restartMsgParts -join " und "
-            $currentContextDesc = "Sie verwenden derzeit PowerShell $($psVersion.Major).$($psVersion.Minor)"
-            if ($isAdmin) { $currentContextDesc += " mit Administratorrechten." } else { $currentContextDesc += " ohne Administratorrechte."}
-
-            $restartQueryMsg = "$currentContextDesc Für optimale Funktionalität wird ein Neustart mit $reasonForRestart empfohlen."
-            if ($needsPS7Upgrade -and $ps7ExecutablePath) {
-                 $restartQueryMsg += " PowerShell 7 ist unter '$ps7ExecutablePath' verfügbar."
-            }
+            $restartQueryMsg = "Sie verwenden derzeit PowerShell $($psVersion.Major).$($psVersion.Minor). Für optimale Funktionalität wird ein Neustart mit PowerShell 7 empfohlen."
+            $restartQueryMsg += " PowerShell 7 ist unter '$ps7ExecutablePath' verfügbar."
             $restartQueryMsg += " Möchten Sie das Skript jetzt neu starten?"
 
             $userChoiceRestart = [System.Windows.MessageBox]::Show($restartQueryMsg, "Neustart empfohlen", [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Question)
@@ -175,8 +151,11 @@ function Test-PowerShell7AndAdminRights {
                 $argumentsForRestart = "-NoProfile -STA -File `"$scriptPath`""
                 try {
                     Start-Process -FilePath $targetExecutableForRestart -ArgumentList $argumentsForRestart
-                    Write-LogEntry "Neustart-Prozess wurde initiiert."
-                    exit # Aktuelles Skript beenden, da der neue Prozess gestartet wird
+                    Write-LogEntry "Neustart-Prozess wurde initiiert. Die aktuelle Instanz wird geschlossen."
+                    # Kein 'exit' innerhalb eines WPF-Handlers: Fenster sauber schließen, der Launcher endet danach regulär.
+                    $script:RestartPending = $true
+                    if ($null -ne $script:Form) { $script:Form.Close() }
+                    return $false
                 } catch {
                     $errMsg = $_.Exception.Message
                     Write-LogEntry "FEHLER beim Versuch, das Skript neu zu starten: $errMsg"
@@ -206,33 +185,6 @@ function Test-PowerShell7AndAdminRights {
 # -------------------------------------------------
 # Abschnitt: Selbstdiagnose
 # -------------------------------------------------
-function Test-ModuleInstalled {
-    param([string]$ModuleName)
-    try {
-        if (-not (Get-Module -ListAvailable -Name $ModuleName)) {
-            # Return false without throwing an error
-            return $false
-        }
-        return $true
-    } catch {
-        # Log the error silently without Write-Error
-        $errorMessage = $_.Exception.Message
-        Log-Action "Fehler beim Prüfen des Moduls $ModuleName - $errorMessage"
-        return $false
-    }
-}
-
-function Test-InternetConnection {
-    try {
-        $ping = Test-Connection -ComputerName "www.google.com" -Count 1 -Quiet
-        if (-not $ping) { throw "Keine Internetverbindung." }
-        return $true
-    } catch {
-        Write-Error $_.Exception.Message
-        return $false
-    }
-}
-
 # Funktion zum Überprüfen der Voraussetzungen (Module)
 function Check-Prerequisites {
     [CmdletBinding()]
