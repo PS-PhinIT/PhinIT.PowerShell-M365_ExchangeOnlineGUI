@@ -1,6 +1,6 @@
 # easyEXO - Exchange Online Verwaltungstool
 
-![Version](https://img.shields.io/badge/version-0.3.0-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-0.4.0-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
 
 > Screenshots der aktuellen Version werden unter [`docs/screenshots/`](docs/screenshots/) abgelegt.
 
@@ -14,7 +14,7 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
 
 ### 📊 Dashboard
 - **Statistiken**: Zeigt nach Verbindung eine dynamische Übersicht über wichtige Exchange-Objekte wie Postfächer, Gruppen, Kontakte und Ressourcen.
-- **Berichte**: Postfachgrößen, letzte Anmeldung, Postfach-/Kalenderberechtigungen und Gruppenmitglieder – gebündelt abgefragt, abbrechbar und als CSV exportierbar.
+- **Berichte**: 14 Berichte in fünf Kategorien (Postfächer, Berechtigungen, Gruppen, Ressourcen, Audit) – u. a. Postfachgrößen, letzte Anmeldung, Weiterleitungen, Archiv-/Aufbewahrungsstatus, Vollzugriff, „Senden als“, Kalenderberechtigungen, Microsoft 365-Gruppen, Verteilergruppen ohne Besitzer, Raum-/Ressourcenpostfächer, Audit-Status und externe Weiterleitungen. Optionaler Benutzerfilter, gebündelte Abfragen, abbrechbar; Export als CSV oder für Excel (XLSX mit dem Modul *ImportExcel*), optional automatische Ablage im Ordner `Reports`.
 
 ### 🗂️ Grundlegende Verwaltung
 - **Kalenderberechtigungen**: Einfaches Anzeigen, Hinzufügen, Ändern und Entfernen von Berechtigungen für Benutzerkalender. Setzen von Standard- und anonymen Berechtigungen.
@@ -28,16 +28,20 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
 - **Transportregeln**: Erstellen, Anzeigen, Aktivieren/Deaktivieren und Exportieren/Importieren von Mailflow-Regeln.
 - **Posteingangsregeln**: Verwaltung von Posteingangsregeln für einzelne Benutzerpostfächer.
 - **Nachrichtenverfolgung**: Detaillierte Suche und Analyse von E-Mail-Zustellungen.
-- **Automatische Antworten**: Konfiguration von Abwesenheitsnotizen für Benutzer.
+- **Automatische Antworten**: Abwesenheitsnotizen für einzelne oder mehrere Benutzer (Masseneinrichtung), Platzhalter `{StartDate}`/`{EndDate}`, Zeilenumbrüche werden übernommen.
 
 ### 🛡️ Sicherheit & Compliance
 - **Microsoft Defender (ATP)**: Verwaltung von Anti-Phishing-, sicheren Anlagen- und sicheren Links-Richtlinien.
 - **Quarantäne**: Anzeigen, Freigeben und Löschen von Nachrichten in Quarantäne.
 - **Mobile Device Management (MDM)**: Verwaltung von Geräterichtlinien und Geräten in Quarantäne.
+- **DLP & Compliance**: DLP-Richtlinien und -Regeln, Aufbewahrungsrichtlinien und Vertraulichkeitsbezeichnungen anzeigen und exportieren; Modus einer DLP-Richtlinie ändern (benötigt „Compliance verbinden“).
+- **eDiscovery & Legal Hold**: eDiscovery-Fälle anzeigen und anlegen (inkl. Aufbewahrungen je Fall); Legal Hold für Postfächer suchen, aktivieren, entfernen und exportieren.
 
 ### 🔧 Systemkonfiguration
 - **Regionaleinstellungen**: Anpassen von Sprache, Zeitzone sowie Datums- und Zeitformaten für Postfächer.
 - **Mail-Routing (Cross-Premises)**: Anzeigen von Mail-Connectors, akzeptierten und Remote-Domänen.
+- **Hybrid Exchange**: Hybrid-Status (lokale Organisation, Organisationsbeziehungen, IntraOrganization-Connectors, Connectors, Migrationsendpunkte) und Verbund-Vertrauensstellung prüfen und exportieren; Link zum Hybrid Configuration Wizard.
+- **Multi-Forest**: Empfänger je Domäne und Herkunft (AD-synchronisiert/Cloud) suchen und exportieren; Microsoft-Entra-Connect-Synchronisation starten/stoppen (auf dem Entra-Connect-Server mit Modul *ADSync*).
 
 ### 📈 Monitoring & Support
 - **Health Check**: Umfassende Überprüfung des Exchange Online-Dienststatus, der Konnektivität und wichtiger Konfigurationen.
@@ -48,7 +52,8 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
 - **Windows** mit **Windows PowerShell 5.1** oder **PowerShell 7.x** (WPF-Oberfläche, STA-Modus – wird bei Bedarf automatisch neu gestartet)
 - **ExchangeOnlineManagement-Modul** ab Version 3.0.0, **empfohlen ab 3.7.0** (für `Get-MessageTraceV2` / `Get-MessageTraceDetailV2` in der Nachrichtenverfolgung). Das Skript prüft beim Start, ob das Modul installiert ist.
 - **Exchange-Online-Berechtigungen** passend zu den genutzten Funktionen (Prinzip der minimalen Rechte, z. B. *Recipient Management*, *View-Only Organization Management*, *Organization Management*).
-- Für Compliance-Funktionen (DLP, Aufbewahrung, Vertraulichkeitsbezeichnungen) zusätzlich eine Verbindung über `Connect-IPPSSession` (Security & Compliance PowerShell) – in der GUI per Schaltfläche **„Compliance verbinden“** nach der Exchange-Online-Anmeldung.
+- Für Compliance-Funktionen (DLP, Aufbewahrung, Vertraulichkeitsbezeichnungen, eDiscovery-Fälle) zusätzlich eine Verbindung über `Connect-IPPSSession` (Security & Compliance PowerShell) – in der GUI per Schaltfläche **„Compliance verbinden“** nach der Exchange-Online-Anmeldung.
+- Optional: Modul **ImportExcel** (`Install-Module ImportExcel -Scope CurrentUser`) für den XLSX-Export der Berichte; ohne das Modul wird eine Excel-kompatible CSV erstellt.
 - **Keine lokalen Administratorrechte erforderlich** – nur für eine optionale, automatische Installation von PowerShell 7 werden ggf. erhöhte Rechte durch den Installer angefordert.
 - **Internetverbindung** für die Verbindung zu Exchange Online.
 
@@ -75,6 +80,8 @@ Hier kann z. B. der **Debug-Modus** aktiviert werden, um detailliertere Log-Ausg
 
 Alle Aktionen, Fehler und wichtige Informationen werden in einer Log-Datei im Unterordner `Logs` neben dem Launcher gespeichert (`src/Logs/ExchangeTool.log`, UTF-8). Die Logs enthalten u. a. Benutzernamen/E-Mail-Adressen (personenbezogene Daten) – bitte entsprechend schützen und nicht einchecken (`Logs/` ist in `.gitignore` ausgeschlossen).
 
+Automatisch gespeicherte Berichte (Option „Automatisch als CSV speichern“) liegen im Unterordner `Reports` neben dem Launcher bzw. – ohne Schreibrechte dort – unter `Dokumente\easyEXO\Reports`. Auch sie enthalten personenbezogene Daten (`Reports/` ist in `.gitignore` ausgeschlossen).
+
 ## Projektstruktur
 
 ```text
@@ -88,7 +95,8 @@ Alle Aktionen, Fehler und wichtige Informationen werden in einer Log-Datei im Un
 │       ├── Core/                # Logging, Konfiguration (Registry), Umgebung, Hilfsfunktionen
 │       ├── UI/                  # Fenster/XAML-Laden, Steuerelemente, Dialoge, Navigation, Arbeitsanzeige (Busy.ps1)
 │       ├── Exchange/            # Verbindung zu Exchange Online und Security & Compliance (IPPS)
-│       └── Features/            # Fachmodule je Bereich (Postfächer, Gruppen, Mail-Flow, Sicherheit …)
+│       └── Features/            # Fachmodule je Bereich (Postfächer, Gruppen, Mail-Flow, Sicherheit,
+│                                #   Compliance/eDiscovery, Hybrid, Multi-Forest, Berichte …)
 ├── docs/
 │   ├── AUDIT.md                 # Audit-Bericht (Sicherheit, Performance, Funktionen, GUI …)
 │   └── screenshots/             # Screenshots der aktuellen Version

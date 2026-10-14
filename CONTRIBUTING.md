@@ -73,9 +73,14 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
   (`src/Modules/UI/Busy.ps1`). Die Exchange-Online-Sitzung ist an den Runspace der GUI gebunden – Abfragen daher nicht
   in Hintergrund-Runspaces auslagern.
 - **Click-Handler** über `Register-EventHandler` registrieren (zentraler Verteiler mit Fehlerbehandlung und Sperre während
-  laufender Vorgänge) statt direkt per `Add_Click`.
-- **Compliance-Cmdlets** (DLP, Aufbewahrung, Bezeichnungen) vorher mit `Test-ComplianceConnection` prüfen und auf
-  „Compliance verbinden“ hinweisen.
+  laufender Vorgänge) statt direkt per `Add_Click`. In `Initialize-*Tab`-Funktionen den Rückgabewert verwerfen
+  (`$null = Register-EventHandler …`), damit die Funktion nur `$true`/`$false` zurückgibt.
+- **Neue Bereiche (Tabs):** Die Initialisierungsfunktion in `$script:TabInitializers` (`src/Modules/UI/Navigation.ps1`)
+  eintragen; Hilfe-Links mit `Register-HelpLink` und einem Thema in `Show-HelpDialog` (`src/Modules/UI/Dialogs.ps1`) anbinden.
+- **Compliance-Cmdlets** (DLP, Aufbewahrung, Bezeichnungen, eDiscovery) vorher mit `Test-ComplianceConnection` prüfen und auf
+  „Compliance verbinden“ hinweisen. Neue Compliance-Cmdlets in `$script:ComplianceCommandNames`
+  (`src/Modules/Exchange/Connection.ps1`) eintragen – nur diese werden von `Connect-IPPSSession` importiert.
+- **Externe Links** nur über `Open-ExternalUrl` öffnen (nur `https` und Hosts aus `$script:AllowedExternalUrlHosts`).
 - **Keine Geheimnisse** (Passwörter, Tokens, Tenant-IDs) in Code, Logs oder Screenshots.
 - **Destruktive Aktionen** (Entfernen, Löschen, Freigeben) müssen vor der Ausführung eine Bestätigung anfordern.
 - **CSV-Exporte** immer über `ConvertTo-SafeCsvObject` leiten (Schutz vor Formel-Injection).

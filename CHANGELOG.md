@@ -9,6 +9,67 @@ Jede Änderung wird direkt unter einer **konkreten Versionsnummer mit Datum** ei
 Die Einträge bis einschließlich 0.1.1 wurden nachträglich aus der Git-Historie
 (Commits und Pull Requests) rekonstruiert.
 
+## [0.4.0] - 2026-10-14
+
+Funktions-Release zum Audit: Alle Bereiche und Steuerelemente, die im Layout vorhanden, aber ohne Funktion waren,
+sind jetzt angebunden; dazu Fehlerbehebungen bei den Abwesenheitsnotizen und neue Berichte.
+Details: [docs/AUDIT.md](docs/AUDIT.md) (Befunde S11, B17–B19, V18–V25, G19–G20, P7).
+
+### Hinzugefügt
+- **Hybrid Exchange** (`Features/Hybrid.ps1`): Hybrid-Status prüfen (lokale Organisation, Organisationsbeziehungen,
+  IntraOrganization-Connectors, Inbound-/Outbound-Connectors, Migrationsendpunkte), Verbund-Vertrauensstellung prüfen
+  (Verbundorganisationsbezeichner, Organisationsbeziehungen, Freigaberichtlinien), Export als CSV, Link zum
+  Hybrid Configuration Wizard.
+- **Multi-Forest** (`Features/MultiForest.ps1`): Domänen des Tenants laden, Empfänger nach Domäne, Objekttyp und
+  Suchbegriff suchen (Spalte „Forest“ mit Domäne und Herkunft AD-synchronisiert/Cloud), Export;
+  Microsoft-Entra-Connect-Synchronisation (Delta oder vollständig) starten/stoppen und Status anzeigen – auf dem
+  Entra-Connect-Server mit Modul `ADSync`.
+- **DLP & Compliance** (`Features/Compliance.ps1`, neuer Bereich statt Platzhalter): DLP-Richtlinien und -Regeln,
+  Aufbewahrungsrichtlinien und Vertraulichkeitsbezeichnungen anzeigen und exportieren; Modus einer DLP-Richtlinie
+  ändern (Aktiv, Test mit/ohne Benachrichtigungen, Deaktiviert) mit Bestätigung.
+- **eDiscovery & Legal Hold**: eDiscovery-Fälle laden und anlegen, Details mit den Aufbewahrungen (Holds) des Falls;
+  Legal Hold suchen (ohne Suchbegriff: alle Postfächer mit Legal Hold), für markierte Postfächer aktivieren/entfernen,
+  Export.
+- **Berichte:** acht neue Berichte – Weiterleitungen, Archiv- und Aufbewahrungsstatus, „Senden als“-Berechtigungen,
+  Microsoft 365-Gruppen, Verteilergruppen ohne Besitzer, Raum- und Ressourcenpostfächer (inkl. Buchungsoptionen),
+  Postfach-Überwachung (Audit-Status) und externe Weiterleitungen. Kategorieliste filtert die Berichte; Feld
+  „Benutzer“ schränkt postfachbezogene Berichte ein.
+- **Berichte exportieren:** „Nach Excel exportieren“ (XLSX über das Modul *ImportExcel*, sonst Excel-kompatible CSV),
+  „Automatisch als CSV speichern“ (Ordner `Reports`, ersatzweise `Dokumente\easyEXO\Reports`) und „Nach Export öffnen“.
+- **Abwesenheitsnotizen – Masseneinrichtung:** dieselbe Notiz für alle markierten Benutzer der Statusliste oder für
+  mehrere Adressen im Feld „Benutzer“ (getrennt durch `;` oder `,`), mit Bestätigung, Fortschritt und Abbrechen;
+  Deaktivieren ebenfalls für mehrere Benutzer.
+- **Exporte:** Postfachberechtigungen (CSV), Audit- und Diagnoseergebnis (Textdatei).
+- **Hilfe:** Themen für Berichte, Freigegebene Postfächer, Troubleshooting, Regionaleinstellungen, Abwesenheitsnotizen,
+  Hybrid, Multi-Forest, DLP & Compliance und eDiscovery; Hilfe-Links in den Bereichen Kontakte, Abwesenheitsnotizen,
+  DLP und eDiscovery.
+- Hilfsfunktionen: `Show-InputDialog` (Eingabedialog im Theme), `Export-TextContent`, `Open-ExternalUrl`,
+  `Register-HelpLink`, `Get-SelectedGridItems`.
+
+### Geändert
+- **Tab-Initialisierung:** eine zentrale Liste `$script:TabInitializers` statt zweier abweichender Listen; ein Fehler in
+  einem Bereich hält die übrigen nicht mehr auf.
+- **Compliance-Verbindung** importiert zusätzlich `Set-DlpCompliancePolicy`, `Get-ComplianceCase`, `New-ComplianceCase`
+  und `Get-CaseHoldPolicy` (weiterhin nur die benötigten Cmdlets).
+- **Abwesenheitsstatus** aller Postfächer mit Arbeitsanzeige, Fortschritt und Abbrechen; Status für mehrere Adressen.
+- Bereiche eDiscovery, Abwesenheitsnotizen und Multi-Forest verwenden die Button-Styles des Themes.
+- Exporte von Audit- und Diagnoseergebnis heißen „Ergebnisse speichern (TXT)“.
+
+### Behoben
+- Abwesenheitsnotiz: Platzhalter `{StartDate}`/`{EndDate}` wurden nicht ersetzt; Zeilenumbrüche gingen verloren;
+  leere Datumsfelder lösten einen Parameterfehler aus; Start nach Ende wurde nicht geprüft; die Notiz endete bereits um
+  00:00 Uhr des gewählten Endtags.
+- Abwesenheitsstatus-Export ohne Trennzeichen `;`.
+- Hilfe-Links mehrerer Bereiche zeigten „Unbekanntes Thema“.
+- Masseneinrichtung der Abwesenheitsnotizen meldete „noch nicht implementiert“.
+
+### Sicherheit
+- Externe Seiten werden nur über `Open-ExternalUrl` geöffnet (`https`, Allowlist bekannter Microsoft-Hosts).
+- Automatisch gespeicherte Berichte (personenbezogene Daten) per `.gitignore` ausgeschlossen; alle neuen Exporte
+  laufen über `ConvertTo-SafeCsvObject`, alle neuen Filter mit Benutzereingaben über `ConvertTo-OPathValue` bzw. `-Anr`.
+- Ändernde Aktionen (DLP-Modus, Legal Hold, eDiscovery-Fall, Entra-Connect-Synchronisation, Masseneinrichtung) nur
+  nach Bestätigung.
+
 ## [0.3.0] - 2026-10-14
 
 Folge-Release zum Audit: Die in 0.2.0 offenen Punkte (blockierende Oberfläche, fehlende Compliance-Verbindung,
@@ -223,7 +284,8 @@ Aufteilung in Module und neues, modernes Design. Details zu allen Befunden: [doc
 - Import der frühen Skriptversionen V0.0.1 bis V0.0.9 inklusive Funktionsmodulen, externer XAML-Oberfläche
   (`assets/EXOGUI.xaml`), Grafiken und Konfigurationsdateien (INI/JSON).
 
-[0.3.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/cda8c87...main
+[0.4.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/db7f1ea...main
+[0.3.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/cda8c87...db7f1ea
 [0.2.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/dffe553...cda8c87
 [0.1.1]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/commit/dc4d8de
 [0.0.13]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/commit/8425e6f

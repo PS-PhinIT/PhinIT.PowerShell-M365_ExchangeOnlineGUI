@@ -467,8 +467,8 @@ function Initialize-eDiscoveryTab {
         }
         if ($null -ne $script:txtSearchLegalHoldMailbox) {
             $script:txtSearchLegalHoldMailbox.Add_KeyDown({
-                param($eventSource, $keyArgs)
-                if ($keyArgs.Key -eq [System.Windows.Input.Key]::Return) { Get-LegalHoldMailboxesAction }
+                # $_ enthält die KeyEventArgs
+                if ($_.Key -eq [System.Windows.Input.Key]::Return) { Get-LegalHoldMailboxesAction }
             })
         }
         $null = Register-HelpLink -ElementName "helpLinkeDiscovery" -Topic "eDiscovery"

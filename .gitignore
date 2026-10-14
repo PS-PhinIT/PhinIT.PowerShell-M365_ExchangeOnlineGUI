@@ -4,6 +4,8 @@ Logs/
 *.bak
 
 # Exporte / temporäre Dateien
+# (automatisch gespeicherte Berichte enthalten personenbezogene Daten)
+Reports/
 *.tmp
 
 # Betriebssystem-Artefakte

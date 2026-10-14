@@ -182,7 +182,7 @@ function Update-ADSyncStatus {
 }
 
 function Start-ForestSyncAction {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param()
 
     if (-not (Test-ADSyncAvailable)) {
@@ -194,6 +194,7 @@ function Start-ForestSyncAction {
     $policyType = if ($script:chkSyncFullCycle.IsChecked -eq $true) { "Initial" } else { "Delta" }
     $answer = Show-MessageBox -Message "Synchronisation ($policyType) jetzt starten?" -Title "Synchronisation starten" -Type "YesNo"
     if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
+    if (-not $PSCmdlet.ShouldProcess("Microsoft Entra Connect", "Start-ADSyncSyncCycle -PolicyType $policyType")) { return }
 
     try {
         $null = Start-ADSyncSyncCycle -PolicyType $policyType -ErrorAction Stop
@@ -210,7 +211,7 @@ function Start-ForestSyncAction {
 }
 
 function Stop-ForestSyncAction {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param()
 
     if (-not (Test-ADSyncAvailable)) {
@@ -221,6 +222,7 @@ function Stop-ForestSyncAction {
 
     $answer = Show-MessageBox -Message "Die laufende Synchronisation abbrechen?" -Title "Synchronisation stoppen" -Type "YesNo"
     if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
+    if (-not $PSCmdlet.ShouldProcess("Microsoft Entra Connect", "Stop-ADSyncSyncCycle")) { return }
 
     try {
         $null = Stop-ADSyncSyncCycle -ErrorAction Stop
