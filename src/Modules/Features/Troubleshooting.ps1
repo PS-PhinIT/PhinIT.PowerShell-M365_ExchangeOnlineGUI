@@ -948,6 +948,11 @@ function Initialize-TroubleshootingTab {
             })
         }
         
+        $null = Register-EventHandler -Control (Get-XamlElement -ElementName "btnExportDiagnosticResult") -ControlName "btnExportDiagnosticResult" -Handler {
+            $diagnosticText = if ($null -ne $script:txtDiagnosticResult) { [string]$script:txtDiagnosticResult.Text } else { "" }
+            Export-TextContent -Text $diagnosticText -DefaultFileName "Diagnose_Ergebnis"
+        }
+
         Write-Log  "Troubleshooting-Tab erfolgreich initialisiert" -Type "Success"
         return $true
             }

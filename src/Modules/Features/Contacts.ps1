@@ -383,6 +383,8 @@ function Initialize-ContactsTab {
                     }
                 }
         } -ControlName "btnExportContacts"
+
+        $null = Register-HelpLink -ElementName "helpLinkContacts" -Topic "Contacts"
         
         return $true
             }

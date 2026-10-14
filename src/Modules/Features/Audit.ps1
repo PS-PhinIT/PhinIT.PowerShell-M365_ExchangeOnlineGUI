@@ -1163,6 +1163,11 @@ function Initialize-AuditTab {
             }
         }
         
+        $null = Register-EventHandler -Control (Get-XamlElement -ElementName "btnExportAuditResult") -ControlName "btnExportAuditResult" -Handler {
+            $auditText = if ($null -ne $script:txtAuditResult) { [string]$script:txtAuditResult.Text } else { "" }
+            Export-TextContent -Text $auditText -DefaultFileName "Audit_Ergebnis"
+        }
+
         Write-Log  "Audit-Tab erfolgreich initialisiert" -Type "Success"
         return $true
     }

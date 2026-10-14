@@ -1004,7 +1004,7 @@
                                         Height="30"
                                         Margin="0,8,8,8"
                                         HorizontalAlignment="Right"
-                                        Content="Ergebnisse exportieren (CSV)" />
+                                        Content="Ergebnisse speichern (TXT)" />
                                 </Grid>
                             </GroupBox>
                         </Grid>
@@ -1181,7 +1181,7 @@
                                         Height="40"
                                         Margin="0,8,8,8"
                                         HorizontalAlignment="Right"
-                                        Content="Ergebnisse exportieren (CSV)" />
+                                        Content="Ergebnisse speichern (TXT)" />
                                 </Grid>
                             </GroupBox>
                         </Grid>
@@ -5114,9 +5114,10 @@
                                             BorderBrush="#d4d4d4"
                                             BorderThickness="1">
                                             <ListBoxItem
-                                                Content="Postfachberichte"
+                                                Content="Alle Berichte"
                                                 IsSelected="True"
-                                                Tag="mailbox" />
+                                                Tag="all" />
+                                            <ListBoxItem Content="Postfachberichte" Tag="mailbox" />
                                             <ListBoxItem Content="Berechtigungsberichte" Tag="permissions" />
                                             <ListBoxItem Content="Gruppenberichte" Tag="groups" />
                                             <ListBoxItem Content="Ressourcenberichte" Tag="resources" />
@@ -5192,7 +5193,9 @@
                                                 Grid.Row="2"
                                                 Grid.Column="1"
                                                 Height="30"
-                                                Margin="0,5,0,5" />
+                                                Margin="0,5,0,5"
+                                                VerticalContentAlignment="Center"
+                                                ToolTip="Optional: Name, Alias oder Adresse (auch teilweise) - schränkt postfachbezogene Berichte ein" />
                                         </Grid>
                                     </StackPanel>
                                 </GroupBox>

@@ -1080,6 +1080,10 @@ function Initialize-MailboxTab {
                 $this.Cursor = [System.Windows.Input.Cursors]::Arrow
             })
         }
+
+        $null = Register-EventHandler -Control (Get-XamlElement -ElementName "btnExportMailboxPermissions") -ControlName "btnExportMailboxPermissions" -Handler {
+            Export-DataGridContent -DataGrid $script:lstMailboxPermissions -DefaultFileName "Postfachberechtigungen"
+        }
         
         return $true
     }
