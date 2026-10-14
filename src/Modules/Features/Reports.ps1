@@ -360,7 +360,7 @@ function Add-ReportForwarding {
         [switch]$ExternalOnly
     )
 
-    $mailboxes = Get-ReportMailboxes -Properties ForwardingSmtpAddress, ForwardingAddress, DeliverToMailboxAndForward -Filter "ForwardingSmtpAddress -ne `$null -or ForwardingAddress -ne `$null"
+    $mailboxes = @(Get-ReportMailboxes -Properties ForwardingSmtpAddress, ForwardingAddress, DeliverToMailboxAndForward -Filter "ForwardingSmtpAddress -ne `$null -or ForwardingAddress -ne `$null")
     $acceptedDomains = @()
     if ($ExternalOnly) {
         Update-UIBusy -Message "Lese akzeptierte Domänen..."
@@ -417,7 +417,7 @@ function Add-ReportArchiveHold {
         [System.Collections.Generic.List[object]]$Results
     )
 
-    $mailboxes = Get-ReportMailboxes -Properties ArchiveStatus, ArchiveName, LitigationHoldEnabled, RetentionHoldEnabled, RetentionPolicy, InPlaceHolds
+    $mailboxes = @(Get-ReportMailboxes -Properties ArchiveStatus, ArchiveName, LitigationHoldEnabled, RetentionHoldEnabled, RetentionPolicy, InPlaceHolds)
     foreach ($mailbox in $mailboxes) {
         $Results.Add([PSCustomObject]@{
             DisplayName           = $mailbox.DisplayName
@@ -461,7 +461,7 @@ function Add-ReportSendAs {
         return
     }
 
-    $mailboxes = Get-ReportMailboxes
+    $mailboxes = @(Get-ReportMailboxes)
     $total = $mailboxes.Count
     $index = 0
     foreach ($mailbox in $mailboxes) {
@@ -529,7 +529,7 @@ function Add-ReportResources {
         [System.Collections.Generic.List[object]]$Results
     )
 
-    $mailboxes = Get-ReportMailboxes -RecipientTypeDetails RoomMailbox, EquipmentMailbox -Properties ResourceCapacity, Office
+    $mailboxes = @(Get-ReportMailboxes -RecipientTypeDetails RoomMailbox, EquipmentMailbox -Properties ResourceCapacity, Office)
     $total = $mailboxes.Count
     $index = 0
     foreach ($mailbox in $mailboxes) {
@@ -573,7 +573,7 @@ function Add-ReportMailboxAudit {
         Write-Log "AuditDisabled der Organisation konnte nicht gelesen werden: $($_.Exception.Message)" -Type "Debug"
     }
 
-    $mailboxes = Get-ReportMailboxes -Properties AuditEnabled, AuditLogAgeLimit, AuditBypassEnabled, DefaultAuditSet
+    $mailboxes = @(Get-ReportMailboxes -Properties AuditEnabled, AuditLogAgeLimit, AuditBypassEnabled, DefaultAuditSet)
     foreach ($mailbox in $mailboxes) {
         $Results.Add([PSCustomObject]@{
             DisplayName              = $mailbox.DisplayName
@@ -633,26 +633,26 @@ function Invoke-ReportGeneration {
         try {
             switch ($report.Key) {
                 "MailboxSize" {
-                    $mailboxes = Get-ReportMailboxes
+                    $mailboxes = @(Get-ReportMailboxes -Properties ExchangeGuid)
                     Add-ReportMailboxStatistics -Results $results -Mailboxes $mailboxes -Mode Size
                 }
                 "LastLogon" {
-                    $mailboxes = Get-ReportMailboxes
+                    $mailboxes = @(Get-ReportMailboxes -Properties ExchangeGuid)
                     Add-ReportMailboxStatistics -Results $results -Mailboxes $mailboxes -Mode Logon -StartDate $startDate -EndDate $endDate
                 }
                 "Forwarding" { Add-ReportForwarding -Results $results }
                 "ArchiveHold" { Add-ReportArchiveHold -Results $results }
                 "FullAccess" {
-                    $mailboxes = Get-ReportMailboxes
+                    $mailboxes = @(Get-ReportMailboxes)
                     Add-ReportMailboxPermissions -Results $results -Mailboxes $mailboxes
                 }
                 "SendAs" { Add-ReportSendAs -Results $results }
                 "CalendarPermission" {
-                    $mailboxes = Get-ReportMailboxes
+                    $mailboxes = @(Get-ReportMailboxes)
                     Add-ReportCalendarPermissions -Results $results -Mailboxes $mailboxes
                 }
                 "SharedPermission" {
-                    $mailboxes = Get-ReportMailboxes -RecipientTypeDetails "SharedMailbox"
+                    $mailboxes = @(Get-ReportMailboxes -RecipientTypeDetails "SharedMailbox")
                     Add-ReportMailboxPermissions -Results $results -Mailboxes $mailboxes
                 }
                 "GroupMembers" { Add-ReportGroupMembers -Results $results }

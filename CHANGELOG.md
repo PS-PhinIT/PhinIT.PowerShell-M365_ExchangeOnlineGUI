@@ -60,6 +60,10 @@ Details: [docs/AUDIT.md](docs/AUDIT.md) (Befunde S11, B17–B19, V18–V25, G19�
   leere Datumsfelder lösten einen Parameterfehler aus; Start nach Ende wurde nicht geprüft; die Notiz endete bereits um
   00:00 Uhr des gewählten Endtags.
 - Abwesenheitsstatus-Export ohne Trennzeichen `;`.
+- Berichte „Postfachgrößen“ und „Letzte Anmeldung“: Die Spalte `PrimarySmtpAddress` blieb bei Verwendung der
+  REST-Cmdlets leer, da `ExchangeGuid` nicht abgefragt wurde.
+- Berichte brachen mit einem Parameterfehler ab, wenn der Benutzerfilter keine Postfächer lieferte (leeres Ergebnis
+  statt Fehlermeldung).
 - Hilfe-Links mehrerer Bereiche zeigten „Unbekanntes Thema“.
 - Masseneinrichtung der Abwesenheitsnotizen meldete „noch nicht implementiert“.
 
