@@ -802,7 +802,7 @@ function Show-ResourceSettingsDialog {
         </ScrollViewer>
         
         <!-- Rechte Spalte - Berechtigungen -->
-        <GroupBox Grid.Row="1" Grid.Column="1" Header="Ressourcenberechtigungen" Background="#ffffff">
+        <GroupBox Grid.Row="1" Grid.Column="1" Header="Ressourcenberechtigungen" Background="{DynamicResource SurfaceBrush}">
             <Grid Margin="10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -863,6 +863,7 @@ function Show-ResourceSettingsDialog {
         # XAML laden und Fenster erstellen
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]::new($xaml))
         $window = [System.Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $window
         
         # UI-Elemente referenzieren
         $txtResourceHeader = $window.FindName("txtResourceHeader")
@@ -974,14 +975,14 @@ function Show-ResourceSettingsDialog {
             $textBox.Add_LostFocus({
                 if ([string]::IsNullOrEmpty($this.Text) -and $null -ne $this.Tag) {
                     $this.Text = [string]$this.Tag
-                    $this.Foreground = [System.Windows.Media.Brushes]::Gray
+                    $this.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "TextSecondaryBrush")
                 }
             })
             
             # Initialer Platzhalter wenn Feld leer ist
             if ($textBox.Text -eq "" -and $textBox.Tag) {
                 $textBox.Text = $textBox.Tag
-                $textBox.Foreground = [System.Windows.Media.Brushes]::Gray
+                $textBox.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "TextSecondaryBrush")
             }
         }
         

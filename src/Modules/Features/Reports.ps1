@@ -32,6 +32,10 @@ $script:ReportCatalog = @(
     [PSCustomObject]@{ Key = "ExternalForwarding"; Category = "audit";       UserFilter = $true;  Name = "Externe Weiterleitungen" }
 )
 $script:LastReportName = ""
+# Berichte, die den Zeitraum (dpReportStartDate/dpReportEndDate) auswerten
+$script:ReportDateRangeKeys = @("LastLogon")
+# Anzahl der Objekte, die beim letzten Bericht wegen Fehlern übersprungen wurden
+$script:ReportErrorCount = 0
 
 function Test-ReportCommand {
     [CmdletBinding()]
@@ -60,8 +64,10 @@ function Get-ReportMailboxIdentity {
     return [string]$Mailbox
 }
 
-# Wandelt TotalItemSize (ByteQuantifiedSize oder deserialisierte Zeichenfolge) in GB um
-function ConvertTo-ReportSizeGB {
+# Wandelt eine Größenangabe (ByteQuantifiedSize, Unlimited<ByteQuantifiedSize> oder deserialisierte
+# Zeichenfolge wie "1.2 GB (1,288,490,188 bytes)") in Bytes um; $null, wenn nicht lesbar.
+# Wird auch von Audit.ps1 (Ordnergrößen) verwendet.
+function ConvertTo-ReportByteCount {
     [CmdletBinding()]
     param(
         $Size
@@ -70,17 +76,32 @@ function ConvertTo-ReportSizeGB {
     if ($null -eq $Size) { return $null }
     try {
         if ($null -ne $Size.Value -and $null -ne $Size.Value.PSObject.Methods["ToBytes"]) {
-            return [math]::Round($Size.Value.ToBytes() / 1GB, 2)
+            return [double]$Size.Value.ToBytes()
+        }
+        if ($null -ne $Size.PSObject.Methods["ToBytes"]) {
+            return [double]$Size.ToBytes()
         }
     }
     catch {
-        Write-Log "Postfachgröße konnte nicht direkt gelesen werden: $($_.Exception.Message)" -Type "Debug"
+        Write-Log "Größe konnte nicht direkt gelesen werden: $($_.Exception.Message)" -Type "Debug"
     }
     if ("$Size" -match '\(([\d\.,\s'']+) bytes\)') {
         $digits = $Matches[1] -replace '[^\d]', ''
-        if (-not [string]::IsNullOrEmpty($digits)) { return [math]::Round([double]$digits / 1GB, 2) }
+        if (-not [string]::IsNullOrEmpty($digits)) { return [double]$digits }
     }
     return $null
+}
+
+# Wandelt TotalItemSize (ByteQuantifiedSize oder deserialisierte Zeichenfolge) in GB um
+function ConvertTo-ReportSizeGB {
+    [CmdletBinding()]
+    param(
+        $Size
+    )
+
+    $bytes = ConvertTo-ReportByteCount -Size $Size
+    if ($null -eq $bytes) { return $null }
+    return [math]::Round($bytes / 1GB, 2)
 }
 
 # Liefert die Postfächer für einen Bericht. Ist im Feld "Benutzer" etwas eingetragen,
@@ -186,17 +207,29 @@ function Add-ReportMailboxStatistics {
 
     if ($total -eq 0) { return }
 
-    if (Test-ReportCommand -Name "Get-EXOMailboxStatistics") {
-        $Mailboxes |
-            Get-EXOMailboxStatistics -Properties LastLogonTime -ErrorAction SilentlyContinue |
-            Step-UIProgress -Activity "Lese Postfachstatistiken" -Total $total |
-            ForEach-Object { & $addRow $_ }
+    # Einzelne Fehler (z.B. nicht lesbares Postfach) brechen den Bericht nicht ab, werden aber gezählt und protokolliert
+    $statErrors = [System.Collections.ArrayList]::new()
+    try {
+        if (Test-ReportCommand -Name "Get-EXOMailboxStatistics") {
+            $Mailboxes |
+                Get-EXOMailboxStatistics -Properties LastLogonTime -ErrorAction SilentlyContinue -ErrorVariable +statErrors |
+                Step-UIProgress -Activity "Lese Postfachstatistiken" -Total $total |
+                ForEach-Object { & $addRow $_ }
+        }
+        else {
+            $Mailboxes |
+                ForEach-Object { Get-MailboxStatistics -Identity (Get-ReportMailboxIdentity -Mailbox $_) -ErrorAction SilentlyContinue -ErrorVariable +statErrors } |
+                Step-UIProgress -Activity "Lese Postfachstatistiken" -Total $total |
+                ForEach-Object { & $addRow $_ }
+        }
     }
-    else {
-        $Mailboxes |
-            ForEach-Object { Get-MailboxStatistics -Identity (Get-ReportMailboxIdentity -Mailbox $_) -ErrorAction SilentlyContinue } |
-            Step-UIProgress -Activity "Lese Postfachstatistiken" -Total $total |
-            ForEach-Object { & $addRow $_ }
+    finally {
+        if ($statErrors.Count -gt 0) {
+            $script:ReportErrorCount += $statErrors.Count
+            foreach ($statError in $statErrors) {
+                Write-Log "Postfachstatistik konnte nicht gelesen werden: $($statError.Exception.Message)" -Type "Warning"
+            }
+        }
     }
 }
 
@@ -573,7 +606,7 @@ function Add-ReportMailboxAudit {
         Write-Log "AuditDisabled der Organisation konnte nicht gelesen werden: $($_.Exception.Message)" -Type "Debug"
     }
 
-    $mailboxes = @(Get-ReportMailboxes -Properties AuditEnabled, AuditLogAgeLimit, AuditBypassEnabled, DefaultAuditSet)
+    $mailboxes = @(Get-ReportMailboxes -Properties AuditEnabled, AuditLogAgeLimit, DefaultAuditSet)
     foreach ($mailbox in $mailboxes) {
         $Results.Add([PSCustomObject]@{
             DisplayName              = $mailbox.DisplayName
@@ -615,14 +648,17 @@ function Invoke-ReportGeneration {
 
     $startDate = $null
     $endDate = $null
-    if ($null -ne $script:dpReportStartDate -and $null -ne $script:dpReportStartDate.SelectedDate) { $startDate = $script:dpReportStartDate.SelectedDate }
-    if ($null -ne $script:dpReportEndDate -and $null -ne $script:dpReportEndDate.SelectedDate) { $endDate = $script:dpReportEndDate.SelectedDate }
-    if ($null -ne $startDate -and $null -ne $endDate -and $startDate -gt $endDate) {
-        Show-MessageBox -Message "Das Startdatum liegt nach dem Enddatum." -Title "Ungültiger Zeitraum" -Type "Warning"
-        return
+    if ($script:ReportDateRangeKeys -contains $report.Key) {
+        if ($null -ne $script:dpReportStartDate -and $null -ne $script:dpReportStartDate.SelectedDate) { $startDate = $script:dpReportStartDate.SelectedDate }
+        if ($null -ne $script:dpReportEndDate -and $null -ne $script:dpReportEndDate.SelectedDate) { $endDate = $script:dpReportEndDate.SelectedDate }
+        if ($null -ne $startDate -and $null -ne $endDate -and $startDate -gt $endDate) {
+            Show-MessageBox -Message "Das Startdatum liegt nach dem Enddatum." -Title "Ungültiger Zeitraum" -Type "Warning"
+            return
+        }
     }
 
     $results = New-Object 'System.Collections.Generic.List[object]'
+    $script:ReportErrorCount = 0
     $cancelled = $false
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     Update-StatusBar -Message "Generiere Bericht: $reportName..." -Type Info
@@ -683,8 +719,14 @@ function Invoke-ReportGeneration {
         $script:lstReportResults.ItemsSource = $displayData
 
         $duration = [math]::Round($stopwatch.Elapsed.TotalSeconds, 1)
+        $errorSuffix = if ($script:ReportErrorCount -gt 0) { " ($($script:ReportErrorCount) Fehler - siehe Protokoll)" } else { "" }
         if ($cancelled) {
-            $statusMessage = "Bericht '$reportName' abgebrochen - Teilergebnis: $($results.Count) Datensätze ($duration s)."
+            $statusMessage = "Bericht '$reportName' abgebrochen - Teilergebnis: $($results.Count) Datensätze ($duration s)$errorSuffix."
+            Write-Log $statusMessage -Type "Warning"
+            Update-StatusBar -Message $statusMessage -Type Warning
+        }
+        elseif ($script:ReportErrorCount -gt 0) {
+            $statusMessage = "Bericht '$reportName' generiert: $($results.Count) Datensätze ($duration s)$errorSuffix."
             Write-Log $statusMessage -Type "Warning"
             Update-StatusBar -Message $statusMessage -Type Warning
         }
@@ -835,6 +877,38 @@ function Export-ReportResultsExcel {
     }
 }
 
+# Aktiviert die Datumsauswahl nur für Berichte, die einen Zeitraum auswerten (z.B. "Letzte Anmeldung")
+function Sync-ReportDateRangeState {
+    [CmdletBinding()]
+    param()
+
+    $usesDateRange = $false
+    $reportName = $null
+    if ($null -ne $script:cmbReportType -and $null -ne $script:cmbReportType.SelectedItem) {
+        $selected = $script:cmbReportType.SelectedItem
+        $selectedName = if ($selected -is [System.Windows.Controls.ComboBoxItem]) { [string]$selected.Content } else { [string]$selected }
+        $report = $script:ReportCatalog | Where-Object { $_.Name -eq $selectedName } | Select-Object -First 1
+        if ($null -ne $report) {
+            $usesDateRange = $script:ReportDateRangeKeys -contains $report.Key
+            $reportName = $report.Name
+        }
+    }
+
+    $dateReportNames = @($script:ReportCatalog | Where-Object { $script:ReportDateRangeKeys -contains $_.Key } | ForEach-Object { "'$($_.Name)'" }) -join ", "
+    $toolTip = if ($usesDateRange) {
+        "Zeitraum für den Bericht '$reportName' (leer = keine Einschränkung)."
+    }
+    else {
+        "Der Zeitraum wird nur von folgenden Berichten ausgewertet: $dateReportNames."
+    }
+    foreach ($datePicker in @($script:dpReportStartDate, $script:dpReportEndDate)) {
+        if ($null -eq $datePicker) { continue }
+        $datePicker.IsEnabled = $usesDateRange
+        $datePicker.ToolTip = $toolTip
+        [System.Windows.Controls.ToolTipService]::SetShowOnDisabled($datePicker, $true)
+    }
+}
+
 # Füllt cmbReportType mit den Berichten der gewählten Kategorie
 function Update-ReportTypeList {
     [CmdletBinding()]
@@ -853,6 +927,7 @@ function Update-ReportTypeList {
         }
     }
     if ($script:cmbReportType.Items.Count -gt 0) { $script:cmbReportType.SelectedIndex = 0 }
+    Sync-ReportDateRangeState
 }
 
 function Export-ReportResults {
@@ -911,6 +986,12 @@ function Initialize-ReportsTab {
             $script:lstReportCategories.Add_SelectionChanged({
                 try { Update-ReportTypeList }
                 catch { Write-Log "Berichtsliste konnte nicht aktualisiert werden: $($_.Exception.Message)" -Type "Warning" }
+            })
+        }
+        if ($null -ne $script:cmbReportType) {
+            $script:cmbReportType.Add_SelectionChanged({
+                try { Sync-ReportDateRangeState }
+                catch { Write-Log "Datumsauswahl konnte nicht aktualisiert werden: $($_.Exception.Message)" -Type "Warning" }
             })
         }
         if ($null -ne $script:lstReportResults) {

@@ -1191,7 +1191,6 @@ function Initialize-GroupsTab {
 
         if ($null -ne $script:cmbSelectExistingGroup) {
             $script:cmbSelectExistingGroup.Add_SelectionChanged({
-            param($sender, $e)
             try {
                 if ($null -ne $script:cmbSelectExistingGroup.SelectedItem) {
                 $selectedGroupItem = $script:cmbSelectExistingGroup.SelectedItem

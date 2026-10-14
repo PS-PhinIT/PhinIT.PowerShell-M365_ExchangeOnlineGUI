@@ -410,8 +410,10 @@ function Show-InputDialog {
         if ($null -ne $script:Form) {
             $successStyle = $script:Form.TryFindResource("SuccessButton")
             $secondaryStyle = $script:Form.TryFindResource("SecondaryButton")
+            $backgroundBrush = $script:Form.TryFindResource("WindowBackgroundBrush")
             if ($successStyle -is [System.Windows.Style]) { $okButton.Style = $successStyle }
             if ($secondaryStyle -is [System.Windows.Style]) { $cancelButton.Style = $secondaryStyle }
+            if ($backgroundBrush -is [System.Windows.Media.Brush]) { $dialog.Background = $backgroundBrush }
         }
 
         $okButton.Add_Click({
@@ -514,6 +516,7 @@ function Show-SettingsWindow {
         # XAML laden
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]$xamlSettings)
         $settingsWindow = [Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $settingsWindow
         $settingsWindow.Owner = $script:Form
 
         # UI-Elemente finden

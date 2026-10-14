@@ -7,95 +7,6 @@
 # Nicht direkt ausführen.
 # =====================================================================
 
-# Implementiert die Hauptfunktionen für den Kontakte-Tab
-function Update-ExoContact {
-    [CmdletBinding()]
-    param()
-    
-    try {
-        $name = $script:txtContactName.Text.Trim()
-        $email = $script:txtContactEmail.Text.Trim()
-        
-        if ([string]::IsNullOrEmpty($name) -or [string]::IsNullOrEmpty($email)) {
-            Show-MessageBox -Message "Bitte geben Sie einen Namen und eine E-Mail-Adresse ein." -Title "Fehlende Angaben" -Type "Warning"
-            return
-        }
-        
-        # Stellen Sie sicher, dass wir mit Exchange verbunden sind
-        if (!(Confirm-ExchangeConnection)) {
-            Show-MessageBox -Message "Bitte zuerst mit Exchange Online verbinden." -Title "Nicht verbunden" -Type "Warning"
-            return
-        }
-        
-        if ($script:dgContacts.SelectedItem) {
-            $contactObj = $script:dgContacts.SelectedItem
-            $contactId = $contactObj.Identity
-            
-            Write-StatusMessage "Aktualisiere Kontakt $contactId..."
-            
-            # Exchange-Befehle ausführen
-            Set-MailContact -Identity $contactId -Name $name -ExternalEmailAddress $email -ErrorAction Stop
-            
-            Write-StatusMessage "Kontakt $name erfolgreich aktualisiert."
-            Show-MessageBox -Message "Der Kontakt $name wurde erfolgreich aktualisiert." -Title "Kontakt aktualisiert" -Type "Info"
-            
-            # Kontakte aktualisieren
-            Search-ExoContacts
-            
-            # Felder leeren
-            $script:txtContactName.Text = ""
-            $script:txtContactEmail.Text = ""
-        }
-        else {
-            Show-MessageBox -Message "Bitte wählen Sie zuerst einen Kontakt aus der Liste aus." -Title "Kein Kontakt ausgewählt" -Type "Warning"
-        }
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-StatusMessage "Fehler beim Aktualisieren des Kontakts: $errorMsg"
-        Show-MessageBox -Message "Fehler beim Aktualisieren des Kontakts: $errorMsg" -Title "Fehler" -Type "Error"
-    }
-}
-
-function Search-ExoContacts {
-    [CmdletBinding()]
-    param()
-    
-    try {
-        $searchTerm = $txtContactSearch.Text.Trim()
-        
-        if ([string]::IsNullOrEmpty($searchTerm)) {
-            Show-MessageBox -Message "Bitte geben Sie einen Suchbegriff ein." -Title "Fehlende Angaben" -Type "Warning"
-            return
-        }
-        
-        # Stellen Sie sicher, dass wir mit Exchange verbunden sind
-        if (!(Confirm-ExchangeConnection)) {
-            Show-MessageBox -Message "Bitte zuerst mit Exchange Online verbinden." -Title "Nicht verbunden" -Type "Warning"
-            return
-        }
-        
-        Write-StatusMessage "Suche nach Kontakten mit '$searchTerm'..."
-        
-        # Exchange-Befehle ausführen
-        $safeSearchTerm = ConvertTo-OPathValue -Value $searchTerm
-        $contacts = Get-MailContact -Filter "Name -like '*$safeSearchTerm*' -or EmailAddresses -like '*$safeSearchTerm*'" -ResultSize Unlimited | 
-            Select-Object Name, DisplayName, PrimarySmtpAddress, ExternalEmailAddress, Department, Title
-        
-        # Daten zum DataGrid hinzufügen
-        $script:dgContacts.Dispatcher.Invoke([action]{
-            $script:dgContacts.ItemsSource = $contacts
-        }, "Normal")
-        
-        Write-StatusMessage "Suche abgeschlossen. $($contacts.Count) Kontakte gefunden."
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-StatusMessage "Fehler bei der Kontaktsuche: $errorMsg"
-        Show-MessageBox -Message "Fehler bei der Kontaktsuche: $errorMsg" -Title "Fehler" -Type "Error"
-    }
-}
-
 function Initialize-ContactsTab {
     [CmdletBinding()]
     param()
@@ -131,6 +42,7 @@ function Initialize-ContactsTab {
         $script:btnUpdateContact = $btnUpdateContact
         $script:txtContactSearch = $txtContactSearch
         $script:btnShowMailContacts = $btnShowMailContacts # Hinzugefügt, um die Variable im Skript-Scope verfügbar zu machen
+        $script:btnShowMailUsers = $btnShowMailUsers # Wird in Click-Handlern zum Aktualisieren der Liste benötigt
         $script:lstContacts = $lstContacts
         
         # Event-Handler für Buttons registrieren
@@ -166,7 +78,7 @@ function Initialize-ContactsTab {
                 $script:txtContactExternalEmail.Text = ""
 
                 # Liste aktualisieren
-                $btnShowMailContacts.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+                $script:btnShowMailContacts.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
 
             } catch {
                 $errorMsg = $_.Exception.Message
@@ -222,16 +134,30 @@ function Initialize-ContactsTab {
 
                 Update-StatusBar -Message "Aktualisiere Kontakt $($selectedContact.DisplayName)..."
 
-                # Kontakt aktualisieren
-                Set-MailContact -Identity $selectedContact.PrimarySmtpAddress `
-                              -DisplayName $newName `
-                              -ExternalEmailAddress "SMTP:$newEmail" `
-                              -ErrorAction Stop
+                # Kontakt aktualisieren (MailUser benötigen Set-MailUser, MailContacts Set-MailContact)
+                $isMailUser = "$($selectedContact.RecipientTypeDetails)" -like "*MailUser*"
+                if ($isMailUser) {
+                    Set-MailUser -Identity $selectedContact.PrimarySmtpAddress `
+                                 -DisplayName $newName `
+                                 -ExternalEmailAddress "SMTP:$newEmail" `
+                                 -ErrorAction Stop
+                }
+                else {
+                    Set-MailContact -Identity $selectedContact.PrimarySmtpAddress `
+                                  -DisplayName $newName `
+                                  -ExternalEmailAddress "SMTP:$newEmail" `
+                                  -ErrorAction Stop
+                }
 
                 Show-MessageBox -Message "Der Kontakt wurde erfolgreich aktualisiert." -Title "Erfolg" -Type "Info"
 
-                # Liste aktualisieren
-                $script:btnShowMailContacts.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+                # Liste aktualisieren (passend zum Typ des bearbeiteten Eintrags)
+                if ($isMailUser) {
+                    $script:btnShowMailUsers.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+                }
+                else {
+                    $script:btnShowMailContacts.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+                }
 
             } catch {
                 $errorMsg = $_.Exception.Message
@@ -301,8 +227,8 @@ function Initialize-ContactsTab {
             
             $script:txtStatus.Text = "Lade MailUsers..."
             try {
-                $users = Get-MailUser -ResultSize Unlimited | 
-                    Select-Object DisplayName, PrimarySmtpAddress, ExternalEmailAddress, RecipientTypeDetails
+                $users = @(Get-MailUser -ResultSize Unlimited -ErrorAction Stop | 
+                    Select-Object DisplayName, PrimarySmtpAddress, ExternalEmailAddress, RecipientTypeDetails)
                 
                 $script:lstContacts.ItemsSource = $users
                 $script:txtStatus.Text = "$($users.Count) MailUsers gefunden"
@@ -344,10 +270,10 @@ function Initialize-ContactsTab {
                         
                         # Liste aktualisieren
                         if ($contactType -like "*MailContact*") {
-                            $btnShowMailContacts.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+                            $script:btnShowMailContacts.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
                         }
                         else {
-                            $btnShowMailUsers.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+                            $script:btnShowMailUsers.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
                         }
                     }
                     catch {

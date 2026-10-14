@@ -164,236 +164,6 @@ $script:knownUIElements = @(
 # -----------------------------------------------
 # EXOSettings Main Functions
 # -----------------------------------------------
-function Initialize-OrganizationConfigControls {
-    [CmdletBinding()]
-    param()
-
-    try {
-        # Initialisiere die Einstellungs-Hashtable, falls noch nicht vorhanden
-        if ($null -eq $script:organizationConfigSettings) {
-            $script:organizationConfigSettings = @{}
-        }
-
-        # Eine Liste der Control-Typen und ihrer Event-Handler
-        $controlHandlers = @{
-            "CheckBox" = @{
-                "EventName" = "Click"
-                "Handler" = {
-                    param($sender, $e)
-                    $checkBox = $sender
-                    $checkBoxName = $checkBox.Name
-                    if ($checkBoxName -like "chk*" -and $checkBoxName.Length -gt 3) {
-                        $propertyName = $checkBoxName.Substring(3)
-                        switch ($checkBoxName) {
-                            default {}
-                        }
-                        $script:organizationConfigSettings[$propertyName] = $checkBox.IsChecked
-                        Write-Log "Checkbox $checkBoxName wurde auf $($checkBox.IsChecked) gesetzt (Prop: $propertyName)" -Type "Info"
-                    }
-                }
-            }
-"ComboBox" = @{
-                    "EventName" = "SelectionChanged"
-                    "Handler" = {
-                        param($sender, $e)
-                        $comboBox = $sender
-                        $comboBoxName = $comboBox.Name
-                        $propertyName = $null
-
-                        switch ($comboBoxName) {
-                            "cmbShortenEventScopeDefault" { $propertyName = "ShortenEventScopeDefault" }
-                            "cmbSearchQueryLanguage" { $propertyName = "SearchQueryLanguage" }
-                            default {
-                                if ($comboBoxName -like "cmb*" -and $comboBoxName.Length -gt 3) {
-                                    $propertyName = $comboBoxName.Substring(3)
-                                }
-                            }
-                        }
-
-                        if (-not $propertyName) {
-                            Write-Log "Kein PropertyName-Mapping für ComboBox $comboBoxName in Handler gefunden. Auswahländerung wird nicht verarbeitet." -Type "Warning"
-                            return
-                        }
-
-                        if ($null -eq $comboBox.SelectedItem) {
-                            $script:organizationConfigSettings.Remove($propertyName)
-                            Write-Log "ComboBox $comboBoxName (Prop: $propertyName): Keine Auswahl. Wert entfernt." -Type "Info"
-                            return
-                        }
-
-                        $selectedItem = $comboBox.SelectedItem
-                        $selectedContent = $null # Wird für die Speicherung verwendet
-                        $displayContent = $null  # Wird für das Logging verwendet
-
-                        if ($selectedItem -is [System.Windows.Controls.ComboBoxItem]) {
-                            $displayContent = $selectedItem.Content.ToString()
-                            # Versuche, den Tag zu verwenden, wenn vorhanden und nicht leer, sonst Content
-                            if ($null -ne $selectedItem.Tag -and $selectedItem.Tag.ToString() -ne "") {
-                                $selectedContent = $selectedItem.Tag.ToString()
-                            } else {
-                                $selectedContent = $displayContent
-                            }
-                        } elseif ($selectedItem -is [string]) {
-                            $displayContent = $selectedItem
-                            $selectedContent = $selectedItem
-                        } else {
-                            if ($null -ne $selectedItem) { 
-                                $displayContent = $selectedItem.ToString()
-                                $selectedContent = $selectedItem.ToString() 
-                            }
-                        }
-
-                        if ($null -eq $selectedContent) {
-                            Write-Log "ComboBox $comboBoxName (Prop: $propertyName) Auswahl geändert, aber SelectedItem.Content/Tag ist null. Wert nicht geändert." -Type "Warning"
-                            return
-                        }
-
-                        if ($displayContent -eq "KEINE DATEN" -or $selectedContent -eq "KEINE_DATEN_TAG_WERT") { # Annahme: KEINE_DATEN_TAG_WERT für den Tag des "KEINE DATEN" Items
-                            $script:organizationConfigSettings.Remove($propertyName)
-                            Write-Log "ComboBox $comboBoxName (Prop: $propertyName) Auswahl 'KEINE DATEN'. Wert entfernt." -Type "Info"
-                            return
-                        }
-
-                        $valueToStore = $selectedContent # Standardmäßig den ausgewählten Inhalt/Tag speichern
-                        switch ($comboBoxName) {
-                            "cmbShortenEventScopeDefault" {
-                                # Hier prüfen, ob der Wert numerisch ist, bevor konvertiert wird.
-                                # Exchange erwartet für ShortenEventScopeDefault typischerweise 'None', 0, 15, 30 etc.
-                                # Wenn der Tag direkt den Wert enthält (z.B. "0", "15", "None")
-                                if ($selectedContent -match "^\d+$") { # Wenn es eine reine Zahl ist
-                                    try { $valueToStore = [int]$selectedContent }
-                                    catch { Write-Log "Fehler Konvertierung '$selectedContent' zu Int für $comboBoxName. Wert '$selectedContent' (string) gespeichert." -Type "Warning"; $valueToStore = $selectedContent }
-                                } else {
-                                    # Wenn es Text ist (z.B. "None"), als String speichern
-                                    $valueToStore = $selectedContent
-                                }
-                            }
-                            "cmbSearchQueryLanguage" {
-                                # Der Tag sollte hier den Sprachcode enthalten, z.B. "en-US"
-                                $valueToStore = $selectedContent 
-                            }
-                            # Weitere cmb-spezifische Logik hier...
-                        }
-                        
-                        $script:organizationConfigSettings[$propertyName] = $valueToStore
-                        Write-Log "ComboBox $comboBoxName (Prop: $propertyName) Auswahl geändert auf '$displayContent'. Gespeichert als '$valueToStore'." -Type "Info"
-                    }
-                }
-                
-                "TextBox" = @{
-                "EventName" = "TextChanged"
-                "Handler" = {
-                    param($sender, $e)
-                    $textBox = $sender
-                    $textBoxName = $textBox.Name
-                    $currentText = $textBox.Text
-                    $propertyName = $null
-                    $valueToStore = $currentText
-
-                    switch ($textBoxName) {
-                        "txtPowerShellMaxConcurrency" {
-                            $propertyName = "PowerShellMaxConcurrency"
-                            if ($currentText -eq "" -or $currentText -eq "KEINE DATEN") { $script:organizationConfigSettings.Remove($propertyName); Write-Log "$textBoxName geleert/KEINE DATEN, $propertyName entfernt." -Type "Info"; return }
-                            if ([int]::TryParse($currentText, [ref]$null)) { $valueToStore = [int]$currentText } else { Write-Log "Ungültiger Int für ${textBoxName}: '$currentText'" -Type "Warning"; return }
-                        }
-                        "txtPowerShellMaxCmdletQueueDepth" {
-                            $propertyName = "PowerShellMaxCmdletQueueDepth"
-                            if ($currentText -eq "" -or $currentText -eq "KEINE DATEN") { $script:organizationConfigSettings.Remove($propertyName); Write-Log "$textBoxName geleert/KEINE DATEN, $propertyName entfernt." -Type "Info"; return }
-                            if ([int]::TryParse($currentText, [ref]$null)) { $valueToStore = [int]$currentText } else { Write-Log "Ungültiger Int für ${textBoxName}: '$currentText'" -Type "Warning"; return }
-                        }
-                        "txtPowerShellMaxCmdletsExecutionDuration" {
-                            $propertyName = "PowerShellMaxCmdletsExecutionDuration"
-                            if ($currentText -eq "" -or $currentText -eq "KEINE DATEN") { $script:organizationConfigSettings.Remove($propertyName); Write-Log "$textBoxName geleert/KEINE DATEN, $propertyName entfernt." -Type "Info"; return }
-                            if ([int]::TryParse($currentText, [ref]$null)) { $valueToStore = [int]$currentText } else { Write-Log "Ungültiger Int für ${textBoxName}: '$currentText'" -Type "Warning"; return }
-                        }
-                        "txtDefaultMinutesToReduceShortEventsBy" { 
-                            $propertyName = "DefaultMinutesToReduceShortEventsBy"
-                            if ($currentText -eq "" -or $currentText -eq "KEINE DATEN") { $script:organizationConfigSettings.Remove($propertyName); Write-Log "$textBoxName geleert/KEINE DATEN, $propertyName entfernt." -Type "Info"; return }
-                            if ([int]::TryParse($currentText, [ref]$null)) { $valueToStore = [int]$currentText } else { Write-Log "Ungültiger Int für ${textBoxName}: '$currentText'" -Type "Warning"; return }
-                        }
-                        "txtDefaultMinutesToReduceLongEventsBy" { 
-                            $propertyName = "DefaultMinutesToReduceLongEventsBy"
-                            if ($currentText -eq "" -or $currentText -eq "KEINE DATEN") { $script:organizationConfigSettings.Remove($propertyName); Write-Log "$textBoxName geleert/KEINE DATEN, $propertyName entfernt." -Type "Info"; return }
-                            if ([int]::TryParse($currentText, [ref]$null)) { $valueToStore = [int]$currentText } else { Write-Log "Ungültiger Int für ${textBoxName}: '$currentText'" -Type "Warning"; return }
-                        }
-                        "txtActivityBasedAuthenticationTimeoutInterval" { 
-                            $propertyName = "ActivityBasedAuthenticationTimeoutInterval"
-                            if ($currentText -eq "" -or $currentText -eq "KEINE DATEN") { $script:organizationConfigSettings.Remove($propertyName); Write-Log "$textBoxName geleert/KEINE DATEN, $propertyName entfernt." -Type "Info"; return }
-                        }
-                        "txtMailTipsLargeAudienceThreshold" { 
-                            $propertyName = "MailTipsLargeAudienceThreshold"
-                            if ($currentText -eq "" -or $currentText -eq "KEINE DATEN") { $script:organizationConfigSettings.Remove($propertyName); Write-Log "$textBoxName geleert/KEINE DATEN, $propertyName entfernt." -Type "Info"; return }
-                            if ([int]::TryParse($currentText, [ref]$null)) { $valueToStore = [int]$currentText } else { Write-Log "Ungültiger Int für ${textBoxName}: '$currentText'" -Type "Warning"; return }
-                        }
-                        "txtPreferredInternetCodePageForShiftJis" {
-                            $propertyName = "PreferredInternetCodePageForShiftJis"
-                            if ($currentText -eq "" -or $currentText -eq "KEINE DATEN") { $script:organizationConfigSettings.Remove($propertyName); Write-Log "$textBoxName geleert/KEINE DATEN, $propertyName entfernt." -Type "Info"; return }
-                            if ([int]::TryParse($currentText, [ref]$null)) { $valueToStore = [int]$currentText } else { Write-Log "Ungültiger Int für ${textBoxName}: '$currentText'" -Type "Warning"; return }
-                        }
-                        default {
-                            if ($textBoxName -like "txt*" -and $textBoxName.Length -gt 3) {
-                                $propertyName = $textBoxName.Substring(3)
-                                if ($currentText -eq "" -or $currentText -eq "KEINE DATEN") {
-                                    if ($script:organizationConfigSettings.ContainsKey($propertyName)) {
-                                        $script:organizationConfigSettings.Remove($propertyName)
-                                        Write-Log "Generische TextBox $textBoxName geleert/KEINE DATEN, $propertyName entfernt." -Type "Info"
-                                    }
-                                    return 
-                                }
-                            }
-                        }
-                    }
-
-                    if ($propertyName) {
-                        $script:organizationConfigSettings[$propertyName] = $valueToStore
-                        Write-Log "TextBox $textBoxName Text geändert zu '$currentText' (Prop: $propertyName, Wert: $valueToStore)" -Type "Info"
-                    } elseif ($textBoxName -like "txt*" -and $textBoxName.Length -gt 3) {} else {}
-                }
-            }
-        }
-
-        $tabEXOSettings = Get-XamlElement -ElementName "tabEXOSettings"
-        if ($null -eq $tabEXOSettings) { throw "TabItem 'tabEXOSettings' nicht gefunden" }
-        $tabOrgSettings = Get-XamlElement -ElementName "tabOrgSettings"
-        if ($null -eq $tabOrgSettings) { throw "Inneres TabControl 'tabOrgSettings' nicht gefunden" }
-        $tabEXOSettings.Visibility = [System.Windows.Visibility]::Visible
-        $registeredControls = @{ "CheckBox" = 0; "ComboBox" = 0; "TextBox" = 0 }
-
-        foreach ($elementName in $script:knownUIElements) {
-            $element = Get-XamlElement -ElementName $elementName
-            if ($null -eq $element -and $null -ne $tabEXOSettings) { try { $element = $tabEXOSettings.FindName($elementName) } catch {} }
-            if ($null -eq $element -and $null -ne $tabOrgSettings) { try { $element = $tabOrgSettings.FindName($elementName) } catch {} }
-
-            if ($null -ne $element) {
-                $controlType = $null; $propertyNameForEnablingLogic = $null
-                if ($element -is [System.Windows.Controls.CheckBox]) { $controlType = "CheckBox"; if ($elementName -like "chk*" -and $elementName.Length -gt 3) { $propertyNameForEnablingLogic = $elementName.Substring(3) } }
-                elseif ($element -is [System.Windows.Controls.ComboBox]) { $controlType = "ComboBox"; if ($elementName -like "cmb*" -and $elementName.Length -gt 3) { $propertyNameForEnablingLogic = $elementName.Substring(3) } }
-                elseif ($element -is [System.Windows.Controls.TextBox]) { $controlType = "TextBox"; if ($elementName -like "txt*" -and $elementName.Length -gt 3) { $propertyNameForEnablingLogic = $elementName.Substring(3) } }
-
-                if ($controlType -and $controlHandlers.ContainsKey($controlType)) {
-                    $eventHandlerInfo = $controlHandlers[$controlType]
-                    Register-EventHandler -Control $element -Handler $eventHandlerInfo["Handler"] -ControlName $elementName -EventName $eventHandlerInfo["EventName"]
-                    $registeredControls[$controlType]++
-                    switch ($elementName) {
-                        "txtMailTipsLargeAudienceThreshold" { $propertyNameForEnablingLogic = "MailTipsLargeAudienceThreshold" }
-                        "txtActivityBasedAuthenticationTimeoutInterval" { $propertyNameForEnablingLogic = "ActivityBasedAuthenticationTimeoutInterval" }
-                        "cmbSearchQueryLanguage" { $propertyNameForEnablingLogic = "SearchQueryLanguage" }
-                        "cmbShortenEventScopeDefault" { $propertyNameForEnablingLogic = "ShortenEventScopeDefault" }
-                    }
-                    if ($propertyNameForEnablingLogic) {
-                        if ($null -ne $script:currentOrganizationConfig) {
-                            if ($script:currentOrganizationConfig.PSObject.Properties.Name -contains $propertyNameForEnablingLogic) { $element.IsEnabled = $true }
-                            else { $element.IsEnabled = $false; Write-Log "$controlType '$elementName' deaktiviert (Eigenschaft '$propertyNameForEnablingLogic' nicht in OrgConfig)." -Type "Info" }
-                        } else { $element.IsEnabled = $true; Write-Log "$controlType '$elementName' aktiviert (OrgConfig noch nicht geladen)." -Type "Debug" }
-                    } else { $element.IsEnabled = $true; Write-Log "Für $controlType '$elementName' kein PropertyName für Aktivierungslogik. 'IsEnabled'=$true." -Type "Debug" }
-                } else { Write-Log "Kein Handler für '$($element.GetType().Name)' oder '$elementName' definiert." -Type "Debug" }
-            } else { Write-Log "Element '$elementName' nicht in XAML gefunden (Handler Registrierung)." -Type "Warning" }
-        }
-        Write-Log "Registrierte Controls: CheckBoxes: $($registeredControls['CheckBox']), ComboBoxes: $($registeredControls['ComboBox']), TextBoxes: $($registeredControls['TextBox'])" -Type "Info"
-        return $true
-    } catch { Write-Log "Fehler in Initialize-OrganizationConfigControls: $($_.Exception.Message)" -Type "Error"; Write-Log $_.Exception.StackTrace -Type "Error"; return $false }
-}
-
 #region EXOSettings Organization Config Management
 function Get-CurrentOrganizationConfig {
     [CmdletBinding()]
@@ -411,24 +181,7 @@ function Get-CurrentOrganizationConfig {
         if ($null -eq $script:currentOrganizationConfig) { throw "Get-OrganizationConfig lieferte keine Daten." }
         Write-Log "Organisationseinstellungen erfolgreich abgerufen." -Type "Info"
         $configProperties = $script:currentOrganizationConfig.PSObject.Properties | ForEach-Object { $_.Name }
-        $script:organizationConfigSettings = @{}
         Write-Log "Aktualisiere UI-Elemente und Aktivierungsstatus..." -Type "Debug"
-
-        # Registriere Event-Handler für Speichern und Exportieren nach erfolgreichem Laden
-        $btnSetOrganizationConfig = Get-XamlElement -ElementName "btnSetOrganizationConfig"
-        $btnExportOrganizationConfig = Get-XamlElement -ElementName "btnExportOrganizationConfig"
-        
-        if ($null -ne $btnSetOrganizationConfig -and -not $script:EXOSettingsHandlersRegistered) {
-            $btnSetOrganizationConfig.Add_Click({ Set-CustomOrganizationConfig })
-            Write-Log "Event-Handler für btnSetOrganizationConfig registriert." -Type "Debug"
-        }
-        
-        if ($null -ne $btnExportOrganizationConfig -and -not $script:EXOSettingsHandlersRegistered) {
-            $btnExportOrganizationConfig.Add_Click({ Export-OrganizationConfig })
-            Write-Log "Event-Handler für btnExportOrganizationConfig registriert." -Type "Debug"
-        }
-        
-        $script:EXOSettingsHandlersRegistered = $true
 
         foreach ($elementName in $script:knownUIElements) {
             $element = $null
@@ -466,7 +219,6 @@ function Get-CurrentOrganizationConfig {
                                     }
                                 }
                                 $element.IsChecked = $boolValue
-                                if ($null -ne $valueFromConfig) { $script:organizationConfigSettings[$propertyName] = $boolValue } else { $script:organizationConfigSettings.Remove($propertyName) | Out-Null }
                                 Write-Log "CheckBox '$elementName' (Prop: $propertyName) gesetzt auf '$boolValue'." -Type "Info"
                             }
                             "ComboBox" {
@@ -487,13 +239,10 @@ function Get-CurrentOrganizationConfig {
                                 }
                                 if ($itemFound) {
                                     $element.SelectedItem = $uiSelectedItem
-                                    $selectedContentString = if ($element.SelectedItem -is [System.Windows.Controls.ComboBoxItem]) { $element.SelectedItem.Content.ToString() } else { $element.SelectedItem.ToString() }
-                                    $script:organizationConfigSettings[$propertyName] = $selectedContentString
                                 } else {
                                     $keineDatenItem = $null; foreach ($item in $element.Items) { if (($item -is [System.Windows.Controls.ComboBoxItem] -and $item.Content.ToString() -eq "KEINE DATEN") -or ($item.ToString() -eq "KEINE DATEN")) { $keineDatenItem = $item; break } }
                                     if ($null -ne $keineDatenItem) { $element.SelectedItem = $keineDatenItem; Write-Log "ComboBox '$elementName': Wert '$configValueAsString' nicht gefunden/null. 'KEINE DATEN' ausgewählt." -Type "Info" }
                                     else { if ($element.Items.Count -gt 0) { $element.SelectedIndex = 0 } else { $element.SelectedItem = $null }; Write-Log "ComboBox '$elementName': Wert '$configValueAsString' nicht gefunden/null & 'KEINE DATEN' Item nicht da. Fallback." -Type "Debug" }
-                                    $script:organizationConfigSettings.Remove($propertyName) | Out-Null
                                 }
                                 Write-Log "ComboBox '$elementName' (Prop: $propertyName) UI auf '$($element.Text)' (OrgConfig: '$configValueAsString')." -Type "Info"
                             }
@@ -501,10 +250,8 @@ function Get-CurrentOrganizationConfig {
                                 if ($null -ne $valueFromConfig) {
                                     if ($valueFromConfig -is [array]) { $element.Text = $valueFromConfig -join ", " }
                                     else { $element.Text = $valueFromConfig.ToString() }
-                                    $script:organizationConfigSettings[$propertyName] = $valueFromConfig
                                 } else {
                                     $element.Text = "KEINE DATEN"
-                                    $script:organizationConfigSettings.Remove($propertyName) | Out-Null
                                 }
                                 Write-Log "TextBox '$elementName' (Prop: $propertyName) gesetzt auf '$($element.Text)'." -Type "Info"
                             }
@@ -521,7 +268,6 @@ function Get-CurrentOrganizationConfig {
                         }
                         "TextBox"  { $element.Text = "KEINE DATEN" }
                     }
-                    $script:organizationConfigSettings.Remove($propertyName) | Out-Null
                 }
             } else { Write-Log "Element '$elementName' nicht in XAML (UI Update)." -Type "Debug" }
         }
@@ -911,33 +657,6 @@ function Export-OrganizationConfig {
 
 #endregion EXOSettings Organization Config Management
 
-function Set-EXOSettingsDebugLogging {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [bool]$Enable,
-        
-        [Parameter(Mandatory = $false)]
-        [string]$LogFilePath
-    )
-    
-    $script:EXOSettingsLoggingEnabled = $Enable
-    
-    if ($PSBoundParameters.ContainsKey('LogFilePath')) {
-        $script:EXOSettingsLogFilePath = $LogFilePath
-    }
-    
-    if ($Enable) {
-        $logDirectory = Split-Path -Path $script:EXOSettingsLogFilePath -Parent
-        if (-not (Test-Path -Path $logDirectory)) {
-            New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
-        }
-        
-    }
-    else {
-    }
-}
-
 #region EXOSettings Tab Initialization
 function Initialize-EXOSettingsTab {
     [CmdletBinding()]
@@ -947,9 +666,6 @@ function Initialize-EXOSettingsTab {
     [bool]$success = $true
 
     try {
-        # Initialisiere den Status-Flag für die Event-Handler
-        $script:EXOSettingsHandlersRegistered = $false
-
         # Speichere Referenz auf den Tab selbst für spätere Verwendung
         $script:tabEXOSettings = Get-XamlElement -ElementName "tabEXOSettings"
         if ($null -eq $script:tabEXOSettings) {
@@ -965,24 +681,27 @@ function Initialize-EXOSettingsTab {
         $helpLinkEXOSettings = Get-XamlElement -ElementName "helpLinkEXOSettings"
         if ($null -ne $helpLinkEXOSettings) {
             $helpLinkEXOSettings.Add_MouseLeftButtonDown({
-                try { Start-Process "https://learn.microsoft.com/de-de/powershell/module/exchange/set-organizationconfig?view=exchange-ps" } catch { Write-Log "Fehler beim Öffnen des HelpLinks: $($_.Exception.Message)" -Type "Error" }
+                if (-not (Open-ExternalUrl -Url "https://learn.microsoft.com/de-de/powershell/module/exchange/set-organizationconfig?view=exchange-ps")) {
+                    Update-StatusBar -Message "Die Hilfeseite konnte nicht geöffnet werden." -Type "Warning"
+                }
             })
             Write-Log "EXOSettingsTab: HelpLink Handler registriert." -Type "Debug"
         } else { Write-Log "EXOSettingsTab: helpLinkEXOSettings nicht gefunden." -Type "Warning"; $success = $false }
 
-        # Event-Handler für "Aktuelle Einstellungen laden" Button
-        $btnGetOrganizationConfig = Get-XamlElement -ElementName "btnGetOrganizationConfig"
-        if ($null -ne $btnGetOrganizationConfig) {
-            $btnGetOrganizationConfig.Add_Click({
-                Write-Log "Button 'btnGetOrganizationConfig' geklickt." -Type "Info"
-                # Die Funktion Get-CurrentOrganizationConfig prüft die Verbindung intern und registriert die weiteren Handler
-                Get-CurrentOrganizationConfig
-            })
-            Write-Log "EXOSettingsTab: btnGetOrganizationConfig Handler registriert." -Type "Debug"
-        } else { Write-Log "EXOSettingsTab: btnGetOrganizationConfig nicht gefunden." -Type "Warning"; $success = $false }
-
-        # Die Event-Handler für Speichern und Exportieren werden jetzt in Get-CurrentOrganizationConfig registriert,
-        # nachdem die Daten erfolgreich geladen wurden.
+        # Buttons "Aktuelle Einstellungen laden", "Speichern" und "Exportieren".
+        # Speichern/Exportieren prüfen selbst, ob die Einstellungen bereits geladen wurden.
+        $buttonHandlers = [ordered]@{
+            "btnGetOrganizationConfig"    = { Get-CurrentOrganizationConfig }
+            "btnSetOrganizationConfig"    = { Set-CustomOrganizationConfig }
+            "btnExportOrganizationConfig" = { Export-OrganizationConfig }
+        }
+        foreach ($buttonName in $buttonHandlers.Keys) {
+            $button = Get-XamlElement -ElementName $buttonName
+            if ($null -eq $button -or -not (Register-EventHandler -Control $button -Handler $buttonHandlers[$buttonName] -ControlName $buttonName)) {
+                Write-Log "EXOSettingsTab: $buttonName nicht gefunden oder Handler nicht registriert." -Type "Warning"
+                $success = $false
+            }
+        }
 
         foreach ($elementName in $script:knownUIElements) {
             $element = Get-XamlElement -ElementName $elementName

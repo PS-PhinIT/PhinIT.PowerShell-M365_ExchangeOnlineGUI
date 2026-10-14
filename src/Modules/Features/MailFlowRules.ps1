@@ -574,6 +574,10 @@ function ConvertTo-MailFlowRuleImportObject {
                 throw "Eigenschaft '$propertyName' hat einen ungültigen Typ ($($value.GetType().FullName))."
             }
             $items = @($items | Where-Object { $_ })
+            # Ältere Exporte enthielten statt der Werte nur den Typnamen (z. B. "System.Collections.ArrayList")
+            if (@($items | Where-Object { $_ -match '^System\.(Collections\.|Object\[\])' }).Count -gt 0) {
+                throw "Eigenschaft '$propertyName' enthält nur einen Typnamen statt der Werte (Export einer älteren Version) - bitte die Regeln neu exportieren."
+            }
             if ($items.Count -gt 0) { $rule[$propertyName] = [string[]]$items }
         }
         elseif ($propertyName -in $script:MailFlowRuleBoolProperties) {
@@ -747,7 +751,11 @@ function Import-MailFlowRulesAction {
             }
             Update-UIBusy -Message "Importiere Transport Rules" -Current $index -Total $importedRules.Count
 
-            $ruleLabel = "Eintrag $index"
+            $rawName = $null
+            if ($null -ne $importedRule -and $null -ne $importedRule.PSObject.Properties["Name"]) {
+                $rawName = $importedRule.PSObject.Properties["Name"].Value
+            }
+            $ruleLabel = if ($rawName -is [string] -and -not [string]::IsNullOrWhiteSpace($rawName)) { "Regel '$rawName'" } else { "Eintrag $index" }
             try {
                 $rule = ConvertTo-MailFlowRuleImportObject -InputObject $importedRule -FromCsv:$fromCsv
                 $ruleName = $rule["Name"]
@@ -912,7 +920,7 @@ function Initialize-MailFlowRuleConditionsComboBox {
             $item = New-Object System.Windows.Controls.ComboBoxItem
             $item.Content = $condition.Display
             $item.Tag = $condition.Value
-            $ComboBox.Items.Add($item)
+            $null = $ComboBox.Items.Add($item)
         }
         
         if ($ComboBox.Items.Count -gt 0) {
@@ -953,7 +961,7 @@ function Initialize-MailFlowRuleActionsComboBox {
             $item = New-Object System.Windows.Controls.ComboBoxItem
             $item.Content = $action.Display
             $item.Tag = $action.Value
-            $ComboBox.Items.Add($item)
+            $null = $ComboBox.Items.Add($item)
         }
         
         if ($ComboBox.Items.Count -gt 0) {
@@ -988,7 +996,7 @@ function Initialize-MailFlowRuleModeComboBox {
             $item = New-Object System.Windows.Controls.ComboBoxItem
             $item.Content = $mode.Display
             $item.Tag = $mode.Value
-            $ComboBox.Items.Add($item)
+            $null = $ComboBox.Items.Add($item)
         }
         
         # Standardmäßig "Audit" auswählen
@@ -1079,19 +1087,47 @@ function Initialize-MailFlowRulesTab {
                 $conditionValue = $script:txtConditionValue.Text.Trim()
                 $actionType = $script:cmbAction.SelectedItem.Tag
                 $actionValue = $script:txtActionValue.Text.Trim()
-                $ruleMode = if ($null -ne $script:cmbRuleMode.SelectedItem) { $script:cmbRuleMode.SelectedItem.Tag } else { "Test" }
+                # Fallback "Audit", wenn nichts oder ein ungültiger Wert ausgewählt ist
+                $ruleMode = if ($null -ne $script:cmbRuleMode -and $null -ne $script:cmbRuleMode.SelectedItem) { [string]$script:cmbRuleMode.SelectedItem.Tag } else { "" }
+                if ($ruleMode -notin @("Audit", "AuditAndNotify", "Enforce")) { $ruleMode = "Audit" }
+
+                # Bedingung und Aktion prüfen - ohne Bedingungswert würde die Regel für alle Nachrichten gelten
+                $inputError = Get-MailFlowRuleInputError -ConditionType $conditionType -ConditionValue $conditionValue -ActionType $actionType -ActionValue $actionValue
+                if ($inputError) {
+                    Show-MessageBox -Message $inputError -Title "Ungültige Angabe" -Type Warning
+                    return
+                }
+
+                # Bestätigung bei Modus "Enforce" oder einschneidenden Aktionen
+                $criticalActions = @("DeleteMessage", "RedirectMessageTo", "Quarantine", "RejectMessageReasonText")
+                if ($ruleMode -eq "Enforce" -or $actionType -in $criticalActions) {
+                    $confirmText = "Transport Rule '$ruleName' erstellen?`n`n" +
+                        "Bedingung: $($script:cmbCondition.SelectedItem.Content) $conditionValue`n" +
+                        "Aktion: $($script:cmbAction.SelectedItem.Content) $actionValue`n" +
+                        "Modus: $ruleMode"
+                    if ($ruleMode -eq "Enforce") {
+                        $confirmText += "`n`nIm Modus 'Enforce' wird die Regel sofort auf den Nachrichtenfluss der gesamten Organisation angewendet."
+                    }
+                    $confirmResult = Show-MessageBox -Message $confirmText -Title "Transport Rule erstellen" -Type Question
+                    if ($confirmResult -ne [System.Windows.MessageBoxResult]::Yes) {
+                        return
+                    }
+                }
 
                 # Regel erstellen mit der MailFlow-Funktion
                 $result = New-MailFlowRuleAction -RuleName $ruleName -ConditionType $conditionType -ConditionValue $conditionValue -ActionType $actionType -ActionValue $actionValue -Mode $ruleMode
 
                 if ($result) {
-                    $script:txtStatus.Text = "Transport Rule '$ruleName' erfolgreich erstellt."
                     # Felder zurücksetzen
                     $script:txtRuleName.Text = ""
                     $script:txtConditionValue.Text = ""
                     $script:txtActionValue.Text = ""
                     # Liste aktualisieren
-                    Get-MailFlowRulesAction
+                    $null = Get-MailFlowRulesAction
+                    $script:txtStatus.Text = "Transport Rule '$ruleName' erfolgreich erstellt."
+                }
+                else {
+                    $script:txtStatus.Text = "Transport Rule '$ruleName' konnte nicht erstellt werden. Details im Log."
                 }
             }
             catch {
@@ -1163,6 +1199,13 @@ function Initialize-MailFlowRulesTab {
                     return
                 }
 
+                if ("$($selectedRule.Mode)" -eq "Enforce") {
+                    $confirmResult = Show-MessageBox -Message "Die Transport Rule '$($selectedRule.Name)' ist im Modus 'Enforce' und wird nach dem Aktivieren sofort auf den Nachrichtenfluss angewendet. Fortfahren?" -Title "Aktivieren bestätigen" -Type Question
+                    if ($confirmResult -ne [System.Windows.MessageBoxResult]::Yes) {
+                        return
+                    }
+                }
+
                 $result = Set-MailFlowRuleStateAction -RuleName $selectedRule.Name -Enabled $true
 
                 if ($result) {
@@ -1188,6 +1231,11 @@ function Initialize-MailFlowRulesTab {
                 $selectedRule = $script:dgMailFlowRules.SelectedItem
                 if ($null -eq $selectedRule) {
                     Show-MessageBox -Message "Bitte wählen Sie eine Regel aus der Liste aus." -Title "Keine Auswahl" -Type Warning
+                    return
+                }
+
+                $confirmResult = Show-MessageBox -Message "Möchten Sie die Transport Rule '$($selectedRule.Name)' wirklich deaktivieren? Die Regel wird danach nicht mehr auf Nachrichten angewendet." -Title "Deaktivieren bestätigen" -Type Question
+                if ($confirmResult -ne [System.Windows.MessageBoxResult]::Yes) {
                     return
                 }
 
@@ -1279,15 +1327,36 @@ function Initialize-MailFlowRulesTab {
                 $openFileDialog.Title = "Transport Rules importieren"
 
                 if ($openFileDialog.ShowDialog() -eq $true) {
-                    $confirmResult = Show-MessageBox -Message "Sind Sie sicher, dass Sie Transport Rules aus der Datei '$($openFileDialog.FileName)' importieren möchten?" -Title "Import bestätigen" -Type Question
+                    $confirmResult = Show-MessageBox -Message ("Sind Sie sicher, dass Sie Transport Rules aus der Datei '$($openFileDialog.FileName)' importieren möchten?`n`n" +
+                        "Hinweis: Es werden nur die von easyEXO unterstützten Bedingungen und Aktionen übernommen. " +
+                        "Regeln ohne unterstützte Bedingung sowie bereits vorhandene Regeln (gleicher Name) werden übersprungen.") -Title "Import bestätigen" -Type Question
 
                     if ($confirmResult -eq "Yes") {
-                        $result = Import-MailFlowRulesAction -FilePath $openFileDialog.FileName
+                        $importResult = Import-MailFlowRulesAction -FilePath $openFileDialog.FileName
 
-                        if ($result) {
-                            $script:txtStatus.Text = "Transport Rules erfolgreich importiert."
-                            Get-MailFlowRulesAction
-                            Show-MessageBox -Message "Transport Rules wurden erfolgreich importiert." -Title "Import erfolgreich" -Type Info
+                        $summaryText = "Importiert: $($importResult.Imported)`nÜbersprungen: $($importResult.Skipped)`nFehlgeschlagen: $($importResult.Failed)"
+                        if ($importResult.Cancelled) {
+                            $summaryText = "Der Import wurde abgebrochen.`n`n$summaryText"
+                        }
+                        $importMessages = @($importResult.Messages)
+                        if ($importMessages.Count -gt 0) {
+                            $details = @($importMessages | Select-Object -First 15) -join "`n"
+                            if ($importMessages.Count -gt 15) { $details += "`n... und $($importMessages.Count - 15) weitere (siehe Log)" }
+                            $summaryText += "`n`nDetails:`n$details"
+                        }
+
+                        if ($importResult.Imported -gt 0) {
+                            $null = Get-MailFlowRulesAction
+                        }
+
+                        $statusSummary = "$($importResult.Imported) importiert, $($importResult.Skipped) übersprungen, $($importResult.Failed) fehlgeschlagen"
+                        if ($importResult.Success) {
+                            $script:txtStatus.Text = "Transport Rules importiert: $statusSummary."
+                            $null = Show-MessageBox -Message $summaryText -Title "Import abgeschlossen" -Type Info
+                        }
+                        else {
+                            $script:txtStatus.Text = "Import der Transport Rules unvollständig: $statusSummary."
+                            $null = Show-MessageBox -Message $summaryText -Title "Import mit Fehlern" -Type Warning
                         }
                     }
                 }

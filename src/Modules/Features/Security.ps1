@@ -197,6 +197,7 @@ function New-AntiPhishingPolicyAction {
 
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]$xamlDialog)
         $dialog = [Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $dialog
         
         # UI-Elemente referenzieren
         $txtPolicyName = $dialog.FindName("txtPolicyName")
@@ -318,7 +319,7 @@ function Set-AntiPhishingPolicyAction {
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <Label Content="Richtlinienname:" FontWeight="SemiBold"/>
-                <TextBox x:Name="txtPolicyName" Margin="0,0,0,10" IsReadOnly="True" Background="#EEEEEE"/>
+                <TextBox x:Name="txtPolicyName" Margin="0,0,0,10" IsReadOnly="True" Background="{DynamicResource SurfaceHoverBrush}"/>
                 
                 <Label Content="Beschreibung (optional):" FontWeight="SemiBold"/>
                 <TextBox x:Name="txtPolicyDescription" Margin="0,0,0,10" Height="60" TextWrapping="Wrap" AcceptsReturn="True"/>
@@ -349,6 +350,7 @@ function Set-AntiPhishingPolicyAction {
 
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]$xamlDialog)
         $dialog = [Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $dialog
         
         # UI-Elemente referenzieren
         $txtPolicyName = $dialog.FindName("txtPolicyName")
@@ -476,9 +478,9 @@ function Remove-AntiPhishingPolicyAction {
 
         Update-StatusBar -Message "Lösche Richtlinie '$policyName'..." -Type "Info"
         try {
-            # Zuerst die Regel löschen, falls vorhanden
-            $rule = Get-AntiPhishRule | Where-Object { $_.AntiPhishPolicy -eq $policyName } | Select-Object -First 1
-            if ($null -ne $rule) {
+            # Zuerst alle Regeln löschen, die auf die Richtlinie verweisen
+            $rules = @(Get-AntiPhishRule -ErrorAction Stop | Where-Object { $_.AntiPhishPolicy -eq $policyName })
+            foreach ($rule in $rules) {
                 Remove-AntiPhishRule -Identity $rule.Name -Confirm:$false -ErrorAction Stop
                 Write-Log "Zugehörige Regel '$($rule.Name)' für Richtlinie '$policyName' gelöscht." -Type "Info"
             }
@@ -501,13 +503,26 @@ function Remove-AntiPhishingPolicyAction {
 }
 
 function Get-SafeAttachmentPoliciesAction {
-    Update-StatusBar -Message "Safe Attachment-Richtlinien werden geladen..."
-    # Implementierung: Get-SafeAttachmentPolicy
-    $policies = Get-SafeAttachmentPolicy -ErrorAction SilentlyContinue
-    $script:dgSafeAttachmentPolicies.Dispatcher.Invoke([Action]{
-        $script:dgSafeAttachmentPolicies.ItemsSource = $policies
-    })
-    Update-StatusBar -Message "$($policies.Count) Safe Attachment-Richtlinien geladen." -Type Success
+    [CmdletBinding()]
+    param()
+
+    if (-not (Confirm-ExchangeConnection)) { return }
+    Update-StatusBar -Message "Safe Attachment-Richtlinien werden geladen..." -Type Info
+
+    try {
+        $policies = @(Get-SafeAttachmentPolicy -ErrorAction Stop)
+        $script:dgSafeAttachmentPolicies.Dispatcher.Invoke([Action]{
+            $script:dgSafeAttachmentPolicies.ItemsSource = $policies
+        })
+        Update-StatusBar -Message "$($policies.Count) Safe Attachment-Richtlinien geladen." -Type Success
+        Log-Action "Safe Attachment-Richtlinien geladen: $($policies.Count) gefunden."
+    }
+    catch {
+        $errorMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Fehler beim Laden der Safe Attachment-Richtlinien."
+        Update-StatusBar -Message $errorMsg -Type Error
+        Show-MessageBox -Message $errorMsg -Title "Fehler" -Type Error
+        Log-Action "Fehler beim Laden der Safe Attachment-Richtlinien: $errorMsg"
+    }
 }
 
 function New-SafeAttachmentPolicyAction {
@@ -522,7 +537,7 @@ function New-SafeAttachmentPolicyAction {
         $xamlDialog = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Neue Safe Attachment-Richtlinie" Height="500" Width="600"
+        Title="Neue Safe Attachment-Richtlinie" Height="550" Width="600"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
     <Grid Margin="15">
         <Grid.RowDefinitions>
@@ -545,14 +560,16 @@ function New-SafeAttachmentPolicyAction {
                 
                 <Label Content="Aktion bei schädlichen Anhängen:" FontWeight="SemiBold"/>
                 <ComboBox x:Name="cmbAction" Margin="0,0,0,10">
-                    <ComboBoxItem Content="Block" Tag="Block"/>
-                    <ComboBoxItem Content="Replace" Tag="Replace"/>
-                    <ComboBoxItem Content="Quarantine" Tag="Quarantine"/>
-                    <ComboBoxItem Content="DynamicDelivery" Tag="DynamicDelivery"/>
+                    <ComboBoxItem Content="Zulassen (Allow)" Tag="Allow"/>
+                    <ComboBoxItem Content="Blockieren (Block)" Tag="Block" IsSelected="True"/>
+                    <ComboBoxItem Content="Dynamische Zustellung (DynamicDelivery)" Tag="DynamicDelivery"/>
                 </ComboBox>
 
-                <CheckBox x:Name="chkEnableRedirect" Content="Umleitung aktivieren" Margin="0,10,0,0"/>
+                <CheckBox x:Name="chkEnableRedirect" Content="Umleitung aktivieren" Margin="0,10,0,0" ToolTip="Nur wirksam mit der Aktion 'Zulassen (Allow)'."/>
                 <TextBox x:Name="txtRedirectAddress" Margin="0,0,0,10" ToolTip="E-Mail-Adresse für Umleitung" IsEnabled="False"/>
+
+                <Label Content="Anwenden auf (Benutzer, Gruppen, Domänen - mit Semikolon trennen):" FontWeight="SemiBold"/>
+                <TextBox x:Name="txtAppliedTo" Margin="0,0,0,10" ToolTip="z.B. user@contoso.com; marketing@contoso.com; contoso.com"/>
 
             </StackPanel>
         </ScrollViewer>
@@ -567,6 +584,7 @@ function New-SafeAttachmentPolicyAction {
 
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]$xamlDialog)
         $dialog = [Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $dialog
         
         # UI-Elemente referenzieren
         $txtPolicyName = $dialog.FindName("txtPolicyName")
@@ -575,6 +593,7 @@ function New-SafeAttachmentPolicyAction {
         $cmbAction = $dialog.FindName("cmbAction")
         $chkEnableRedirect = $dialog.FindName("chkEnableRedirect")
         $txtRedirectAddress = $dialog.FindName("txtRedirectAddress")
+        $txtAppliedTo = $dialog.FindName("txtAppliedTo")
         $btnCreate = $dialog.FindName("btnCreate")
         $btnCancel = $dialog.FindName("btnCancel")
 
@@ -596,30 +615,47 @@ function New-SafeAttachmentPolicyAction {
                     Show-MessageBox -Message "Bitte geben Sie einen Richtliniennamen an." -Title "Eingabe fehlt" -Type Warning
                     return
                 }
+                if ($chkEnableRedirect.IsChecked -and [string]::IsNullOrWhiteSpace($txtRedirectAddress.Text)) {
+                    Show-MessageBox -Message "Bitte geben Sie eine E-Mail-Adresse für die Umleitung an." -Title "Eingabe fehlt" -Type Warning
+                    return
+                }
 
                 Update-StatusBar -Message "Erstelle Safe Attachment-Richtlinie '$policyName'..." -Type Info
 
                 $selectedActionItem = $cmbAction.SelectedItem
-                $actionValue = if ($selectedActionItem -and $selectedActionItem.Tag) { $selectedActionItem.Tag } else { "Block" }
+                $actionValue = if ($null -ne $selectedActionItem -and $selectedActionItem.Tag) { [string]$selectedActionItem.Tag } else { "Block" }
 
                 $policyParams = @{
                     Name = $policyName
-                    Enabled = $chkEnabled.IsChecked
+                    Enable = [bool]$chkEnabled.IsChecked
                     Action = $actionValue
-                    Description = $txtPolicyDescription.Text.Trim()
                     ErrorAction = 'Stop'
                 }
+                $adminDisplayName = $txtPolicyDescription.Text.Trim()
+                if (-not [string]::IsNullOrWhiteSpace($adminDisplayName)) {
+                    $policyParams.AdminDisplayName = $adminDisplayName
+                }
 
-                if ($chkEnableRedirect.IsChecked -and -not [string]::IsNullOrWhiteSpace($txtRedirectAddress.Text)) {
-                    $policyParams.Add("RedirectAddress", $txtRedirectAddress.Text.Trim())
+                # RedirectAddress wird nur zusammen mit Redirect = $true ausgewertet
+                if ($chkEnableRedirect.IsChecked) {
+                    $policyParams.Redirect = $true
+                    $policyParams.RedirectAddress = $txtRedirectAddress.Text.Trim()
                 }
 
                 # Richtlinie erstellen
-                New-SafeAttachmentPolicy @policyParams
+                $null = New-SafeAttachmentPolicy @policyParams
+
+                # Regel erstellen, wenn Empfänger angegeben sind (ohne Regel ist die Richtlinie nicht wirksam)
+                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text
+                Sync-SecurityPolicyRule -RuleType SafeAttachment -PolicyName $policyName -Rule $null -Scope $scope -Enabled $true
 
                 $dialog.DialogResult = $true
                 $dialog.Close()
-                Show-MessageBox -Message "Die Safe Attachment-Richtlinie '$policyName' wurde erfolgreich erstellt." -Title "Erfolg" -Type Info
+                $successMessage = "Die Safe Attachment-Richtlinie '$policyName' wurde erfolgreich erstellt."
+                if ($scope.Count -eq 0) {
+                    $successMessage += "`n`nHinweis: Ohne Angabe unter 'Anwenden auf' wurde keine Regel erstellt - die Richtlinie ist noch nicht wirksam."
+                }
+                Show-MessageBox -Message $successMessage -Title "Erfolg" -Type Info
                 Log-Action "Neue Safe Attachment-Richtlinie '$policyName' erstellt."
                 
                 # Liste aktualisieren
@@ -659,9 +695,14 @@ function Set-SafeAttachmentPolicyAction {
     try {
         # Zugehörige Regel finden
         $rule = $null
+        $ruleLookupFailed = $false
         try {
-            $rule = Get-SafeAttachmentRule | Where-Object { $_.SafeAttachmentPolicy -eq $selectedPolicy.Name } | Select-Object -First 1
-        } catch {}
+            $rule = Get-SafeAttachmentRule -ErrorAction Stop | Where-Object { $_.SafeAttachmentPolicy -eq $selectedPolicy.Name } | Select-Object -First 1
+        } catch {
+            $ruleLookupFailed = $true
+            Write-Log "Safe Attachment-Regel für '$($selectedPolicy.Name)' konnte nicht abgerufen werden: $($_.Exception.Message)" -Type "Warning"
+            Show-MessageBox -Message "Die zugehörige Safe Attachment-Regel konnte nicht abgerufen werden. 'Anwenden auf' wird daher nicht geändert.`n`n$($_.Exception.Message)" -Title "Regel nicht verfügbar" -Type "Warning"
+        }
 
         # XAML für das Dialogfenster
         $xamlDialog = @"
@@ -681,7 +722,7 @@ function Set-SafeAttachmentPolicyAction {
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <Label Content="Richtlinienname:" FontWeight="SemiBold"/>
-                <TextBox x:Name="txtPolicyName" Margin="0,0,0,10" IsReadOnly="True" Background="#EEEEEE"/>
+                <TextBox x:Name="txtPolicyName" Margin="0,0,0,10" IsReadOnly="True" Background="{DynamicResource SurfaceHoverBrush}"/>
                 
                 <Label Content="Beschreibung (optional):" FontWeight="SemiBold"/>
                 <TextBox x:Name="txtPolicyDescription" Margin="0,0,0,10" Height="60" TextWrapping="Wrap" AcceptsReturn="True"/>
@@ -690,13 +731,12 @@ function Set-SafeAttachmentPolicyAction {
                 
                 <Label Content="Aktion bei schädlichen Anhängen:" FontWeight="SemiBold"/>
                 <ComboBox x:Name="cmbAction" Margin="0,0,0,10">
+                    <ComboBoxItem Content="Zulassen (Allow)" Tag="Allow"/>
                     <ComboBoxItem Content="Blockieren (Block)" Tag="Block"/>
-                    <ComboBoxItem Content="Ersetzen (Replace)" Tag="Replace"/>
-                    <ComboBoxItem Content="In Quarantäne verschieben (Quarantine)" Tag="Quarantine"/>
                     <ComboBoxItem Content="Dynamische Zustellung (DynamicDelivery)" Tag="DynamicDelivery"/>
                 </ComboBox>
 
-                <CheckBox x:Name="chkEnableRedirect" Content="Umleitung für erkannte Anhänge aktivieren" Margin="0,10,0,0"/>
+                <CheckBox x:Name="chkEnableRedirect" Content="Umleitung für erkannte Anhänge aktivieren" Margin="0,10,0,0" ToolTip="Nur wirksam mit der Aktion 'Zulassen (Allow)'."/>
                 <TextBox x:Name="txtRedirectAddress" Margin="0,5,0,10" ToolTip="E-Mail-Adresse für Umleitung" IsEnabled="False"/>
 
                 <Label Content="Anwenden auf (Benutzer, Gruppen, Domänen - mit Semikolon trennen):" FontWeight="SemiBold"/>
@@ -715,6 +755,7 @@ function Set-SafeAttachmentPolicyAction {
 
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]$xamlDialog)
         $dialog = [Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $dialog
         
         # UI-Elemente referenzieren
         $txtPolicyName = $dialog.FindName("txtPolicyName")
@@ -729,17 +770,23 @@ function Set-SafeAttachmentPolicyAction {
 
         # Dialog mit vorhandenen Werten füllen
         $txtPolicyName.Text = $selectedPolicy.Name
-        $txtPolicyDescription.Text = $selectedPolicy.Description
-        $chkEnabled.IsChecked = $selectedPolicy.Enabled
+        $txtPolicyDescription.Text = [string]$selectedPolicy.AdminDisplayName
+        $chkEnabled.IsChecked = $selectedPolicy.Enable -eq $true
 
         # Aktion in ComboBox auswählen
-        $actionItem = $cmbAction.Items | Where-Object { $_.Tag -eq $selectedPolicy.Action } | Select-Object -First 1
-        if ($null -ne $actionItem) { $cmbAction.SelectedItem = $actionItem }
+        $currentAction = [string]$selectedPolicy.Action
+        $actionItem = $cmbAction.Items | Where-Object { [string]$_.Tag -eq $currentAction } | Select-Object -First 1
+        if ($null -ne $actionItem) {
+            $cmbAction.SelectedItem = $actionItem
+        } elseif (-not [string]::IsNullOrWhiteSpace($currentAction)) {
+            Write-Log "Unbekannte Safe Attachment-Aktion '$currentAction' bei Richtlinie '$($selectedPolicy.Name)' - die Aktion bleibt unverändert, solange keine Auswahl getroffen wird." -Type "Warning"
+        }
 
         # Umleitungseinstellungen
-        $chkEnableRedirect.IsChecked = $selectedPolicy.EnableRedirect
-        $txtRedirectAddress.IsEnabled = $selectedPolicy.EnableRedirect
-        $txtRedirectAddress.Text = $selectedPolicy.RedirectAddress
+        $chkEnableRedirect.IsChecked = $selectedPolicy.Redirect -eq $true
+        $txtRedirectAddress.IsEnabled = $selectedPolicy.Redirect -eq $true
+        $txtRedirectAddress.Text = [string]$selectedPolicy.RedirectAddress
+        $txtAppliedTo.IsEnabled = -not $ruleLookupFailed
 
         # Empfänger aus Regel laden
         if ($null -ne $rule) {
@@ -757,39 +804,46 @@ function Set-SafeAttachmentPolicyAction {
         $btnSave.Add_Click({
             try {
                 $policyName = $txtPolicyName.Text
-                Update-StatusBar -Message "Aktualisiere Safe Attachment-Richtlinie '$policyName'..." -Type Info
+                if ($chkEnableRedirect.IsChecked -and [string]::IsNullOrWhiteSpace($txtRedirectAddress.Text)) {
+                    Show-MessageBox -Message "Bitte geben Sie eine E-Mail-Adresse für die Umleitung an." -Title "Eingabe fehlt" -Type Warning
+                    return
+                }
+                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text
+                if (-not $ruleLookupFailed -and -not (Test-SecurityRuleKeepsCondition -Rule $rule -Scope $scope)) {
+                    Show-MessageBox -Message "Die zugehörige Regel '$($rule.Name)' benötigt mindestens einen Empfänger oder eine Domäne unter 'Anwenden auf'." -Title "Eingabe fehlt" -Type Warning
+                    return
+                }
 
-                $selectedActionItem = $cmbAction.SelectedItem
-                $actionValue = if ($selectedActionItem -and $selectedActionItem.Tag) { $selectedActionItem.Tag } else { "Block" }
+                Update-StatusBar -Message "Aktualisiere Safe Attachment-Richtlinie '$policyName'..." -Type Info
 
                 $policyParams = @{
                     Identity = $policyName
-                    Enabled = $chkEnabled.IsChecked
-                    Action = $actionValue
-                    Description = $txtPolicyDescription.Text.Trim()
+                    Enable = [bool]$chkEnabled.IsChecked
                     ErrorAction = 'Stop'
                 }
-                # Umleitung nur setzen, wenn aktiviert und Adresse angegeben
-                if ($chkEnableRedirect.IsChecked -and -not [string]::IsNullOrWhiteSpace($txtRedirectAddress.Text)) {
-                    $policyParams.EnableRedirect = $true
+                # Ohne Auswahl (unbekannter bisheriger Wert) bleibt die Aktion unverändert
+                $selectedActionItem = $cmbAction.SelectedItem
+                if ($null -ne $selectedActionItem -and $selectedActionItem.Tag) {
+                    $policyParams.Action = [string]$selectedActionItem.Tag
+                }
+                $adminDisplayName = $txtPolicyDescription.Text.Trim()
+                if ($adminDisplayName -ne ([string]$selectedPolicy.AdminDisplayName).Trim()) {
+                    $policyParams.AdminDisplayName = $adminDisplayName
+                }
+                # RedirectAddress wird nur zusammen mit Redirect = $true ausgewertet
+                if ($chkEnableRedirect.IsChecked) {
+                    $policyParams.Redirect = $true
                     $policyParams.RedirectAddress = $txtRedirectAddress.Text.Trim()
                 } else {
-                    $policyParams.EnableRedirect = $false
+                    $policyParams.Redirect = $false
                 }
 
                 # Richtlinie aktualisieren
                 Set-SafeAttachmentPolicy @policyParams
 
-                # Regel aktualisieren, falls vorhanden
-                if ($null -ne $rule) {
-                    $appliedToRecipients = $txtAppliedTo.Text.Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-                    $ruleParams = @{
-                        Identity = $rule.Name
-                        RecipientDomainIs = $appliedToRecipients | Where-Object { $_ -notlike "*@*" }
-                        SentTo = $appliedToRecipients | Where-Object { $_ -like "*@*" }
-                        ErrorAction = 'Stop'
-                    }
-                    Set-SafeAttachmentRule @ruleParams
+                # Regel aktualisieren bzw. anlegen, wenn noch keine existiert und Empfänger angegeben sind
+                if (-not $ruleLookupFailed) {
+                    Sync-SecurityPolicyRule -RuleType SafeAttachment -PolicyName $policyName -Rule $rule -Scope $scope
                 }
 
                 $dialog.DialogResult = $true
@@ -860,9 +914,9 @@ function Remove-SafeAttachmentPolicyAction {
 
         Update-StatusBar -Message "Lösche Richtlinie '$policyName'..." -Type "Info"
         try {
-            # Zuerst die Regel löschen, falls vorhanden
-            $rule = Get-SafeAttachmentRule | Where-Object { $_.SafeAttachmentPolicy -eq $policyName } | Select-Object -First 1
-            if ($null -ne $rule) {
+            # Zuerst alle Regeln löschen, die auf die Richtlinie verweisen
+            $rules = @(Get-SafeAttachmentRule -ErrorAction Stop | Where-Object { $_.SafeAttachmentPolicy -eq $policyName })
+            foreach ($rule in $rules) {
                 Remove-SafeAttachmentRule -Identity $rule.Name -Confirm:$false -ErrorAction Stop
                 Write-Log "Zugehörige Regel '$($rule.Name)' für Richtlinie '$policyName' gelöscht." -Type "Info"
             }
@@ -893,7 +947,7 @@ function Get-SafeLinksPoliciesAction {
     
     try {
         # Safe Links-Richtlinien abrufen
-        $policies = Get-SafeLinksPolicy -ErrorAction Stop
+        $policies = @(Get-SafeLinksPolicy -ErrorAction Stop)
         
         # DataGrid im UI-Thread aktualisieren
         $script:dgSafeLinksPolicies.Dispatcher.Invoke([Action]{
@@ -949,7 +1003,7 @@ function New-SafeLinksPolicyAction {
                     <StackPanel Margin="10">
                         <CheckBox x:Name="chkScanUrlsInEmail" Content="URLs in E-Mails auf schädliche Links überprüfen" IsChecked="True" ToolTip="Aktiviert den Schutz für Links in E-Mail-Nachrichten."/>
                         <CheckBox x:Name="chkScanUrlsInOffice" Content="URLs in Office 365-Apps auf schädliche Links überprüfen" IsChecked="True" ToolTip="Aktiviert den Schutz für Links in Office-Dokumenten (Word, Excel, PowerPoint)."/>
-                        <CheckBox x:Name="chkWaitForScan" Content="Warten, bis die URL-Überprüfung abgeschlossen ist" ToolTip="Verhindert die Zustellung von Nachrichten mit potenziell schädlichen Links, bis die Überprüfung abgeschlossen ist."/>
+                        <CheckBox x:Name="chkWaitForScan" Content="Warten, bis die URL-Überprüfung abgeschlossen ist" IsChecked="True" ToolTip="Verhindert die Zustellung von Nachrichten mit potenziell schädlichen Links, bis die Überprüfung abgeschlossen ist."/>
                     </StackPanel>
                 </GroupBox>
 
@@ -980,6 +1034,7 @@ function New-SafeLinksPolicyAction {
 
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]$xamlDialog)
         $dialog = [Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $dialog
         
         # UI-Elemente referenzieren
         $txtPolicyName = $dialog.FindName("txtPolicyName")
@@ -1008,43 +1063,45 @@ function New-SafeLinksPolicyAction {
 
                 Update-StatusBar -Message "Erstelle Safe Links-Richtlinie '$policyName'..." -Type Info
 
+                # Ob die Richtlinie aktiv ist, steuert die zugehörige Regel (Safe Links-Richtlinien haben keinen Enabled-Parameter)
                 $policyParams = @{
                     Name = $policyName
-                    Enabled = $chkEnabled.IsChecked
-                    Description = $txtPolicyDescription.Text.Trim()
-                    EnableSafeLinksForEmail = $chkScanUrlsInEmail.IsChecked
-                    EnableSafeLinksForOffice = $chkScanUrlsInOffice.IsChecked
-                    ScanUrls = $chkWaitForScan.IsChecked
-                    DoNotTrackUserClicks = $chkDoNotTrackClicks.IsChecked
-                    DoNotAllowClickThrough = $chkDoNotAllowClickThrough.IsChecked
-                    EnableOrganizationBranding = $chkDisplayBranding.IsChecked
+                    EnableSafeLinksForEmail = [bool]$chkScanUrlsInEmail.IsChecked
+                    EnableSafeLinksForOffice = [bool]$chkScanUrlsInOffice.IsChecked
+                    DeliverMessageAfterScan = [bool]$chkWaitForScan.IsChecked
+                    TrackClicks = -not [bool]$chkDoNotTrackClicks.IsChecked
+                    AllowClickThrough = -not [bool]$chkDoNotAllowClickThrough.IsChecked
+                    EnableOrganizationBranding = [bool]$chkDisplayBranding.IsChecked
                     ErrorAction = 'Stop'
                 }
+                # Warten auf den Scan setzt die Echtzeitüberprüfung von URLs voraus
+                if ($chkWaitForScan.IsChecked) {
+                    $policyParams.ScanUrls = $true
+                }
+                $adminDisplayName = $txtPolicyDescription.Text.Trim()
+                if (-not [string]::IsNullOrWhiteSpace($adminDisplayName)) {
+                    $policyParams.AdminDisplayName = $adminDisplayName
+                }
 
-                $doNotRewriteUrlsList = $txtDoNotRewriteUrls.Text.Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+                $doNotRewriteUrlsList = @($txtDoNotRewriteUrls.Text.Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
                 if ($doNotRewriteUrlsList.Count -gt 0) {
                     $policyParams.Add("DoNotRewriteUrls", $doNotRewriteUrlsList)
                 }
 
                 # Richtlinie erstellen
-                New-SafeLinksPolicy @policyParams
+                $null = New-SafeLinksPolicy @policyParams
 
-                # Regel erstellen und mit Richtlinie verknüpfen
-                $appliedToRecipients = $txtAppliedTo.Text.Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-                if ($appliedToRecipients.Count -gt 0) {
-                    $ruleParams = @{
-                        Name = "$($policyName)_Rule"
-                        SafeLinksPolicy = $policyName
-                        RecipientDomainIs = $appliedToRecipients | Where-Object { $_ -notlike "*@*" }
-                        SentTo = $appliedToRecipients | Where-Object { $_ -like "*@*" }
-                        ErrorAction = 'Stop'
-                    }
-                    New-SafeLinksRule @ruleParams
-                }
+                # Regel erstellen und mit Richtlinie verknüpfen, wenn Empfänger angegeben sind
+                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text
+                Sync-SecurityPolicyRule -RuleType SafeLinks -PolicyName $policyName -Rule $null -Scope $scope -Enabled ([bool]$chkEnabled.IsChecked)
 
                 $dialog.DialogResult = $true
                 $dialog.Close()
-                Show-MessageBox -Message "Die Safe Links-Richtlinie '$policyName' wurde erfolgreich erstellt." -Title "Erfolg" -Type Info
+                $successMessage = "Die Safe Links-Richtlinie '$policyName' wurde erfolgreich erstellt."
+                if ($scope.Count -eq 0) {
+                    $successMessage += "`n`nHinweis: Ohne Angabe unter 'Anwenden auf' wurde keine Regel erstellt - die Richtlinie ist noch nicht wirksam."
+                }
+                Show-MessageBox -Message $successMessage -Title "Erfolg" -Type Info
                 Log-Action "Neue Safe Links-Richtlinie '$policyName' erstellt."
                 
                 # Liste aktualisieren
@@ -1084,10 +1141,13 @@ function Set-SafeLinksPolicyAction {
     try {
         # Zugehörige Regel finden, um den Geltungsbereich zu bearbeiten
         $rule = $null
+        $ruleLookupFailed = $false
         try {
-            $rule = Get-SafeLinksRule | Where-Object { $_.SafeLinksPolicy -eq $selectedPolicy.Name } | Select-Object -First 1
+            $rule = Get-SafeLinksRule -ErrorAction Stop | Where-Object { $_.SafeLinksPolicy -eq $selectedPolicy.Name } | Select-Object -First 1
         } catch {
-            Write-Log "Keine zugehörige Safe Links-Regel für '$($selectedPolicy.Name)' gefunden oder Fehler beim Abruf." -Type "Info"
+            $ruleLookupFailed = $true
+            Write-Log "Safe Links-Regel für '$($selectedPolicy.Name)' konnte nicht abgerufen werden: $($_.Exception.Message)" -Type "Warning"
+            Show-MessageBox -Message "Die zugehörige Safe Links-Regel konnte nicht abgerufen werden. 'Anwenden auf' und der Regelstatus werden daher nicht geändert.`n`n$($_.Exception.Message)" -Title "Regel nicht verfügbar" -Type "Warning"
         }
 
         # XAML für das Dialogfenster (basiert auf dem Dialog für 'New')
@@ -1108,7 +1168,7 @@ function Set-SafeLinksPolicyAction {
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <Label Content="Richtlinienname:" FontWeight="SemiBold"/>
-                <TextBox x:Name="txtPolicyName" Margin="0,0,0,10" IsReadOnly="True" Background="#EEEEEE"/>
+                <TextBox x:Name="txtPolicyName" Margin="0,0,0,10" IsReadOnly="True" Background="{DynamicResource SurfaceHoverBrush}"/>
                 
                 <Label Content="Beschreibung (optional):" FontWeight="SemiBold"/>
                 <TextBox x:Name="txtPolicyDescription" Margin="0,0,0,10" Height="60" TextWrapping="Wrap" AcceptsReturn="True"/>
@@ -1150,6 +1210,7 @@ function Set-SafeLinksPolicyAction {
 
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]$xamlDialog)
         $dialog = [Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $dialog
         
         # UI-Elemente referenzieren
         $txtPolicyName = $dialog.FindName("txtPolicyName")
@@ -1168,18 +1229,21 @@ function Set-SafeLinksPolicyAction {
 
         # Dialog mit vorhandenen Werten füllen
         $txtPolicyName.Text = $selectedPolicy.Name
-        $txtPolicyDescription.Text = $selectedPolicy.Description
-        $chkEnabled.IsChecked = $selectedPolicy.Enabled
+        $txtPolicyDescription.Text = [string]$selectedPolicy.AdminDisplayName
+        # Ob die Richtlinie aktiv ist, steuert der Status der zugehörigen Regel
+        $chkEnabled.IsChecked = if ($null -ne $rule) { [string]$rule.State -eq 'Enabled' } else { $true }
+        $chkEnabled.IsEnabled = -not $ruleLookupFailed
         
         # Schutzeinstellungen setzen
-        $chkScanUrlsInEmail.IsChecked = $selectedPolicy.EnableSafeLinksForEmail
-        $chkScanUrlsInOffice.IsChecked = $selectedPolicy.EnableSafeLinksForOffice
-        $chkWaitForScan.IsChecked = $selectedPolicy.ScanUrls
+        $chkScanUrlsInEmail.IsChecked = $selectedPolicy.EnableSafeLinksForEmail -eq $true
+        $chkScanUrlsInOffice.IsChecked = $selectedPolicy.EnableSafeLinksForOffice -eq $true
+        $chkWaitForScan.IsChecked = $selectedPolicy.DeliverMessageAfterScan -eq $true
 
         # Klickschutz-Einstellungen setzen
-        $chkDoNotTrackClicks.IsChecked = $selectedPolicy.DoNotTrackUserClicks
-        $chkDoNotAllowClickThrough.IsChecked = $selectedPolicy.DoNotAllowClickThrough
-        $chkDisplayBranding.IsChecked = $selectedPolicy.EnableOrganizationBranding
+        $chkDoNotTrackClicks.IsChecked = $selectedPolicy.TrackClicks -eq $false
+        $chkDoNotAllowClickThrough.IsChecked = $selectedPolicy.AllowClickThrough -eq $false
+        $chkDisplayBranding.IsChecked = $selectedPolicy.EnableOrganizationBranding -eq $true
+        $txtAppliedTo.IsEnabled = -not $ruleLookupFailed
 
         # DoNotRewriteUrls setzen, wenn vorhanden
         if ($null -ne $selectedPolicy.DoNotRewriteUrls -and $selectedPolicy.DoNotRewriteUrls.Count -gt 0) {
@@ -1199,80 +1263,49 @@ function Set-SafeLinksPolicyAction {
         $btnSave.Add_Click({
             try {
                 $policyName = $txtPolicyName.Text
+                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text
+                if (-not $ruleLookupFailed -and -not (Test-SecurityRuleKeepsCondition -Rule $rule -Scope $scope)) {
+                    Show-MessageBox -Message "Die zugehörige Regel '$($rule.Name)' benötigt mindestens einen Empfänger oder eine Domäne unter 'Anwenden auf'." -Title "Eingabe fehlt" -Type Warning
+                    return
+                }
+
                 Update-StatusBar -Message "Aktualisiere Safe Links-Richtlinie '$policyName'..." -Type Info
 
-                # Parameter für die Richtlinie vorbereiten
+                # Parameter für die Richtlinie vorbereiten (der Aktiv-Status wird über die Regel gesteuert)
                 $policyParams = @{
                     Identity = $policyName
-                    Enabled = $chkEnabled.IsChecked
-                    Description = $txtPolicyDescription.Text.Trim()
-                    EnableSafeLinksForEmail = $chkScanUrlsInEmail.IsChecked
-                    EnableSafeLinksForOffice = $chkScanUrlsInOffice.IsChecked
-                    ScanUrls = $chkWaitForScan.IsChecked
-                    DoNotTrackUserClicks = $chkDoNotTrackClicks.IsChecked
-                    DoNotAllowClickThrough = $chkDoNotAllowClickThrough.IsChecked
-                    EnableOrganizationBranding = $chkDisplayBranding.IsChecked
+                    EnableSafeLinksForEmail = [bool]$chkScanUrlsInEmail.IsChecked
+                    EnableSafeLinksForOffice = [bool]$chkScanUrlsInOffice.IsChecked
+                    DeliverMessageAfterScan = [bool]$chkWaitForScan.IsChecked
+                    TrackClicks = -not [bool]$chkDoNotTrackClicks.IsChecked
+                    AllowClickThrough = -not [bool]$chkDoNotAllowClickThrough.IsChecked
+                    EnableOrganizationBranding = [bool]$chkDisplayBranding.IsChecked
                     ErrorAction = 'Stop'
+                }
+                # Warten auf den Scan setzt die Echtzeitüberprüfung von URLs voraus
+                if ($chkWaitForScan.IsChecked) {
+                    $policyParams.ScanUrls = $true
+                }
+                $adminDisplayName = $txtPolicyDescription.Text.Trim()
+                if ($adminDisplayName -ne ([string]$selectedPolicy.AdminDisplayName).Trim()) {
+                    $policyParams.AdminDisplayName = $adminDisplayName
                 }
 
                 # DoNotRewriteUrls-Liste aufbereiten
-                $doNotRewriteUrlsList = $txtDoNotRewriteUrls.Text.Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+                $doNotRewriteUrlsList = @($txtDoNotRewriteUrls.Text.Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
                 if ($doNotRewriteUrlsList.Count -gt 0) {
                     $policyParams.Add("DoNotRewriteUrls", $doNotRewriteUrlsList)
                 } else {
-                    # Wenn keine URLs angegeben sind, leeres Array setzen
-                    $policyParams.Add("DoNotRewriteUrls", @())
+                    # Wenn keine URLs angegeben sind, Liste leeren
+                    $policyParams.Add("DoNotRewriteUrls", $null)
                 }
 
                 # Richtlinie aktualisieren
                 Set-SafeLinksPolicy @policyParams
 
-                # Regel aktualisieren oder neu erstellen, falls notwendig
-                $appliedToRecipients = $txtAppliedTo.Text.Trim() -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-                
-                if ($appliedToRecipients.Count -gt 0) {
-                    $domains = $appliedToRecipients | Where-Object { $_ -notlike "*@*" }
-                    $recipients = $appliedToRecipients | Where-Object { $_ -like "*@*" }
-                    
-                    if ($null -ne $rule) {
-                        # Bestehende Regel aktualisieren
-                        $ruleParams = @{
-                            Identity = $rule.Name
-                            SafeLinksPolicy = $policyName
-                            ErrorAction = 'Stop'
-                        }
-                        
-                        if ($domains.Count -gt 0) {
-                            $ruleParams.Add("RecipientDomainIs", $domains)
-                        }
-                        
-                        if ($recipients.Count -gt 0) {
-                            $ruleParams.Add("SentTo", $recipients)
-                        }
-                        
-                        Set-SafeLinksRule @ruleParams
-                        Write-Log "Safe Links-Regel '$($rule.Name)' für Richtlinie '$policyName' aktualisiert." -Type "Success"
-                    }
-                    else {
-                        # Neue Regel erstellen
-                        $ruleName = "$($policyName)_Rule"
-                        $ruleParams = @{
-                            Name = $ruleName
-                            SafeLinksPolicy = $policyName
-                            ErrorAction = 'Stop'
-                        }
-                        
-                        if ($domains.Count -gt 0) {
-                            $ruleParams.Add("RecipientDomainIs", $domains)
-                        }
-                        
-                        if ($recipients.Count -gt 0) {
-                            $ruleParams.Add("SentTo", $recipients)
-                        }
-                        
-                        New-SafeLinksRule @ruleParams
-                        Write-Log "Neue Safe Links-Regel '$ruleName' für Richtlinie '$policyName' erstellt." -Type "Success"
-                    }
+                # Regel aktualisieren (Empfängerbereich und Status) oder neu erstellen, falls Empfänger angegeben sind
+                if (-not $ruleLookupFailed) {
+                    Sync-SecurityPolicyRule -RuleType SafeLinks -PolicyName $policyName -Rule $rule -Scope $scope -Enabled ([bool]$chkEnabled.IsChecked)
                 }
 
                 $dialog.DialogResult = $true
@@ -1319,6 +1352,54 @@ function Export-SafeLinksPoliciesAction {
     }
 }
 
+function Remove-SafeLinksPolicyAction {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param()
+
+    if (-not (Confirm-ExchangeConnection)) { return }
+
+    $selectedPolicy = $script:dgSafeLinksPolicies.SelectedItem
+    if ($null -eq $selectedPolicy) {
+        Show-MessageBox -Message "Bitte wählen Sie eine Richtlinie zum Löschen aus." -Title "Keine Auswahl" -Type "Warning"
+        return
+    }
+
+    $policyName = $selectedPolicy.Name
+    $confirmMessage = "Möchten Sie die Safe Links-Richtlinie '$policyName' und die zugehörige Regel wirklich löschen?"
+
+    if ($PSCmdlet.ShouldProcess($policyName, "Safe Links-Richtlinie und Regel löschen")) {
+        $confirmResult = Show-MessageBox -Message $confirmMessage -Title "Löschen bestätigen" -Type "Question" -Icon "Warning"
+        if ($confirmResult -ne 'Yes') {
+            Update-StatusBar -Message "Löschvorgang abgebrochen." -Type "Info"
+            return
+        }
+
+        Update-StatusBar -Message "Lösche Richtlinie '$policyName'..." -Type "Info"
+        try {
+            # Zuerst alle Regeln löschen, die auf die Richtlinie verweisen
+            $rules = @(Get-SafeLinksRule -ErrorAction Stop | Where-Object { $_.SafeLinksPolicy -eq $policyName })
+            foreach ($rule in $rules) {
+                Remove-SafeLinksRule -Identity $rule.Name -Confirm:$false -ErrorAction Stop
+                Write-Log "Zugehörige Regel '$($rule.Name)' für Richtlinie '$policyName' gelöscht." -Type "Info"
+            }
+
+            # Dann die Richtlinie löschen
+            Remove-SafeLinksPolicy -Identity $policyName -Confirm:$false -ErrorAction Stop
+
+            Show-MessageBox -Message "Die Safe Links-Richtlinie '$policyName' wurde erfolgreich gelöscht." -Title "Erfolg" -Type "Info"
+            Log-Action "Safe Links-Richtlinie '$policyName' gelöscht."
+
+            # Liste aktualisieren
+            Get-SafeLinksPoliciesAction
+
+        } catch {
+            $errorMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Fehler beim Löschen der Safe Links-Richtlinie."
+            Write-Log $errorMsg -Type "Error"
+            Show-MessageBox -Message $errorMsg -Title "Fehler" -Type "Error"
+        }
+    }
+}
+
 function Get-QuarantineMessagesAction {
     [CmdletBinding()]
     param(
@@ -1326,6 +1407,7 @@ function Get-QuarantineMessagesAction {
         [switch]$NoDefaultFilter,
         
         [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 1000)]
         [int]$PageSize = 1000,
         
         [Parameter(Mandatory = $false)]
@@ -1341,10 +1423,16 @@ function Get-QuarantineMessagesAction {
         [datetime]$EndReceivedDate,
         
         [Parameter(Mandatory = $false)]
-        [ValidateSet("Spam", "HighConfidenceSpam", "Phish", "HighConfidencePhish", "BulkMail", "TransportRule")]
-        [string]$Type
+        [ValidateSet("Bulk", "DataLossPrevention", "HighConfPhish", "Malware", "Phish", "Spam", "SPOMalware", "TransportRule")]
+        [string]$Type,
+
+        # Sicherheitsgrenze: maximal so viele Seiten abrufen
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 100)]
+        [int]$MaxPages = 10
     )
 
+    $busyStarted = $false
     try {
         # Prüfen, ob eine Verbindung zu Exchange Online besteht
         if (-not (Confirm-ExchangeConnection)) {
@@ -1355,6 +1443,8 @@ function Get-QuarantineMessagesAction {
         # Status aktualisieren
         Update-StatusBar -Message "Quarantäne-Nachrichten werden abgerufen..." -Type "Info"
         Write-Log "Get-QuarantineMessagesAction: Rufe Quarantäne-Nachrichten ab" -Type "Info"
+        Start-UIBusy -Message "Quarantäne-Nachrichten werden abgerufen..." -Title "Quarantäne" -Cancelable
+        $busyStarted = $true
         
         # Parameter für Get-QuarantineMessage aufbauen
         $quarantineParams = @{
@@ -1386,14 +1476,28 @@ function Get-QuarantineMessagesAction {
             $quarantineParams.Add("Type", $Type)
         }
 
-        # Quarantäne-Nachrichten abrufen
+        # Quarantäne-Nachrichten seitenweise abrufen, bis eine Seite weniger als PageSize Einträge liefert
         Write-Log "Get-QuarantineMessagesAction: Führe Get-QuarantineMessage mit Parametern aus: $($quarantineParams | ConvertTo-Json -Compress)" -Type "Debug"
-        $messages = Get-QuarantineMessage @quarantineParams
+        $messages = [System.Collections.Generic.List[object]]::new()
+        $isTruncated = $false
+        $isCancelled = $false
+        for ($page = 1; $page -le $MaxPages; $page++) {
+            if (Test-UICancelRequested) {
+                $isCancelled = $true
+                break
+            }
+            Update-UIBusy -Message "Quarantäne-Nachrichten werden abgerufen (Seite $page, bisher $($messages.Count) Nachrichten)..."
+            $pageItems = @(Get-QuarantineMessage @quarantineParams -Page $page)
+            foreach ($item in $pageItems) { $messages.Add($item) }
+            if ($pageItems.Count -lt $PageSize) { break }
+            if ($page -eq $MaxPages) { $isTruncated = $true }
+        }
         
         # Wenn keine Nachrichten gefunden wurden
-        if ($null -eq $messages -or $messages.Count -eq 0) {
-            Update-StatusBar -Message "Keine Nachrichten in der Quarantäne gefunden." -Type "Warning"
-            Write-Log "Get-QuarantineMessagesAction: Keine Quarantäne-Nachrichten gefunden" -Type "Info"
+        if ($messages.Count -eq 0) {
+            $emptyMessage = if ($isCancelled) { "Abruf der Quarantäne-Nachrichten abgebrochen." } else { "Keine Nachrichten in der Quarantäne gefunden." }
+            Update-StatusBar -Message $emptyMessage -Type "Warning"
+            Write-Log "Get-QuarantineMessagesAction: $emptyMessage" -Type "Info"
             
             # DataGrid leeren
             if ($null -ne $script:dgQuarantineMessages) {
@@ -1408,12 +1512,13 @@ function Get-QuarantineMessagesAction {
         }
         
         # Daten für die Anzeige aufbereiten
-        $messagesForDisplay = $messages | ForEach-Object {
+        $messagesForDisplay = @($messages | ForEach-Object {
             # Zusätzliche Eigenschaften für bessere Darstellung hinzufügen
             $_ | Add-Member -NotePropertyName ReceivedTimeLocal -NotePropertyValue $_.ReceivedTime.ToLocalTime() -Force
             $_ | Add-Member -NotePropertyName Size -NotePropertyValue "$([math]::Round($_.Size / 1KB, 2)) KB" -Force
             $_
-        }
+        })
+        $messageCount = $messagesForDisplay.Count
         
         # Daten im DataGrid anzeigen
         if ($null -ne $script:dgQuarantineMessages) {
@@ -1422,9 +1527,16 @@ function Get-QuarantineMessagesAction {
             })
             
             # Status aktualisieren
-            $messageCount = $messagesForDisplay.Count
-            Update-StatusBar -Message "$messageCount Nachricht(en) in Quarantäne gefunden." -Type "Success"
-            Write-Log "Get-QuarantineMessagesAction: $messageCount Quarantäne-Nachrichten geladen" -Type "Success"
+            if ($isTruncated) {
+                Update-StatusBar -Message "$messageCount Nachricht(en) geladen - Obergrenze von $MaxPages Seiten erreicht, es sind evtl. weitere Nachrichten vorhanden. Bitte Filter verwenden." -Type "Warning"
+                Write-Log "Get-QuarantineMessagesAction: Abruf nach $MaxPages Seiten ($messageCount Nachrichten) begrenzt" -Type "Warning"
+            } elseif ($isCancelled) {
+                Update-StatusBar -Message "Abruf abgebrochen - $messageCount Nachricht(en) bis dahin geladen." -Type "Warning"
+                Write-Log "Get-QuarantineMessagesAction: Abruf abgebrochen nach $messageCount Nachrichten" -Type "Warning"
+            } else {
+                Update-StatusBar -Message "$messageCount Nachricht(en) in Quarantäne gefunden." -Type "Success"
+                Write-Log "Get-QuarantineMessagesAction: $messageCount Quarantäne-Nachrichten geladen" -Type "Success"
+            }
             
             # Wenn vorhanden, Anzahl-Feld aktualisieren
             if ($null -ne $script:txtQuarantineCount) {
@@ -1444,6 +1556,10 @@ function Get-QuarantineMessagesAction {
         $errorMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Fehler beim Abrufen der Quarantäne-Nachrichten"
         Write-Log "Get-QuarantineMessagesAction: $errorMsg" -Type "Error"
         Update-StatusBar -Message "Fehler beim Abrufen der Quarantäne-Nachrichten" -Type "Error"
+        if ($busyStarted) {
+            Stop-UIBusy
+            $busyStarted = $false
+        }
         Show-MessageBox -Message $errorMsg -Title "Fehler" -Type "Error"
         Log-Action "Fehler beim Abrufen der Quarantäne-Nachrichten: $errorMsg"
         
@@ -1455,6 +1571,98 @@ function Get-QuarantineMessagesAction {
         }
         
         return $null
+    }
+    finally {
+        if ($busyStarted) { Stop-UIBusy }
+    }
+}
+
+# Führt Freigabe bzw. Löschen für alle übergebenen Quarantäne-Nachrichten aus (mit Arbeitsanzeige)
+# und gibt ein Ergebnisobjekt mit Erfolgs-/Fehlerzahlen zurück.
+function Invoke-QuarantineMessageOperation {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$Messages,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Release", "Delete")]
+        [string]$Operation
+    )
+
+    $verb = if ($Operation -eq "Release") { "Freigabe" } else { "Löschen" }
+    $succeeded = 0
+    $failures = [System.Collections.Generic.List[string]]::new()
+    $cancelled = $false
+    $total = $Messages.Count
+    $current = 0
+
+    Start-UIBusy -Message "$verb der Quarantäne-Nachrichten..." -Title "Quarantäne" -Cancelable
+    try {
+        foreach ($message in $Messages) {
+            if (Test-UICancelRequested) {
+                $cancelled = $true
+                break
+            }
+            $current++
+            Update-UIBusy -Message "$verb der Quarantäne-Nachrichten" -Current $current -Total $total
+
+            $identity = [string]$message.Identity
+            if (-not $PSCmdlet.ShouldProcess($identity, "Quarantäne-Nachricht: $verb")) { continue }
+            try {
+                if ($Operation -eq "Release") {
+                    Release-QuarantineMessage -Identity $identity -ReleaseToAll -Confirm:$false -ErrorAction Stop
+                } else {
+                    Delete-QuarantineMessage -Identity $identity -Confirm:$false -ErrorAction Stop
+                }
+                $succeeded++
+                Log-Action "Quarantäne-Nachricht ($verb): $identity"
+            }
+            catch {
+                $failures.Add("$($message.Subject) [$identity]: $($_.Exception.Message)")
+                Write-Log "Quarantäne-Nachricht '$identity' ($verb) fehlgeschlagen: $($_.Exception.Message)" -Type "Error"
+            }
+        }
+    }
+    finally {
+        Stop-UIBusy
+    }
+
+    return [PSCustomObject]@{
+        Succeeded = $succeeded
+        Failures  = @($failures)
+        Cancelled = $cancelled
+        Total     = $total
+    }
+}
+
+# Zeigt die Zusammenfassung einer Freigabe-/Lösch-Aktion an.
+function Show-QuarantineOperationSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        $Result,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ActionText
+    )
+
+    $summary = "$($Result.Succeeded) von $($Result.Total) Nachricht(en) $ActionText."
+    if ($Result.Cancelled) {
+        $summary += "`nDer Vorgang wurde abgebrochen."
+    }
+    if ($Result.Failures.Count -gt 0) {
+        $shownFailures = @($Result.Failures | Select-Object -First 10)
+        $summary += "`n`nFehler ($($Result.Failures.Count)):`n" + ($shownFailures -join "`n")
+        if ($Result.Failures.Count -gt $shownFailures.Count) {
+            $summary += "`n... (weitere Details im Log)"
+        }
+        Update-StatusBar -Message "$($Result.Succeeded) von $($Result.Total) Nachricht(en) $ActionText, $($Result.Failures.Count) Fehler." -Type "Warning"
+        $null = Show-MessageBox -Message $summary -Title "Teilweise erfolgreich" -Type "Warning"
+    } else {
+        $statusType = if ($Result.Cancelled) { "Warning" } else { "Success" }
+        Update-StatusBar -Message "$($Result.Succeeded) von $($Result.Total) Nachricht(en) $ActionText." -Type $statusType
+        $null = Show-MessageBox -Message $summary -Title "Ergebnis" -Type "Info"
     }
 }
 
@@ -1468,39 +1676,40 @@ function Release-QuarantineMessageAction {
         return
     }
 
-    $selectedItem = $script:dgQuarantineMessages.SelectedItem
-    if ($null -eq $selectedItem) {
-        Show-MessageBox -Message "Bitte wählen Sie eine Nachricht aus der Quarantäne-Liste aus." -Title "Keine Auswahl" -Type "Warning"
+    $selectedItems = @(Get-SelectedGridItems -DataGrid $script:dgQuarantineMessages)
+    if ($selectedItems.Count -eq 0) {
+        Show-MessageBox -Message "Bitte wählen Sie mindestens eine Nachricht aus der Quarantäne-Liste aus." -Title "Keine Auswahl" -Type "Warning"
         return
     }
 
     # Bestätigungsdialog anzeigen
-    $confirmResult = Show-MessageBox -Message "Möchten Sie die ausgewählte Nachricht wirklich freigeben?" -Title "Freigabe bestätigen" -Type "YesNo" -Icon "Question"
+    $confirmMessage = if ($selectedItems.Count -eq 1) {
+        "Möchten Sie die ausgewählte Nachricht von '$($selectedItems[0].SenderAddress)' mit dem Betreff '$($selectedItems[0].Subject)' wirklich an alle ursprünglichen Empfänger freigeben?"
+    } else {
+        "Möchten Sie die $($selectedItems.Count) ausgewählten Nachrichten wirklich an alle ursprünglichen Empfänger freigeben?"
+    }
+    $confirmResult = Show-MessageBox -Message $confirmMessage -Title "Freigabe bestätigen" -Type "Question"
     if ($confirmResult -ne "Yes") {
         Update-StatusBar -Message "Freigabe abgebrochen." -Type "Info"
         return
     }
 
     try {
-        Update-StatusBar -Message "Freigabe der Nachricht wird durchgeführt..." -Type "Info"
-        Write-Log "Release-QuarantineMessageAction: Freigabe für Nachricht mit Identity '$($selectedItem.Identity)' gestartet." -Type "Info"
+        Update-StatusBar -Message "Freigabe von $($selectedItems.Count) Nachricht(en) wird durchgeführt..." -Type "Info"
+        Write-Log "Release-QuarantineMessageAction: Freigabe für $($selectedItems.Count) Nachricht(en) gestartet." -Type "Info"
 
-        # Quarantäne-Nachricht freigeben
-        Release-QuarantineMessage -Identity $selectedItem.Identity -ReleaseToAll -ErrorAction Stop
-
-        Show-MessageBox -Message "Die ausgewählte Nachricht wurde erfolgreich freigegeben." -Title "Erfolg" -Type "Info"
-        Update-StatusBar -Message "Nachricht erfolgreich freigegeben." -Type "Success"
-        Log-Action "Quarantäne-Nachricht freigegeben: $($selectedItem.Identity)"
+        $result = Invoke-QuarantineMessageOperation -Messages $selectedItems -Operation Release
+        Show-QuarantineOperationSummary -Result $result -ActionText "freigegeben"
 
         # Liste aktualisieren
-        Get-QuarantineMessagesAction
+        $null = Get-QuarantineMessagesAction
     }
     catch {
         $errorMsg = $_.Exception.Message
-        Write-Log "Fehler beim Freigeben der Quarantäne-Nachricht: $errorMsg" -Type "Error"
-        Update-StatusBar -Message "Fehler beim Freigeben der Nachricht: $errorMsg" -Type "Error"
-        Show-MessageBox -Message "Fehler beim Freigeben der Nachricht:`n$errorMsg" -Title "Fehler" -Type "Error"
-        Log-Action "Fehler beim Freigeben der Quarantäne-Nachricht: $errorMsg"
+        Write-Log "Fehler beim Freigeben der Quarantäne-Nachrichten: $errorMsg" -Type "Error"
+        Update-StatusBar -Message "Fehler beim Freigeben der Nachrichten: $errorMsg" -Type "Error"
+        Show-MessageBox -Message "Fehler beim Freigeben der Nachrichten:`n$errorMsg" -Title "Fehler" -Type "Error"
+        Log-Action "Fehler beim Freigeben der Quarantäne-Nachrichten: $errorMsg"
     }
 }
 
@@ -1514,40 +1723,41 @@ function Delete-QuarantineMessageAction {
         return
     }
 
-    $selectedItem = $script:dgQuarantineMessages.SelectedItem
-    if ($null -eq $selectedItem) {
-        Show-MessageBox -Message "Bitte wählen Sie eine Nachricht aus der Quarantäne-Liste aus, um sie zu löschen." -Title "Keine Auswahl" -Type "Warning"
+    $selectedItems = @(Get-SelectedGridItems -DataGrid $script:dgQuarantineMessages)
+    if ($selectedItems.Count -eq 0) {
+        Show-MessageBox -Message "Bitte wählen Sie mindestens eine Nachricht aus der Quarantäne-Liste aus, um sie zu löschen." -Title "Keine Auswahl" -Type "Warning"
         return
     }
 
     # Bestätigungsdialog anzeigen, da dies eine endgültige Aktion ist
-    $confirmMessage = "Möchten Sie die ausgewählte Nachricht von '$($selectedItem.SenderAddress)' mit dem Betreff '$($selectedItem.Subject)' wirklich endgültig löschen?`n`nDiese Aktion kann nicht rückgängig gemacht werden."
-    $confirmResult = Show-MessageBox -Message $confirmMessage -Title "Löschen bestätigen" -Type "YesNo" -Icon "Warning"
+    $confirmMessage = if ($selectedItems.Count -eq 1) {
+        "Möchten Sie die ausgewählte Nachricht von '$($selectedItems[0].SenderAddress)' mit dem Betreff '$($selectedItems[0].Subject)' wirklich endgültig löschen?"
+    } else {
+        "Möchten Sie die $($selectedItems.Count) ausgewählten Nachrichten wirklich endgültig löschen?"
+    }
+    $confirmMessage += "`n`nDiese Aktion kann nicht rückgängig gemacht werden."
+    $confirmResult = Show-MessageBox -Message $confirmMessage -Title "Löschen bestätigen" -Type "Question" -Icon "Warning"
     if ($confirmResult -ne "Yes") {
         Update-StatusBar -Message "Löschvorgang abgebrochen." -Type "Info"
         return
     }
 
     try {
-        Update-StatusBar -Message "Lösche Nachricht..." -Type "Info"
-        Write-Log "Delete-QuarantineMessageAction: Löschen für Nachricht mit Identity '$($selectedItem.Identity)' gestartet." -Type "Info"
+        Update-StatusBar -Message "Lösche $($selectedItems.Count) Nachricht(en)..." -Type "Info"
+        Write-Log "Delete-QuarantineMessageAction: Löschen für $($selectedItems.Count) Nachricht(en) gestartet." -Type "Info"
 
-        # Quarantäne-Nachricht löschen
-        Delete-QuarantineMessage -Identity $selectedItem.Identity -Confirm:$false -ErrorAction Stop
+        $result = Invoke-QuarantineMessageOperation -Messages $selectedItems -Operation Delete
+        Show-QuarantineOperationSummary -Result $result -ActionText "gelöscht"
 
-        Show-MessageBox -Message "Die ausgewählte Nachricht wurde erfolgreich gelöscht." -Title "Erfolg" -Type "Info"
-        Update-StatusBar -Message "Nachricht erfolgreich gelöscht." -Type "Success"
-        Log-Action "Quarantäne-Nachricht gelöscht: $($selectedItem.Identity)"
-
-        # Liste aktualisieren, um die gelöschte Nachricht zu entfernen
-        Get-QuarantineMessagesAction
+        # Liste aktualisieren, um die gelöschten Nachrichten zu entfernen
+        $null = Get-QuarantineMessagesAction
     }
     catch {
-        $errorMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Fehler beim Löschen der Quarantäne-Nachricht"
-        Write-Log "Fehler beim Löschen der Quarantäne-Nachricht: $errorMsg" -Type "Error"
-        Update-StatusBar -Message "Fehler beim Löschen der Nachricht: $errorMsg" -Type "Error"
-        Show-MessageBox -Message "Fehler beim Löschen der Nachricht:`n$errorMsg" -Title "Fehler" -Type "Error"
-        Log-Action "Fehler beim Löschen der Quarantäne-Nachricht: $errorMsg"
+        $errorMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Fehler beim Löschen der Quarantäne-Nachrichten"
+        Write-Log "Fehler beim Löschen der Quarantäne-Nachrichten: $errorMsg" -Type "Error"
+        Update-StatusBar -Message "Fehler beim Löschen der Nachrichten: $errorMsg" -Type "Error"
+        Show-MessageBox -Message "Fehler beim Löschen der Nachrichten:`n$errorMsg" -Title "Fehler" -Type "Error"
+        Log-Action "Fehler beim Löschen der Quarantäne-Nachrichten: $errorMsg"
     }
 }
 
@@ -1596,6 +1806,7 @@ function Initialize-ATPTab {
         $btnGetAntiPhishing = Get-XamlElement -ElementName "btnGetAntiPhishing"
         $btnNewAntiPhishing = Get-XamlElement -ElementName "btnNewAntiPhishing"
         $btnSetAntiPhishing = Get-XamlElement -ElementName "btnSetAntiPhishing"
+        $btnRemoveAntiPhishing = Get-XamlElement -ElementName "btnRemoveAntiPhishing"
         $dgAntiPhishingPolicies = Get-XamlElement -ElementName "dgAntiPhishingPolicies"
         $btnExportAntiPhishing = Get-XamlElement -ElementName "btnExportAntiPhishing"
         $script:dgAntiPhishingPolicies = $dgAntiPhishingPolicies
@@ -1604,6 +1815,7 @@ function Initialize-ATPTab {
         $btnGetSafeAttachment = Get-XamlElement -ElementName "btnGetSafeAttachment"
         $btnNewSafeAttachment = Get-XamlElement -ElementName "btnNewSafeAttachment"
         $btnSetSafeAttachment = Get-XamlElement -ElementName "btnSetSafeAttachment"
+        $btnRemoveSafeAttachment = Get-XamlElement -ElementName "btnRemoveSafeAttachment"
         $dgSafeAttachmentPolicies = Get-XamlElement -ElementName "dgSafeAttachmentPolicies"
         $btnExportSafeAttachment = Get-XamlElement -ElementName "btnExportSafeAttachment"
         $script:dgSafeAttachmentPolicies = $dgSafeAttachmentPolicies
@@ -1612,6 +1824,7 @@ function Initialize-ATPTab {
         $btnGetSafeLinks = Get-XamlElement -ElementName "btnGetSafeLinks"
         $btnNewSafeLinks = Get-XamlElement -ElementName "btnNewSafeLinks"
         $btnSetSafeLinks = Get-XamlElement -ElementName "btnSetSafeLinks"
+        $btnRemoveSafeLinks = Get-XamlElement -ElementName "btnRemoveSafeLinks"
         $dgSafeLinksPolicies = Get-XamlElement -ElementName "dgSafeLinksPolicies"
         $btnExportSafeLinks = Get-XamlElement -ElementName "btnExportSafeLinks"
         $script:dgSafeLinksPolicies = $dgSafeLinksPolicies
@@ -1629,33 +1842,38 @@ function Initialize-ATPTab {
         # Hilfe-Link
         if ($null -ne $helpLinkATP) {
             $helpLinkATP.Add_MouseLeftButtonDown({
-                try { Start-Process "https://learn.microsoft.com/de-de/microsoft-365/security/office-365-security/microsoft-defender-for-office-365" } catch { }
+                if (-not (Open-ExternalUrl -Url "https://learn.microsoft.com/de-de/microsoft-365/security/office-365-security/microsoft-defender-for-office-365")) {
+                    Update-StatusBar -Message "Die Hilfeseite konnte nicht geöffnet werden." -Type "Warning"
+                }
             })
         }
 
         # Anti-Phishing Handler
-        Register-EventHandler -Control $btnGetAntiPhishing -Handler { Get-AntiPhishingPoliciesAction } -ControlName "btnGetAntiPhishing"
-        Register-EventHandler -Control $btnNewAntiPhishing -Handler { New-AntiPhishingPolicyAction } -ControlName "btnNewAntiPhishing"
-        Register-EventHandler -Control $btnSetAntiPhishing -Handler { Set-AntiPhishingPolicyAction } -ControlName "btnSetAntiPhishing"
-        Register-EventHandler -Control $btnExportAntiPhishing -Handler { Export-AntiPhishingPoliciesAction } -ControlName "btnExportAntiPhishing"
+        $null = Register-EventHandler -Control $btnGetAntiPhishing -Handler { Get-AntiPhishingPoliciesAction } -ControlName "btnGetAntiPhishing"
+        $null = Register-EventHandler -Control $btnNewAntiPhishing -Handler { New-AntiPhishingPolicyAction } -ControlName "btnNewAntiPhishing"
+        $null = Register-EventHandler -Control $btnSetAntiPhishing -Handler { Set-AntiPhishingPolicyAction } -ControlName "btnSetAntiPhishing"
+        $null = Register-EventHandler -Control $btnRemoveAntiPhishing -Handler { Remove-AntiPhishingPolicyAction } -ControlName "btnRemoveAntiPhishing"
+        $null = Register-EventHandler -Control $btnExportAntiPhishing -Handler { Export-AntiPhishingPoliciesAction } -ControlName "btnExportAntiPhishing"
 
         # Safe Attachments Handler
-        Register-EventHandler -Control $btnGetSafeAttachment -Handler { Get-SafeAttachmentPoliciesAction } -ControlName "btnGetSafeAttachment"
-        Register-EventHandler -Control $btnNewSafeAttachment -Handler { New-SafeAttachmentPolicyAction } -ControlName "btnNewSafeAttachment"
-        Register-EventHandler -Control $btnSetSafeAttachment -Handler { Set-SafeAttachmentPolicyAction } -ControlName "btnSetSafeAttachment"
-        Register-EventHandler -Control $btnExportSafeAttachment -Handler { Export-SafeAttachmentPoliciesAction } -ControlName "btnExportSafeAttachment"
+        $null = Register-EventHandler -Control $btnGetSafeAttachment -Handler { Get-SafeAttachmentPoliciesAction } -ControlName "btnGetSafeAttachment"
+        $null = Register-EventHandler -Control $btnNewSafeAttachment -Handler { New-SafeAttachmentPolicyAction } -ControlName "btnNewSafeAttachment"
+        $null = Register-EventHandler -Control $btnSetSafeAttachment -Handler { Set-SafeAttachmentPolicyAction } -ControlName "btnSetSafeAttachment"
+        $null = Register-EventHandler -Control $btnRemoveSafeAttachment -Handler { Remove-SafeAttachmentPolicyAction } -ControlName "btnRemoveSafeAttachment"
+        $null = Register-EventHandler -Control $btnExportSafeAttachment -Handler { Export-SafeAttachmentPoliciesAction } -ControlName "btnExportSafeAttachment"
 
         # Safe Links Handler
-        Register-EventHandler -Control $btnGetSafeLinks -Handler { Get-SafeLinksPoliciesAction } -ControlName "btnGetSafeLinks"
-        Register-EventHandler -Control $btnNewSafeLinks -Handler { New-SafeLinksPolicyAction } -ControlName "btnNewSafeLinks"
-        Register-EventHandler -Control $btnSetSafeLinks -Handler { Set-SafeLinksPolicyAction } -ControlName "btnSetSafeLinks"
-        Register-EventHandler -Control $btnExportSafeLinks -Handler { Export-SafeLinksPoliciesAction } -ControlName "btnExportSafeLinks"
+        $null = Register-EventHandler -Control $btnGetSafeLinks -Handler { Get-SafeLinksPoliciesAction } -ControlName "btnGetSafeLinks"
+        $null = Register-EventHandler -Control $btnNewSafeLinks -Handler { New-SafeLinksPolicyAction } -ControlName "btnNewSafeLinks"
+        $null = Register-EventHandler -Control $btnSetSafeLinks -Handler { Set-SafeLinksPolicyAction } -ControlName "btnSetSafeLinks"
+        $null = Register-EventHandler -Control $btnRemoveSafeLinks -Handler { Remove-SafeLinksPolicyAction } -ControlName "btnRemoveSafeLinks"
+        $null = Register-EventHandler -Control $btnExportSafeLinks -Handler { Export-SafeLinksPoliciesAction } -ControlName "btnExportSafeLinks"
 
         # Quarantäne Handler
-        Register-EventHandler -Control $btnGetQuarantineMessages -Handler { Get-QuarantineMessagesAction } -ControlName "btnGetQuarantineMessages"
-        Register-EventHandler -Control $btnReleaseQuarantine -Handler { Release-QuarantineMessageAction } -ControlName "btnReleaseQuarantine"
-        Register-EventHandler -Control $btnDeleteQuarantine -Handler { Delete-QuarantineMessageAction } -ControlName "btnDeleteQuarantine"
-        Register-EventHandler -Control $btnExportQuarantine -Handler { Export-QuarantineMessagesAction } -ControlName "btnExportQuarantine"
+        $null = Register-EventHandler -Control $btnGetQuarantineMessages -Handler { Get-QuarantineMessagesAction } -ControlName "btnGetQuarantineMessages"
+        $null = Register-EventHandler -Control $btnReleaseQuarantine -Handler { Release-QuarantineMessageAction } -ControlName "btnReleaseQuarantine"
+        $null = Register-EventHandler -Control $btnDeleteQuarantine -Handler { Delete-QuarantineMessageAction } -ControlName "btnDeleteQuarantine"
+        $null = Register-EventHandler -Control $btnExportQuarantine -Handler { Export-QuarantineMessagesAction } -ControlName "btnExportQuarantine"
 
         Write-Log "ATP Tab erfolgreich initialisiert." -Type "Success"
         return $true

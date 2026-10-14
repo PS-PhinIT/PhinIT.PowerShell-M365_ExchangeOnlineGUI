@@ -294,10 +294,12 @@ function Invoke-AutoReplyBulkAction {
 function Disable-AutoReplyAction {
     [CmdletBinding(SupportsShouldProcess = $true)]
     param(
-        [Parameter(Mandatory = $true)][string]$UserIdentity
+        [Parameter(Mandatory = $true)][string]$UserIdentity,
+        # Status nach dem Deaktivieren nicht neu laden (Massenbearbeitung)
+        [switch]$NoRefresh
     )
 
-    if (-not (Confirm-ExchangeConnection)) { return }
+    if (-not (Confirm-ExchangeConnection)) { return $false }
     Update-StatusBar -Message "Deaktiviere Abwesenheitsnotiz für $UserIdentity..." -Type Info
 
     try {
@@ -306,13 +308,16 @@ function Disable-AutoReplyAction {
             Set-MailboxAutoReplyConfiguration -Identity $UserIdentity -AutoReplyState Disabled -ErrorAction Stop
             Log-Action "Abwesenheitsnotiz für $UserIdentity deaktiviert"
             Update-StatusBar -Message "Abwesenheitsnotiz für $UserIdentity erfolgreich deaktiviert." -Type Success
-            Get-AutoReplyStatusAction -UserIdentity $UserIdentity # Status aktualisieren
+            if (-not $NoRefresh) { Get-AutoReplyStatusAction -UserIdentity $UserIdentity } # Status aktualisieren
         }
+        return $true
     } catch {
         $errorMsg = Get-FormattedError -ErrorRecord $_
         Write-Log "Fehler in Disable-AutoReplyAction für '$UserIdentity': $errorMsg" -Type Error
         Update-StatusBar -Message "Fehler beim Deaktivieren der Abwesenheitsnotiz für $UserIdentity." -Type Error
+        if ($NoRefresh) { throw }
         $null = Show-MessageBox -Message "Die Abwesenheitsnotiz für '$UserIdentity' konnte nicht deaktiviert werden: $errorMsg" -Title "Fehler" -Type Error
+        return $false
     }
 }
 
@@ -405,11 +410,55 @@ function Initialize-AutoReplyTab {
                     Show-MessageBox -Message "Bitte wählen Sie einen Benutzer aus oder geben Sie eine E-Mail-Adresse ein." -Title "Fehlende Eingabe" -Type Warning
                     return
                 }
-                if ($users.Count -gt 1) {
-                    $answer = Show-MessageBox -Message "Abwesenheitsnotiz für $($users.Count) Benutzer deaktivieren?" -Title "Deaktivieren" -Type "YesNo"
-                    if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
+                if ($users.Count -eq 1) {
+                    $null = Disable-AutoReplyAction -UserIdentity $users[0]
+                    return
                 }
-                foreach ($user in $users) { Disable-AutoReplyAction -UserIdentity $user }
+
+                $answer = Show-MessageBox -Message "Abwesenheitsnotiz für $($users.Count) Benutzer deaktivieren?" -Title "Deaktivieren" -Type "YesNo"
+                if ($answer -ne [System.Windows.MessageBoxResult]::Yes) { return }
+
+                # Mehrere Benutzer: ohne Zwischenaktualisierung deaktivieren, danach einmal alle Benutzer neu laden
+                $ok = New-Object 'System.Collections.Generic.List[string]'
+                $errors = New-Object 'System.Collections.Generic.List[string]'
+                $cancelled = $false
+                Start-UIBusy -Message "Deaktiviere Abwesenheitsnotizen..." -Title "Automatische Antworten" -Cancelable
+                try {
+                    $index = 0
+                    foreach ($user in $users) {
+                        $index++
+                        Update-UIBusy -Message "Deaktiviere Abwesenheitsnotizen" -Current $index -Total $users.Count
+                        Assert-UINotCancelled
+                        try {
+                            if (Disable-AutoReplyAction -UserIdentity $user -NoRefresh) {
+                                $ok.Add($user)
+                            }
+                            else {
+                                $errors.Add("${user}: nicht deaktiviert")
+                            }
+                        }
+                        catch {
+                            $errors.Add("${user}: $($_.Exception.Message)")
+                        }
+                    }
+                }
+                catch {
+                    if ($script:UICancelRequested -or $_.Exception -is [System.OperationCanceledException]) {
+                        $cancelled = $true
+                    }
+                    else {
+                        $errors.Add($_.Exception.Message)
+                    }
+                }
+                finally {
+                    Stop-UIBusy
+                }
+
+                Write-Log "Abwesenheitsnotizen deaktiviert: $($ok.Count) erfolgreich, $($errors.Count) Fehler$(if ($cancelled) { ', abgebrochen' })." -Type $(if ($errors.Count -gt 0) { "Warning" } else { "Success" })
+                if ($errors.Count -gt 0) {
+                    $null = Show-MessageBox -Message "$($ok.Count) von $($users.Count) Abwesenheitsnotizen deaktiviert. Fehler:`n`n$(($errors | Select-Object -First 10) -join "`n")" -Title "Deaktivieren" -Type Warning
+                }
+                Get-AutoReplyStatusAction -UserIdentity $users
             } catch {
                 $errorMsg = Get-FormattedError -ErrorRecord $_
                 Write-Log "Fehler im btnDisableAutoReply Handler: $errorMsg" -Type Error

@@ -95,22 +95,6 @@ function Get-StatusBrush {
     return [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString($fallbackColor)
 }
 
-# Funktion zum Aktualisieren des Status in der GUI (protokolliert zusätzlich)
-function Write-StatusMessage {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true, Position = 0)]
-        [string]$Message,
-
-        [Parameter(Mandatory = $false)]
-        [ValidateSet("Info", "Success", "Warning", "Error", "Debug")]
-        [string]$Type = "Info"
-    )
-
-    Write-Log -Message $Message -Type $Type
-    Update-StatusBar -Message $Message -Type $Type
-}
-
 # -------------------------------------------------
 # Abschnitt: StatusBar Aktualisierung
 # -------------------------------------------------

@@ -34,9 +34,9 @@ function Get-MailConnectors {
             return
         }
 
-        # Connectors abrufen
-        $connectors = Get-InboundConnector -ErrorAction SilentlyContinue
-        $outboundConnectors = Get-OutboundConnector -ErrorAction SilentlyContinue
+        # Connectors abrufen (Fehler werden im catch-Block gemeldet)
+        $connectors = @(Get-InboundConnector -ErrorAction Stop)
+        $outboundConnectors = @(Get-OutboundConnector -ErrorAction Stop)
         
         # Alle Connectors zusammenfassen
         $allConnectors = @()
@@ -105,13 +105,13 @@ function Set-ConnectorStatus {
         
         # Bestätigung anfordern
         $statusText = if ($newStatus) { "aktivieren" } else { "deaktivieren" }
-        $result = [System.Windows.MessageBox]::Show("Möchten Sie den Connector '$($selectedConnector.Name)' wirklich $statusText?", "Status ändern", "YesNo", "Question")
+        $result = [System.Windows.MessageBox]::Show("Möchten Sie den Connector '$($selectedConnector.Name)' wirklich $($statusText)?", "Status ändern", "YesNo", "Question")
         
         if ($result -eq "Yes") {
             if ($selectedConnector.Type -eq "Inbound") {
-                Set-InboundConnector -Identity $selectedConnector.Name -Enabled $newStatus
+                Set-InboundConnector -Identity $selectedConnector.Name -Enabled $newStatus -ErrorAction Stop
             } else {
-                Set-OutboundConnector -Identity $selectedConnector.Name -Enabled $newStatus
+                Set-OutboundConnector -Identity $selectedConnector.Name -Enabled $newStatus -ErrorAction Stop
             }
             
             Write-Log "Connector-Status erfolgreich geändert: $($selectedConnector.Name) -> $newStatus" -Type "Success"
@@ -158,7 +158,7 @@ function Get-AcceptedDomainsList {
         $acceptedDomains = Get-AcceptedDomain -ErrorAction Stop
         
         # Daten für die Anzeige aufbereiten
-        $domainsForGrid = foreach ($domain in $acceptedDomains) {
+        $domainsForGrid = @(foreach ($domain in $acceptedDomains) {
             [PSCustomObject]@{
                 Name = $domain.Name
                 DomainName = $domain.DomainName
@@ -167,7 +167,7 @@ function Get-AcceptedDomainsList {
                 InitialDomain = $domain.InitialDomain
                 AuthenticationType = $domain.AuthenticationType
             }
-        }
+        })
 
         $dgAcceptedDomains.ItemsSource = $domainsForGrid
         Write-Log "Akzeptierte Domänen erfolgreich geladen ($($domainsForGrid.Count) Domänen)" -Type "Success"
@@ -325,7 +325,7 @@ function Add-NewConnector {
                         
                         <Label Grid.Row="0" Grid.Column="0" Content="Sender-Domänen:" VerticalAlignment="Top"/>
                         <TextBox x:Name="txtSenderDomains" Grid.Row="0" Grid.Column="1" Margin="5" Height="60" TextWrapping="Wrap" AcceptsReturn="True" 
-                                 ToolTip="Eine Domäne pro Zeile eingeben (z.B. contoso.com)"/>
+                                 ToolTip="Eine Domäne pro Zeile eingeben (z.B. contoso.com), * für alle Domänen (Pflichtfeld)"/>
                         
                         <Label Grid.Row="1" Grid.Column="0" Content="Sender-IP-Adressen:" VerticalAlignment="Top"/>
                         <TextBox x:Name="txtSenderIPAddresses" Grid.Row="1" Grid.Column="1" Margin="5" Height="60" TextWrapping="Wrap" AcceptsReturn="True"
@@ -355,7 +355,6 @@ function Add-NewConnector {
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="150"/>
@@ -379,13 +378,10 @@ function Add-NewConnector {
                         
                         <Label Grid.Row="3" Grid.Column="0" Content="TLS-Domäne:" VerticalAlignment="Center"/>
                         <TextBox x:Name="txtTlsDomain" Grid.Row="3" Grid.Column="1" Margin="5"
-                                 ToolTip="Domäne für TLS-Validierung (optional)"/>
+                                 ToolTip="Domäne für die TLS-Validierung (nur bei DomainValidation, dort erforderlich)"/>
                         
-                        <Label Grid.Row="4" Grid.Column="0" Content="Authentifizierung:" VerticalAlignment="Center"/>
-                        <CheckBox x:Name="chkUseAuthentication" Grid.Row="4" Grid.Column="1" Margin="5" VerticalAlignment="Center"/>
-                        
-                        <Label Grid.Row="5" Grid.Column="0" Content="Test-Modus:" VerticalAlignment="Center"/>
-                        <CheckBox x:Name="chkTestMode" Grid.Row="5" Grid.Column="1" Margin="5" VerticalAlignment="Center"
+                        <Label Grid.Row="4" Grid.Column="0" Content="Test-Modus:" VerticalAlignment="Center"/>
+                        <CheckBox x:Name="chkTestMode" Grid.Row="4" Grid.Column="1" Margin="5" VerticalAlignment="Center"
                                   ToolTip="Connector im Test-Modus erstellen"/>
                     </Grid>
                 </GroupBox>
@@ -404,6 +400,7 @@ function Add-NewConnector {
         # XAML laden
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]$xamlConnectorDialog)
         $connectorWindow = [Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $connectorWindow
         
         # UI-Elemente referenzieren
         $rbInbound = $connectorWindow.FindName("rbInbound")
@@ -429,7 +426,6 @@ function Add-NewConnector {
         $txtSmartHosts = $connectorWindow.FindName("txtSmartHosts")
         $cmbTlsSettings = $connectorWindow.FindName("cmbTlsSettings")
         $txtTlsDomain = $connectorWindow.FindName("txtTlsDomain")
-        $chkUseAuthentication = $connectorWindow.FindName("chkUseAuthentication")
         $chkTestMode = $connectorWindow.FindName("chkTestMode")
         
         # Standardwerte setzen
@@ -473,12 +469,18 @@ function Add-NewConnector {
                     # Inbound Connector erstellen
                     $senderDomains = @()
                     if (-not [string]::IsNullOrWhiteSpace($txtSenderDomains.Text)) {
-                        $senderDomains = $txtSenderDomains.Text.Split("`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+                        $senderDomains = @($txtSenderDomains.Text.Split("`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
                     }
                     
                     $senderIPAddresses = @()
                     if (-not [string]::IsNullOrWhiteSpace($txtSenderIPAddresses.Text)) {
-                        $senderIPAddresses = $txtSenderIPAddresses.Text.Split("`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+                        $senderIPAddresses = @($txtSenderIPAddresses.Text.Split("`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
+                    }
+                    
+                    # New-InboundConnector verlangt -SenderDomains
+                    if ($senderDomains.Count -eq 0) {
+                        $null = [System.Windows.MessageBox]::Show("Bitte geben Sie mindestens eine Sender-Domäne ein (oder * für alle Domänen).", "Validierungsfehler", "OK", "Warning")
+                        return
                     }
                     
                     $requireTls = $chkRequireTls.IsChecked
@@ -516,18 +518,18 @@ function Add-NewConnector {
                     }
                     
                     Write-Log "Erstelle Inbound Connector: $connectorName" -Type "Info"
-                    $result = New-InboundConnector @inboundParams -ErrorAction Stop
+                    $null = New-InboundConnector @inboundParams -ErrorAction Stop
                     
                 } else {
                     # Outbound Connector erstellen
                     $recipientDomains = @()
                     if (-not [string]::IsNullOrWhiteSpace($txtRecipientDomains.Text)) {
-                        $recipientDomains = $txtRecipientDomains.Text.Split("`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+                        $recipientDomains = @($txtRecipientDomains.Text.Split("`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
                     }
                     
                     $smartHosts = @()
                     if (-not [string]::IsNullOrWhiteSpace($txtSmartHosts.Text)) {
-                        $smartHosts = $txtSmartHosts.Text.Split("`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+                        $smartHosts = @($txtSmartHosts.Text.Split("`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
                     }
                     
                     if ($recipientDomains.Count -eq 0) {
@@ -542,15 +544,22 @@ function Add-NewConnector {
                     
                     $tlsSettings = $cmbTlsSettings.SelectedItem.Tag
                     $tlsDomain = $txtTlsDomain.Text.Trim()
-                    $useAuthentication = $chkUseAuthentication.IsChecked
                     $testMode = $chkTestMode.IsChecked
                     
+                    # TlsDomain ist nur bei DomainValidation gültig und dort erforderlich
+                    if ($tlsSettings -eq "DomainValidation" -and [string]::IsNullOrWhiteSpace($tlsDomain)) {
+                        $null = [System.Windows.MessageBox]::Show("Für die TLS-Einstellung 'DomainValidation' muss eine TLS-Domäne angegeben werden.", "Validierungsfehler", "OK", "Warning")
+                        return
+                    }
+                    
                     # Parameter für New-OutboundConnector vorbereiten
+                    # Smart Hosts werden nur verwendet, wenn das MX-Routing deaktiviert ist
                     $outboundParams = @{
                         Name = $connectorName
                         Enabled = $enabled
                         ConnectorType = $connectorType
                         RecipientDomains = $recipientDomains
+                        UseMXRecord = $false
                         SmartHosts = $smartHosts
                         TlsSettings = $tlsSettings
                     }
@@ -559,8 +568,11 @@ function Add-NewConnector {
                         $outboundParams.Comment = $description
                     }
                     
-                    if (-not [string]::IsNullOrWhiteSpace($tlsDomain)) {
+                    if ($tlsSettings -eq "DomainValidation") {
                         $outboundParams.TlsDomain = $tlsDomain
+                    }
+                    elseif (-not [string]::IsNullOrWhiteSpace($tlsDomain)) {
+                        Write-Log "TLS-Domäne '$tlsDomain' wird ignoriert, da sie nur bei TLS-Einstellung 'DomainValidation' gilt (gewählt: $tlsSettings)." -Type "Warning"
                     }
                     
                     if ($testMode) {
@@ -568,7 +580,7 @@ function Add-NewConnector {
                     }
                     
                     Write-Log "Erstelle Outbound Connector: $connectorName" -Type "Info"
-                    $result = New-OutboundConnector @outboundParams -ErrorAction Stop
+                    $null = New-OutboundConnector @outboundParams -ErrorAction Stop
                 }
                 
                 Write-Log "Connector '$connectorName' erfolgreich erstellt" -Type "Success"
@@ -618,75 +630,60 @@ function Initialize-CrossPremisesTab {
         # Remote Domains Button
         $btnGetRemoteDomains = $script:Form.FindName("btnGetRemoteDomains")
         
-        # DataGrids
-        $dgConnectors = $script:Form.FindName("dgConnectors")
-        $dgAcceptedDomains = $script:Form.FindName("dgAcceptedDomains")
-        $dgRemoteDomains = $script:Form.FindName("dgRemoteDomains")
-
-        # Event Handler für Connectors
-        if ($null -ne $btnGetConnectors) {
-            $btnGetConnectors.Add_Click({
-                try {
-                    Update-StatusBar -Message "Lade Connectors..."
-                    Get-MailConnectors
-                } catch {
-                    Write-Log "Fehler beim Laden der Connectors: $($_.Exception.Message)" -Type "Error"
-                    Update-StatusBar -Message "Fehler beim Laden der Connectors"
-                }
-            })
-        }
-
         # Add Connector Button
         $btnAddConnector = $script:Form.FindName("btnAddConnector")
-        
-        if ($null -ne $btnAddConnector) {
-            $btnAddConnector.Add_Click({
-                try {
-                    Update-StatusBar -Message "Öffne Connector-Dialog..."
-                    Add-NewConnector
-                } catch {
-                    Write-Log "Fehler beim Öffnen des Connector-Dialogs: $($_.Exception.Message)" -Type "Error"
-                    Update-StatusBar -Message "Fehler beim Öffnen des Connector-Dialogs"
-                }
-            })
+
+        # Event Handler (zentraler Click-Verteiler: Warte-Cursor, Doppelklick-Schutz)
+        $null = Register-EventHandler -Control $btnGetConnectors -ControlName "btnGetConnectors" -Handler {
+            try {
+                Update-StatusBar -Message "Lade Connectors..."
+                Get-MailConnectors
+            } catch {
+                Write-Log "Fehler beim Laden der Connectors: $($_.Exception.Message)" -Type "Error"
+                Update-StatusBar -Message "Fehler beim Laden der Connectors"
+            }
         }
 
-        if ($null -ne $btnSetConnectorStatus) {
-            $btnSetConnectorStatus.Add_Click({
-                try {
-                    Update-StatusBar -Message "Ändere Connector-Status..."
-                    Set-ConnectorStatus
-                } catch {
-                    Write-Log "Fehler beim Ändern des Connector-Status: $($_.Exception.Message)" -Type "Error"
-                    Update-StatusBar -Message "Fehler beim Ändern des Connector-Status"
-                }
-            })
+        $null = Register-EventHandler -Control $btnAddConnector -ControlName "btnAddConnector" -Handler {
+            try {
+                Update-StatusBar -Message "Öffne Connector-Dialog..."
+                Add-NewConnector
+            } catch {
+                Write-Log "Fehler beim Öffnen des Connector-Dialogs: $($_.Exception.Message)" -Type "Error"
+                Update-StatusBar -Message "Fehler beim Öffnen des Connector-Dialogs"
+            }
+        }
+
+        $null = Register-EventHandler -Control $btnSetConnectorStatus -ControlName "btnSetConnectorStatus" -Handler {
+            try {
+                Update-StatusBar -Message "Ändere Connector-Status..."
+                Set-ConnectorStatus
+            } catch {
+                Write-Log "Fehler beim Ändern des Connector-Status: $($_.Exception.Message)" -Type "Error"
+                Update-StatusBar -Message "Fehler beim Ändern des Connector-Status"
+            }
         }
 
         # Event Handler für Accepted Domains
-        if ($null -ne $btnGetAcceptedDomains) {
-            $btnGetAcceptedDomains.Add_Click({
-                try {
-                    Update-StatusBar -Message "Lade akzeptierte Domänen..."
-                    Get-AcceptedDomainsList
-                } catch {
-                    Write-Log "Fehler beim Laden der akzeptierten Domänen: $($_.Exception.Message)" -Type "Error"
-                    Update-StatusBar -Message "Fehler beim Laden der akzeptierten Domänen"
-                }
-            })
+        $null = Register-EventHandler -Control $btnGetAcceptedDomains -ControlName "btnGetAcceptedDomains" -Handler {
+            try {
+                Update-StatusBar -Message "Lade akzeptierte Domänen..."
+                Get-AcceptedDomainsList
+            } catch {
+                Write-Log "Fehler beim Laden der akzeptierten Domänen: $($_.Exception.Message)" -Type "Error"
+                Update-StatusBar -Message "Fehler beim Laden der akzeptierten Domänen"
+            }
         }
 
         # Event Handler für Remote Domains
-        if ($null -ne $btnGetRemoteDomains) {
-            $btnGetRemoteDomains.Add_Click({
-                try {
-                    Update-StatusBar -Message "Lade Remote-Domänen..."
-                    Get-RemoteDomainsList
-                } catch {
-                    Write-Log "Fehler beim Laden der Remote-Domänen: $($_.Exception.Message)" -Type "Error"
-                    Update-StatusBar -Message "Fehler beim Laden der Remote-Domänen"
-                }
-            })
+        $null = Register-EventHandler -Control $btnGetRemoteDomains -ControlName "btnGetRemoteDomains" -Handler {
+            try {
+                Update-StatusBar -Message "Lade Remote-Domänen..."
+                Get-RemoteDomainsList
+            } catch {
+                Write-Log "Fehler beim Laden der Remote-Domänen: $($_.Exception.Message)" -Type "Error"
+                Update-StatusBar -Message "Fehler beim Laden der Remote-Domänen"
+            }
         }
 
         Write-Log "Cross-Premises Tab erfolgreich initialisiert" -Type "Success"

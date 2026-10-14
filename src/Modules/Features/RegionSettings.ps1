@@ -192,7 +192,7 @@ function Invoke-SetRegionSettingsAction {
     param()
 
     # Prüfen, ob verbunden
-    if (-not $script:IsConnected) {
+    if (-not (Confirm-ExchangeConnection)) {
         Show-MessageBox -Message "Bitte stellen Sie zuerst eine Verbindung zu Exchange Online her." -Title "Nicht verbunden"
         return
     }
@@ -292,127 +292,183 @@ function Invoke-SetRegionSettingsAction {
         return
     }
 
-    # Zielpostfächer ermitteln
+    # Zusammenfassung der gewählten Einstellungen für die Bestätigung
+    $settingsSummary = "Sprache: $($displayParams.Sprache)`n"
+    $settingsSummary += "Zeitzone: $($displayParams.Zeitzone)`n"
+    $settingsSummary += "Datumsformat: $($displayParams.Datumsformat)`n"
+    $settingsSummary += "Zeitformat: $($displayParams.Zeitformat)`n"
+    $settingsSummary += "Ordnernamen anpassen: $($displayParams.'Ordnernamen anpassen')"
+
+    # Zielpostfächer ermitteln und die Änderung in jedem Fall bestätigen lassen
+    $isAllMailboxes = $mailboxInput -eq 'ALL'
     $targetMailboxes = @()
-    if ($mailboxInput -eq 'ALL') {
-        # Bestätigung für 'ALL' einholen
-        $confirmMessage = "WARNUNG: Sie sind dabei, die regionalen Einstellungen für ALLE Benutzerpostfächer zu ändern.`n"
-        $confirmMessage += "Sprache: $($displayParams.Sprache)`n"
-        $confirmMessage += "Zeitzone: $($displayParams.Zeitzone)`n"
-        $confirmMessage += "Datumsformat: $($displayParams.Datumsformat)`n"
-        $confirmMessage += "Zeitformat: $($displayParams.Zeitformat)`n"
-        $confirmMessage += "Ordnernamen anpassen: $($displayParams.'Ordnernamen anpassen')`n"
+    if ($isAllMailboxes) {
+        $confirmMessage = "WARNUNG: Sie sind dabei, die regionalen Einstellungen für ALLE Benutzerpostfächer zu ändern.`n`n"
+        $confirmMessage += "$settingsSummary`n"
         $confirmMessage += "`nDies kann sehr lange dauern und sollte mit Vorsicht verwendet werden.`n`n"
         $confirmMessage += "Möchten Sie wirklich fortfahren?"
-
-        $confirmResult = [System.Windows.MessageBox]::Show(
-            $confirmMessage,
-            "Bestätigung erforderlich",
-            [System.Windows.MessageBoxButton]::YesNo,
-            [System.Windows.MessageBoxImage]::Warning
-        )
-        if ($confirmResult -ne 'Yes') {
-            Update-GuiText -TextElement $statusTextBlock -Message "Vorgang abgebrochen."
-            Log-Action "Anwendung der regionalen Einstellungen für 'ALL' abgebrochen."
+        $confirmResult = Show-MessageBox -Message $confirmMessage -Title "Bestätigung erforderlich" -Type "Question" -Icon "Warning"
+    } else {
+        $targetMailboxes = @($mailboxInput -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($targetMailboxes.Count -eq 0) {
+            $null = Show-MessageBox -Message "Keine gültigen Postfach-Identitäten angegeben oder gefunden." -Title "Keine Postfächer"
+            Update-GuiText -TextElement $statusTextBlock -Message "Keine gültigen Postfächer zur Verarbeitung angegeben."
+            Log-Action "Keine gültigen Postfächer zur Verarbeitung angegeben für '$mailboxInput'."
             return
         }
 
-        Update-GuiText -TextElement $statusTextBlock -Message "Rufe alle Benutzerpostfächer ab (kann dauern)..."
-        Log-Action "Beginne Abruf aller Benutzerpostfächer für Regionaleinstellungen-Änderung."
-        try {
-            $targetMailboxes = Get-Mailbox -ResultSize Unlimited -Filter {RecipientTypeDetails -eq 'UserMailbox'} | Select-Object -ExpandProperty Identity -ErrorAction Stop
-            if ($targetMailboxes.Count -eq 0) {
-                 Show-MessageBox -Message "Keine Benutzerpostfächer gefunden." -Title "Keine Postfächer"
-                 Update-GuiText -TextElement $statusTextBlock -Message "Keine Benutzerpostfächer für 'ALL' gefunden."
-                 Log-Action "Keine Benutzerpostfächer für 'ALL' gefunden."
-                 return
-            }
-            Update-GuiText -TextElement $statusTextBlock -Message "$($targetMailboxes.Count) Postfächer gefunden. Starte Änderungen..."
-            Log-Action "$($targetMailboxes.Count) Postfächer für 'ALL' gefunden."
-
-        } catch {
-             $errorMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Fehler beim Abrufen aller Postfächer."
-             Show-MessageBox -Message "Fehler beim Abrufen der Postfächer für 'ALL':`n$errorMsg" -Title "Fehler"
-             Update-GuiText -TextElement $statusTextBlock -Message "Fehler beim Abrufen der Postfächer."
-             Log-Action "Fehler beim Abrufen aller Postfächer: $errorMsg"
-             return
+        $mailboxPreview = @($targetMailboxes | Select-Object -First 10)
+        $mailboxListText = ($mailboxPreview | ForEach-Object { "  - $_" }) -join "`n"
+        if ($targetMailboxes.Count -gt $mailboxPreview.Count) {
+            $mailboxListText += "`n  ... und $($targetMailboxes.Count - $mailboxPreview.Count) weitere"
         }
-
-    } else {
-        $targetMailboxes = $mailboxInput -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        $confirmMessage = "Die regionalen Einstellungen werden für $($targetMailboxes.Count) Postfach/Postfächer geändert:`n$mailboxListText`n`n"
+        $confirmMessage += "$settingsSummary`n`n"
+        $confirmMessage += "Möchten Sie fortfahren?"
+        $confirmResult = Show-MessageBox -Message $confirmMessage -Title "Bestätigung erforderlich" -Type "Question"
     }
 
-    if ($targetMailboxes.Count -eq 0) {
-         Show-MessageBox -Message "Keine gültigen Postfach-Identitäten angegeben oder gefunden." -Title "Keine Postfächer"
-         Update-GuiText -TextElement $statusTextBlock -Message "Keine gültigen Postfächer zur Verarbeitung angegeben."
-         Log-Action "Keine gültigen Postfächer zur Verarbeitung angegeben für '$mailboxInput'."
-         return
+    if ($confirmResult -ne 'Yes') {
+        Update-GuiText -TextElement $statusTextBlock -Message "Vorgang abgebrochen."
+        Log-Action "Anwendung der regionalen Einstellungen für '$mailboxInput' abgebrochen."
+        return
+    }
+
+    if ($isAllMailboxes) {
+        Update-GuiText -TextElement $statusTextBlock -Message "Rufe alle Benutzerpostfächer ab (kann dauern)..."
+        Log-Action "Beginne Abruf aller Benutzerpostfächer für Regionaleinstellungen-Änderung."
+
+        $retrievalError = $null
+        $retrievalCancelled = $false
+        Start-UIBusy -Message "Rufe alle Benutzerpostfächer ab (kann dauern)..." -Title "Regionaleinstellungen" -Cancelable
+        try {
+            # PrimarySmtpAddress ist eindeutig und wird von Set-MailboxRegionalConfiguration als Identity akzeptiert
+            $targetMailboxes = @(Get-Mailbox -RecipientTypeDetails UserMailbox -ResultSize Unlimited -ErrorAction Stop |
+                Step-UIProgress -Activity "Rufe Benutzerpostfächer ab" |
+                ForEach-Object { [string]$_.PrimarySmtpAddress } |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        } catch {
+            $retrievalCancelled = $script:UICancelRequested -or $_.Exception -is [System.OperationCanceledException]
+            $retrievalError = $_
+        } finally {
+            Stop-UIBusy
+        }
+
+        if ($retrievalCancelled) {
+            Update-GuiText -TextElement $statusTextBlock -Message "Abruf der Postfächer abgebrochen. Es wurden keine Einstellungen geändert."
+            Log-Action "Abruf aller Benutzerpostfächer für Regionaleinstellungen abgebrochen."
+            return
+        }
+        if ($null -ne $retrievalError) {
+            $errorMsg = Get-FormattedError -ErrorRecord $retrievalError -DefaultText "Fehler beim Abrufen aller Postfächer."
+            $null = Show-MessageBox -Message "Fehler beim Abrufen der Postfächer für 'ALL':`n$errorMsg" -Title "Fehler" -Type "Error"
+            Update-GuiText -TextElement $statusTextBlock -Message "Fehler beim Abrufen der Postfächer."
+            Log-Action "Fehler beim Abrufen aller Postfächer: $errorMsg"
+            return
+        }
+        if ($targetMailboxes.Count -eq 0) {
+            $null = Show-MessageBox -Message "Keine Benutzerpostfächer gefunden." -Title "Keine Postfächer"
+            Update-GuiText -TextElement $statusTextBlock -Message "Keine Benutzerpostfächer für 'ALL' gefunden."
+            Log-Action "Keine Benutzerpostfächer für 'ALL' gefunden."
+            return
+        }
+        Update-GuiText -TextElement $statusTextBlock -Message "$($targetMailboxes.Count) Postfächer gefunden. Starte Änderungen..."
+        Log-Action "$($targetMailboxes.Count) Postfächer für 'ALL' gefunden."
     }
 
     Update-GuiText -TextElement $statusTextBlock -Message "Starte Verarbeitung von $($targetMailboxes.Count) Postfach/Postfächern..."
     Log-Action "Starte Set-ExoMailboxRegionalSettings für $($targetMailboxes.Count) Postfächer mit Parametern: $($params.Keys -join ', ')"
 
     try {
-        # Direkter Aufruf der Funktion
-        $OperationResult = Set-ExoMailboxRegionalSettings -MailboxesToProcess $targetMailboxes -Parameters $params -Form $script:Form -StatusTextBlock $statusTextBlock
-        
+        Start-UIBusy -Message "Wende Regionaleinstellungen an..." -Title "Regionaleinstellungen" -Cancelable
+        try {
+            $OperationResult = Set-ExoMailboxRegionalSettings -MailboxesToProcess $targetMailboxes -Parameters $params -StatusTextBlock $statusTextBlock
+        } finally {
+            Stop-UIBusy
+        }
+
         $successCount = $OperationResult.Success.Count
         $failedCount = $OperationResult.Failed.Count
-        $totalCount = $successCount + $failedCount
+        $warningCount = $OperationResult.Warnings.Count
+        $totalCount = $targetMailboxes.Count
+        $notProcessedCount = $totalCount - $successCount - $failedCount
 
         $summaryMessage = "Regionaleinstellungen verarbeitet: $successCount erfolgreich, $failedCount fehlgeschlagen (von $totalCount)."
+        if ($warningCount -gt 0) {
+            $summaryMessage += " $warningCount Postfach/Postfächer mit Hinweisen von Exchange."
+        }
+        if ($OperationResult.Cancelled) {
+            $summaryMessage += " Vorgang abgebrochen - $notProcessedCount Postfach/Postfächer nicht verarbeitet."
+        }
         Update-GuiText -TextElement $statusTextBlock -Message $summaryMessage
         Log-Action $summaryMessage
 
+        $errorDetailsString = Format-RegionSettingsResultDetail -Entries $OperationResult.Failed -TextProperty "Error"
+        $warningDetailsString = Format-RegionSettingsResultDetail -Entries $OperationResult.Warnings -TextProperty "Warning"
+        if ($warningCount -gt 0) {
+            Log-Action "Hinweise Regionaleinstellungen: $($OperationResult.Warnings | ConvertTo-Json -Depth 3)"
+        }
+
         if ($failedCount -gt 0) {
-            $errorDetails = $OperationResult.Failed | ForEach-Object { "  - $($_.Mailbox): $($_.Error)" }
-            $maxErrorLines = 10 
-            $truncated = $false
-            if ($errorDetails.Count -gt $maxErrorLines) {
-                $errorDetails = $errorDetails[0..($maxErrorLines - 1)]
-                $truncated = $true
-            }
-            $errorDetailsString = $errorDetails -join "`n"
-            if ($truncated) {
-                $errorDetailsString += "`n  ... (weitere Fehler im Log)"
-            }
+            $resultText = "$summaryMessage`n`nFehler bei Verarbeitung:`n$errorDetailsString"
+            if ($warningCount -gt 0) { $resultText += "`n`nHinweise von Exchange:`n$warningDetailsString" }
+            if ($null -ne $script:txtRegionResult) { $script:txtRegionResult.Text = $resultText }
 
-            if ($null -ne $script:txtRegionResult) {
-                 $script:txtRegionResult.Dispatcher.Invoke({ $script:txtRegionResult.Text = "Fehler bei Verarbeitung:`n$errorDetailsString" }) | Out-Null
-            }
-
-            Show-MessageBox -Message "Einige regionale Einstellungen konnten nicht angewendet werden:`n$errorDetailsString" -Title "Fehler bei Verarbeitung"
+            $null = Show-MessageBox -Message "Einige regionale Einstellungen konnten nicht angewendet werden:`n$errorDetailsString" -Title "Fehler bei Verarbeitung" -Type "Warning"
             Log-Action "Fehlerdetails Regionaleinstellungen: $($OperationResult.Failed | ConvertTo-Json -Depth 3)"
         } elseif ($successCount -gt 0) {
-             if ($null -ne $script:txtRegionResult) {
-                 $script:txtRegionResult.Dispatcher.Invoke({ $script:txtRegionResult.Text = "$successCount Postfach/Postfächer erfolgreich aktualisiert." }) | Out-Null
-             }
-             Show-MessageBox -Message "Regionaleinstellungen für $successCount Postfach/Postfächer erfolgreich angewendet." -Title "Erfolg"
-        } else { # Weder Fehler noch Erfolg (z.B. wenn keine Änderungen vorgenommen werden sollten oder alle scheiterten und nicht in Failed landeten)
-             if ($null -ne $script:txtRegionResult) {
-                  $script:txtRegionResult.Dispatcher.Invoke({ $script:txtRegionResult.Text = "Keine Änderungen vorgenommen oder alle Operationen fehlgeschlagen/übersprungen." }) | Out-Null
-             }
-             Show-MessageBox -Message "Keine Änderungen vorgenommen oder alle Operationen fehlgeschlagen/übersprungen." -Title "Information"
+            $resultText = "$successCount Postfach/Postfächer erfolgreich aktualisiert."
+            if ($OperationResult.Cancelled) { $resultText += "`nVorgang abgebrochen - $notProcessedCount Postfach/Postfächer nicht verarbeitet." }
+            if ($warningCount -gt 0) { $resultText += "`n`nHinweise von Exchange:`n$warningDetailsString" }
+            if ($null -ne $script:txtRegionResult) { $script:txtRegionResult.Text = $resultText }
+            $null = Show-MessageBox -Message $resultText -Title "Erfolg"
+        } else { # Weder Fehler noch Erfolg (z.B. sofort abgebrochen)
+            $resultText = if ($OperationResult.Cancelled) { "Vorgang abgebrochen. Es wurden keine Einstellungen geändert." } else { "Keine Änderungen vorgenommen oder alle Operationen fehlgeschlagen/übersprungen." }
+            if ($null -ne $script:txtRegionResult) { $script:txtRegionResult.Text = $resultText }
+            $null = Show-MessageBox -Message $resultText -Title "Information"
         }
     } catch {
         $errorMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Schwerwiegender Fehler beim direkten Anwenden der regionalen Einstellungen."
         Update-GuiText -TextElement $statusTextBlock -Message "Fehler: $errorMsg"
         Log-Action "FEHLER beim direkten Anwenden der regionalen Einstellungen: $errorMsg"
         if ($null -ne $script:txtRegionResult) {
-            $script:txtRegionResult.Dispatcher.Invoke({ $script:txtRegionResult.Text = "Fehler: $errorMsg" }) | Out-Null
+            $script:txtRegionResult.Text = "Fehler: $errorMsg"
         }
-        Show-MessageBox -Message "Ein schwerwiegender Fehler ist aufgetreten:`n$errorMsg" -Title "Fehler"
+        $null = Show-MessageBox -Message "Ein schwerwiegender Fehler ist aufgetreten:`n$errorMsg" -Title "Fehler" -Type "Error"
     }
 }
 
 # Ende Invoke-SetRegionSettingsAction
+
+# Fasst Fehler- bzw. Hinweiseinträge ("Postfach: Text") für Anzeige und Meldung zusammen (max. 10 Zeilen).
+function Format-RegionSettingsResultDetail {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [AllowNull()]
+        [object[]]$Entries,
+
+        [Parameter(Mandatory = $true)]
+        [string]$TextProperty,
+
+        [int]$MaxLines = 10
+    )
+
+    $lines = @($Entries | Where-Object { $null -ne $_ } | ForEach-Object { "  - $($_.Mailbox): $($_[$TextProperty])" })
+    if ($lines.Count -eq 0) { return "" }
+    $text = (@($lines | Select-Object -First $MaxLines)) -join "`n"
+    if ($lines.Count -gt $MaxLines) {
+        $text += "`n  ... (weitere Einträge im Log)"
+    }
+    return $text
+}
 
 # Funktion zur Ausführung der Aktion "Aktuelle Einstellungen abrufen"
 function Invoke-GetRegionSettingsAction {
     [CmdletBinding()]
     param()
 
-    if (-not $script:IsConnected) {
+    if (-not (Confirm-ExchangeConnection)) {
         Show-MessageBox -Message "Bitte stellen Sie zuerst eine Verbindung zu Exchange Online her." -Title "Nicht verbunden"
         return
     }
@@ -569,10 +625,10 @@ function Invoke-GetRegionSettingsAction {
                      }) | Out-Null
                 }
                 
-                # LocalizeDefaultFolderName setzen
-                if (($regionalSettings.PSObject.Properties.Name -contains "LocalizeDefaultFolderName") -and 
-                    $null -ne $regionalSettings.LocalizeDefaultFolderName) {
-                    $localizeValue = $regionalSettings.LocalizeDefaultFolderName
+                # Ordnernamen-Status setzen (Get-MailboxRegionalConfiguration liefert DefaultFolderNameMatchingUserLanguage)
+                if (($regionalSettings.PSObject.Properties.Name -contains "DefaultFolderNameMatchingUserLanguage") -and 
+                    $null -ne $regionalSettings.DefaultFolderNameMatchingUserLanguage) {
+                    $localizeValue = $regionalSettings.DefaultFolderNameMatchingUserLanguage
                     if ($localizeValue -is [bool]) {
                         $localizeFoldersCheckBox.Dispatcher.Invoke({ $localizeFoldersCheckBox.IsChecked = $localizeValue }) | Out-Null
                     } else {
@@ -635,15 +691,15 @@ function Invoke-GetRegionSettingsAction {
                         $resultOutput += "Zeitformat:     (Nicht festgelegt)`n"
                     }
                     
-                    # Ordnernamen lokalisieren
+                    # Ordnernamen in Benutzersprache (DefaultFolderNameMatchingUserLanguage)
                     $localizeDisplay = "Unbekannt"
-                    if (($regionalSettings.PSObject.Properties.Name -contains "LocalizeDefaultFolderName") -and 
-                        $null -ne $regionalSettings.LocalizeDefaultFolderName) {
-                        $localizeDisplay = if ($regionalSettings.LocalizeDefaultFolderName -eq $true) { "Ja" } else { "Nein" }
+                    if (($regionalSettings.PSObject.Properties.Name -contains "DefaultFolderNameMatchingUserLanguage") -and 
+                        $null -ne $regionalSettings.DefaultFolderNameMatchingUserLanguage) {
+                        $localizeDisplay = if ($regionalSettings.DefaultFolderNameMatchingUserLanguage -eq $true) { "Ja" } else { "Nein" }
                     } else {
-                        $localizeDisplay = "(Nicht festgelegt)"
+                        $localizeDisplay = "(Nicht ermittelbar)"
                     }
-                    $resultOutput += "Ordnernamen lokalisieren: $localizeDisplay`n"
+                    $resultOutput += "Ordnernamen in Benutzersprache: $localizeDisplay`n"
                     
                     $resultOutput += "`n" + "=" * 60 + "`n"
                     $resultOutput += "TECHNISCHE DETAILS:`n"
@@ -695,7 +751,7 @@ function Populate-TimeFormatComboBox {
         Write-Log "Befülle Zeitformat-ComboBox für Kultur '$CultureName'..." -Type Debug
         
         $currentValue = $null
-        if ($ComboBox.SelectedItem -ne $null -and $ComboBox.SelectedItem.Tag -ne $null) {
+        if ($null -ne $ComboBox.SelectedItem -and $null -ne $ComboBox.SelectedItem.Tag) {
             $currentValue = $ComboBox.SelectedItem.Tag
         } elseif (-not [string]::IsNullOrEmpty($ComboBox.Text) -and $ComboBox.Text -ne "(Keine Änderung)") {
              $currentValue = $ComboBox.Text
@@ -753,7 +809,7 @@ function Populate-LanguageComboBox {
         Write-Log "Befülle Sprachen-ComboBox mit gefilterter Sprachliste..." -Type Debug
 
         $currentValue = $null
-        if ($ComboBox.SelectedItem -ne $null -and $ComboBox.SelectedItem.Tag -ne $null) {
+        if ($null -ne $ComboBox.SelectedItem -and $null -ne $ComboBox.SelectedItem.Tag) {
             $currentValue = $ComboBox.SelectedItem.Tag
         } elseif (-not [string]::IsNullOrEmpty($ComboBox.Text)) {
              $currentValue = $ComboBox.Text
@@ -832,7 +888,7 @@ function Populate-DateFormatComboBox {
         
         # Aktuelle Auswahl merken (Tag oder Text)
         $currentValue = $null
-        if ($ComboBox.SelectedItem -ne $null -and $ComboBox.SelectedItem.Tag -ne $null) {
+        if ($null -ne $ComboBox.SelectedItem -and $null -ne $ComboBox.SelectedItem.Tag) {
             $currentValue = $ComboBox.SelectedItem.Tag
         } elseif (-not [string]::IsNullOrEmpty($ComboBox.Text) -and $ComboBox.Text -ne "(Keine Änderung)") {
              $currentValue = $ComboBox.Text # Fallback auf Text, wenn manuell editiert
@@ -895,7 +951,7 @@ function Populate-TimezoneComboBox {
         Write-Log "Befülle Zeitzonen-ComboBox für Kultur '$CultureName'..." -Type Debug
 
         $currentValue = $null
-        if ($ComboBox.SelectedItem -ne $null -and $ComboBox.SelectedItem.Tag -ne $null) {
+        if ($null -ne $ComboBox.SelectedItem -and $null -ne $ComboBox.SelectedItem.Tag) {
             $currentValue = $ComboBox.SelectedItem.Tag
         } elseif (-not [string]::IsNullOrEmpty($ComboBox.Text) -and $ComboBox.Text -ne "(Keine Änderung)") {
             $currentValue = $ComboBox.Text
@@ -985,7 +1041,7 @@ function Get-ExoMailboxRegionalSettings {
     )
 
     # Prüfen, ob eine Verbindung besteht
-    if (-not $script:IsConnected) {
+    if (-not (Confirm-ExchangeConnection)) {
         Write-Log "Get-ExoMailboxRegionalSettings: Keine Verbindung zu Exchange Online." -Type Warning
         # Rückgabe eines Fehlerobjekts oder einer Nachricht
         return [PSCustomObject]@{
@@ -1012,7 +1068,8 @@ function Get-ExoMailboxRegionalSettings {
         Log-Action "Versuche, regionale Einstellungen für ${MailboxIdentity} abzurufen."
 
         # Regionale Einstellungen abrufen
-        $regionalSettings = Get-MailboxRegionalConfiguration -Identity $MailboxIdentity -ErrorAction Stop
+        # -VerifyDefaultFolderNameLanguage ist nötig, sonst ist DefaultFolderNameMatchingUserLanguage immer $false
+        $regionalSettings = Get-MailboxRegionalConfiguration -Identity $MailboxIdentity -VerifyDefaultFolderNameLanguage -ErrorAction Stop
 
         # Erfolgreiches Ergebnis zurückgeben
         # Use ${} for clarity
@@ -1053,44 +1110,33 @@ function Set-ExoMailboxRegionalSettings {
         [hashtable]$Parameters, # Enthält Schlüssel wie Language, TimeZone, DateFormat, TimeFormat, LocalizeDefaultFolderName
 
         [Parameter(Mandatory = $false)]
-        [System.Windows.Window]$Form,
-
-        [Parameter(Mandatory = $false)]
         [System.Windows.Controls.TextBlock]$StatusTextBlock
     )
 
     $results = @{
-        Success = [System.Collections.Generic.List[string]]::new()
-        Failed  = [System.Collections.Generic.List[object]]::new()
+        Success   = [System.Collections.Generic.List[string]]::new()
+        Failed    = [System.Collections.Generic.List[object]]::new()
+        Warnings  = [System.Collections.Generic.List[object]]::new()
+        Cancelled = $false
     }
     $total = $MailboxesToProcess.Count
     $processed = 0
 
     foreach ($mailbox in $MailboxesToProcess) {
+        # Abbruch über die Arbeitsanzeige ("Abbrechen")
+        if (Test-UICancelRequested) {
+            $results.Cancelled = $true
+            Log-Action "Anwendung der regionalen Einstellungen nach $processed von $total Postfächern abgebrochen."
+            break
+        }
+
         $processed++
         $progress = [int](($processed / $total) * 100)
 
-        if ($null -ne $Form -and $null -ne $StatusTextBlock -and $null -ne $Form.Dispatcher) {
-            try {
-                $updateUiAction = {
-                    param(
-                        [string]$CurrentMailbox,
-                        [int]$NumProcessed,
-                        [int]$TotalMailboxes,
-                        [int]$PercentageComplete,
-                        [System.Windows.Controls.TextBlock]$TbStatus
-                    )
-                    if ($null -ne $TbStatus) {
-                        $TbStatus.Text = "Verarbeite ${CurrentMailbox} (${NumProcessed}/${TotalMailboxes})... [${PercentageComplete}%]"
-                    }
-                }
-                # KORRIGIERTER AUFRUF
-                $Form.Dispatcher.Invoke($updateUiAction, [System.Windows.Threading.DispatcherPriority]::Normal, $mailbox, $processed, $total, $progress, $StatusTextBlock) | Out-Null
-            }
-            catch {
-                Write-Warning "Fehler beim Aktualisieren des GUI-Status aus Hintergrundthread für ($($mailbox)): $($_.Exception.Message)"
-                Log-Action "WARNUNG: Fehler beim GUI-Update im Hintergrund für ($($mailbox)): $($_.Exception.Message)"
-            }
+        # Läuft im UI-Thread: Fortschritt direkt anzeigen (kein Dispatcher-Aufruf nötig)
+        Update-UIBusy -Message "Verarbeite ${mailbox}" -Current $processed -Total $total
+        if ($null -ne $StatusTextBlock) {
+            $StatusTextBlock.Text = "Verarbeite ${mailbox} (${processed}/${total})... [${progress}%]"
         }
         else {
             Write-Verbose "Verarbeite ${mailbox} (${processed}/${total})... [${progress}%]"
@@ -1136,7 +1182,9 @@ function Set-ExoMailboxRegionalSettings {
             }
 
             if ($warningMessages.Count -gt 0) {
-                $results.Failed.Add(@{ Mailbox = $mailbox; Error = ($warningMessages -join "`n") })
+                # Warnungen (z.B. "keine Einstellungen geändert") sind kein Fehler: Postfach zählt als erfolgreich
+                $results.Success.Add($mailbox)
+                $results.Warnings.Add(@{ Mailbox = $mailbox; Warning = ($warningMessages -join "`n") })
             } else {
                  $results.Success.Add($mailbox)
                  Log-Action "Regionale Einstellungen für ${mailbox} erfolgreich gesetzt (oder ohne Fehler/Warnungen abgeschlossen)."
@@ -1237,9 +1285,9 @@ function Initialize-RegionSettingsTab {
         
         # Event-Handler für Sprachauswahl-Änderung
         $script:cmbRegionLanguage.Add_SelectionChanged({
-            param($sender, $e)
+            param($eventSender)
             try {
-                $selectedLanguageItem = $sender.SelectedItem
+                $selectedLanguageItem = $eventSender.SelectedItem
                 $cultureNameForFormats = "" 
                 $cultureNameForTimezones = "DEFAULT_ALL" 
 
@@ -1262,7 +1310,7 @@ function Initialize-RegionSettingsTab {
         
         # Event-Handler für "Einstellungen abrufen" Button
         if ($null -ne $script:btnGetRegionSettings) {
-            $script:btnGetRegionSettings.Add_Click({
+            $null = Register-EventHandler -Control $script:btnGetRegionSettings -ControlName "btnGetRegionSettings" -Handler {
                 try {
                     Invoke-GetRegionSettingsAction
                 } catch {
@@ -1271,13 +1319,13 @@ function Initialize-RegionSettingsTab {
                     Log-Action "FEHLER bei Aktion 'Einstellungen abrufen' ($($script:btnGetRegionSettings.Name)): $errorMsgAction"
                     Show-MessageBox -Message "Ein Fehler ist beim Abrufen der Einstellungen aufgetreten: $($_.Exception.Message)" -Title "Aktionsfehler"
                 }
-            })
+            }
             Write-Log "Event-Handler für '$($script:btnGetRegionSettings.Name)' registriert." -Type Debug
         }
 
         # Event-Handler für "Einstellungen anwenden" Button
         if ($null -ne $script:btnSetRegionSettings) {
-            $script:btnSetRegionSettings.Add_Click({
+            $null = Register-EventHandler -Control $script:btnSetRegionSettings -ControlName "btnSetRegionSettings" -Handler {
                 try {
                     Invoke-SetRegionSettingsAction
                 } catch {
@@ -1286,39 +1334,22 @@ function Initialize-RegionSettingsTab {
                     Log-Action "FEHLER bei Aktion 'Einstellungen anwenden' ($($script:btnSetRegionSettings.Name)): $errorMsgAction"
                     Show-MessageBox -Message "Ein Fehler ist beim Anwenden der Einstellungen aufgetreten: $($_.Exception.Message)" -Title "Aktionsfehler"
                 }
-            })
+            }
             Write-Log "Event-Handler für '$($script:btnSetRegionSettings.Name)' registriert." -Type Debug
         }
 
         # Event-Handler für Export-Button
         if ($null -ne $script:btnExportRegionSettings) {
-            $script:btnExportRegionSettings.Add_Click({
-                try {
-                    # Prüfen ob Daten zum Exportieren vorhanden sind
-                    if ([string]::IsNullOrWhiteSpace($script:txtRegionResult.Text)) {
-                        Show-MessageBox -Message "Keine Daten zum Exportieren vorhanden. Bitte rufen Sie zuerst die Einstellungen ab." -Title "Keine Daten" -Type Warning
-                        return
-                    }
-
-                    # SaveFileDialog für CSV-Export
-                    $saveFileDialog = New-Object Microsoft.Win32.SaveFileDialog
-                    $saveFileDialog.Filter = "CSV-Dateien (*.csv)|*.csv|Textdateien (*.txt)|*.txt"
-                    $saveFileDialog.Title = "Regionaleinstellungen exportieren"
-                    $saveFileDialog.FileName = "Regionaleinstellungen_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-                    
-                    if ($saveFileDialog.ShowDialog() -eq $true) {
-                        # Daten exportieren
-                        $script:txtRegionResult.Text | Out-File -FilePath $saveFileDialog.FileName -Encoding UTF8
-                        
-                        Show-MessageBox -Message "Regionaleinstellungen wurden erfolgreich exportiert nach:`n$($saveFileDialog.FileName)" -Title "Export erfolgreich" -Type Info
-                        Write-Log "Regionaleinstellungen exportiert nach: $($saveFileDialog.FileName)" -Type Success
-                    }
-                } catch {
-                    $errorMsgExport = Get-FormattedError -ErrorRecord $_ -DefaultText "Fehler beim Exportieren der Regionaleinstellungen."
-                    Write-Log $errorMsgExport -Type Error
-                    Show-MessageBox -Message "Fehler beim Exportieren: $($_.Exception.Message)" -Title "Exportfehler" -Type Error
+            $null = Register-EventHandler -Control $script:btnExportRegionSettings -ControlName "btnExportRegionSettings" -Handler {
+                # Prüfen ob Daten zum Exportieren vorhanden sind
+                if ([string]::IsNullOrWhiteSpace($script:txtRegionResult.Text)) {
+                    Show-MessageBox -Message "Keine Daten zum Exportieren vorhanden. Bitte rufen Sie zuerst die Einstellungen ab." -Title "Keine Daten" -Type Warning
+                    return
                 }
-            })
+
+                # Freitext wird als Textdatei gespeichert (kein CSV: Inhalte könnten in Tabellenprogrammen als Formeln ausgeführt werden)
+                Export-TextContent -Text $script:txtRegionResult.Text -DefaultFileName "Regionaleinstellungen"
+            }
             Write-Log "Event-Handler für '$($script:btnExportRegionSettings.Name)' registriert." -Type Debug
         }
 

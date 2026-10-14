@@ -725,7 +725,7 @@ function Get-MailboxStatisticsForUser {
                     $result += "Top 15 Ordner nach Größe:`n"
                     $result += "----------------------------`n"
                     # FolderSize ist (deserialisiert) eine Zeichenfolge wie "1.2 GB (1,288,490,188 bytes)" - nach Bytes sortieren
-                    $folderSizeBytes = @{ Expression = { $bytes = ConvertTo-ReportSizeBytes -Size $_.FolderSize; if ($null -eq $bytes) { [double]0 } else { $bytes } } }
+                    $folderSizeBytes = @{ Expression = { $bytes = ConvertTo-ReportByteCount -Size $_.FolderSize; if ($null -eq $bytes) { [double]0 } else { $bytes } } }
                     $topFolders = @($folders | Sort-Object -Property $folderSizeBytes -Descending | Select-Object -First 15)
                     foreach ($folder in $topFolders) {
                         $result += "$($folder.Name): $($folder.FolderSize) ($($folder.ItemsInFolder) Elemente)`n"

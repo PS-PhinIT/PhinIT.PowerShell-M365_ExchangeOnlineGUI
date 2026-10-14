@@ -116,9 +116,10 @@ foreach ($moduleFile in $script:ModuleFiles) {
 $script:debugMode = $false
 $script:logFilePath = Join-Path -Path "$script:AppRoot\Logs" -ChildPath "ExchangeTool.log"
 
-# Statusfarben (lesbar auf heller Statusleiste und dunkler Navigationsleiste)
-$script:connectedBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(0x2E, 0x9E, 0x44))
-$script:disconnectedBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(0xE5, 0x53, 0x4B))
+# Statusfarben für Verbindungsstatus und Statusleiste (beide dunkel) - werden nach dem Laden
+# des Fensters aus dem Theme (Status*Brush in src/GUI/Theme.xaml) übernommen
+$script:connectedBrush = $null
+$script:disconnectedBrush = $null
 $script:isConnected = $false
 $script:RestartPending = $false
 
@@ -174,6 +175,8 @@ $null = Initialize-Logging
 try {
     $script:Form = Load-XAML -XamlContent (Get-MainWindowXaml)
     $script:Form.Title = "$($script:Form.Title) | v$($script:AppVersion)"
+    $script:connectedBrush = Get-StatusBrush -Type Success
+    $script:disconnectedBrush = Get-StatusBrush -Type Error
 
     # Fenstergröße an den verfügbaren Bildschirmbereich anpassen (kleine Displays / Skalierung)
     $workArea = [System.Windows.SystemParameters]::WorkArea
@@ -331,9 +334,8 @@ $script:tabContent.Add_SelectionChanged({
 })
 
 # -------------------------------------------------
-# Status-Variablen für die Organisationseinstellungen (Features/OrganizationSettings.ps1)
+# Status-Variable für die Organisationseinstellungen (Features/OrganizationSettings.ps1)
 # -------------------------------------------------
-$script:organizationConfigSettings = @{}
 $script:currentOrganizationConfig = $null
 
 # -------------------------------------------------

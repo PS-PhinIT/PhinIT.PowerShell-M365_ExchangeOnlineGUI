@@ -451,19 +451,36 @@ function Initialize-CalendarTab {
                         throw "Keine Ordnerstatistiken verfügbar"
                     }
                     
-                    # Kalenderberechtigung hinzufügen
-                    Write-Log "Füge Berechtigung hinzu: $targetUser auf $sourceMailbox\$calendarFolderName" -Type Info
-                    $result = Add-MailboxFolderPermission -Identity "$sourceMailbox`:\$calendarFolderName" -User $targetUser -AccessRights $permission -ErrorAction Stop
-                    
-                    if ($result) {
-                        Write-Log "Kalenderberechtigung erfolgreich hinzugefügt" -Type Info
-                        $script:txtStatus.Text = "Kalenderberechtigung erfolgreich hinzugefügt."
-                        
-                        # Aktualisiere die Berechtigungsliste
-                        if ($script:txtCalendarMailboxUser.Text -eq $sourceMailbox) {
-                            Show-CalendarPermissions -Mailbox $sourceMailbox
-                        }
+                    # Kalenderberechtigung hinzufügen bzw. aktualisieren, falls der Benutzer bereits einen Eintrag hat
+                    $calendarIdentity = "$sourceMailbox`:\$calendarFolderName"
+                    $existingPermission = $null
+                    try {
+                        $existingPermission = Get-MailboxFolderPermission -Identity $calendarIdentity -User $targetUser -ErrorAction Stop
                     }
+                    catch {
+                        # Kein bestehender Eintrag für diesen Benutzer
+                        $existingPermission = $null
+                    }
+                    
+                    if ($null -ne $existingPermission) {
+                        Write-Log "Aktualisiere bestehende Berechtigung: $targetUser auf $sourceMailbox\$calendarFolderName ($permission)" -Type Info
+                        Set-MailboxFolderPermission -Identity $calendarIdentity -User $targetUser -AccessRights $permission -ErrorAction Stop
+                        $successMessage = "Kalenderberechtigung erfolgreich aktualisiert."
+                        Log-Action "Kalenderberechtigung aktualisiert: $sourceMailbox -> $targetUser ($permission)"
+                    }
+                    else {
+                        Write-Log "Füge Berechtigung hinzu: $targetUser auf $sourceMailbox\$calendarFolderName ($permission)" -Type Info
+                        $null = Add-MailboxFolderPermission -Identity $calendarIdentity -User $targetUser -AccessRights $permission -ErrorAction Stop
+                        $successMessage = "Kalenderberechtigung erfolgreich hinzugefügt."
+                        Log-Action "Kalenderberechtigung hinzugefügt: $sourceMailbox -> $targetUser ($permission)"
+                    }
+                    Write-Log $successMessage -Type Success
+                    
+                    # Aktualisiere die Berechtigungsliste
+                    if ($script:txtCalendarMailboxUser.Text -eq $sourceMailbox) {
+                        $null = Show-CalendarPermissions -MailboxUser $sourceMailbox
+                    }
+                    $script:txtStatus.Text = $successMessage
                 }
                 catch {
                     $errorMsg = $_.Exception.Message
@@ -570,10 +587,12 @@ function Initialize-CalendarTab {
                 
                 $mailbox = $script:txtCalendarMailboxUser.Text
                 
-                # Kalenderberechtigungen anzeigen
-                Show-CalendarPermissions -Mailbox $mailbox
+                # Kalenderberechtigungen anzeigen (Show-CalendarPermissions setzt im Fehlerfall selbst die Fehlermeldung)
+                $showResult = Show-CalendarPermissions -MailboxUser $mailbox
                 
-                $script:txtStatus.Text = "Kalenderberechtigungen für $mailbox wurden geladen."
+                if ($showResult -eq $true) {
+                    $script:txtStatus.Text = "Kalenderberechtigungen für $mailbox wurden geladen."
+                }
             }
             catch {
                 $errorMsg = $_.Exception.Message
@@ -709,11 +728,8 @@ function Initialize-CalendarTab {
                 $permission = $script:cmbDefaultPermission.SelectedItem.ToString()
                 
                 # Standard-Kalenderberechtigung für alle Postfächer setzen
-                $result = Set-DefaultCalendarPermissionForAll -AccessRights $permission
-                
-                if ($result) {
-                    $script:txtStatus.Text = "Standard-Kalenderberechtigungen für alle Postfächer erfolgreich gesetzt."
-                }
+                # Die detaillierte Statusmeldung (Erfolgreich/Fehler) setzt die Funktion selbst - hier nicht überschreiben
+                $null = Set-DefaultCalendarPermissionForAll -AccessRights $permission
             }
             catch {
                 $errorMsg = $_.Exception.Message
