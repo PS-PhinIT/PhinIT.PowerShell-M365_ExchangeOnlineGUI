@@ -74,8 +74,9 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
 - **GUI/Design:** Keine fest kodierten Farben im XAML oder Code; Farben und Styles ausschließlich in `src/GUI/Theme.xaml`
   definieren und per `StaticResource` verwenden (`SecondaryButton`, `SuccessButton`, `DangerButton`, `WarningButton`,
   `NavButton`, `*Brush` …). Statusmeldungen über `Update-StatusBar -Message … -Type Info|Success|Warning|Error`
-  (Farben aus `Status*Brush`). Eigene Fenster/Dialoge erben die Ressourcen des Hauptfensters nicht – Styles dort per
-  `$script:Form.TryFindResource('<Key>')` zuweisen oder `Show-InputDialog` verwenden.
+  (Farben aus `Status*Brush`). Eigene Fenster/Dialoge erben die Ressourcen des Hauptfensters nicht – direkt nach dem
+  Laden `$null = Add-ThemeResource -Window $dialog` aufrufen und im Inline-XAML `{DynamicResource <Key>}` verwenden
+  (für einfache Eingaben `Show-InputDialog`).
 - **XAML:** Keine Event-Attribute (`Click="…"`, `SelectionChanged="…"`) – Ereignisse werden im Code registriert.
   Daten aus Exchange (Namen, Betreffzeilen …) nie in XAML-Zeichenketten einsetzen, sondern nach dem Laden über
   Eigenschaften (`.Text`, `.ItemsSource`) zuweisen. Spaltenbindungen (`Binding="{Binding …}"`) müssen den

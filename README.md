@@ -31,7 +31,7 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
 - **Automatische Antworten**: Abwesenheitsnotizen für einzelne oder mehrere Benutzer (Masseneinrichtung), Platzhalter `{StartDate}`/`{EndDate}`, Zeilenumbrüche werden übernommen.
 
 ### 🛡️ Sicherheit & Compliance
-- **Microsoft Defender (ATP)**: Verwaltung von Anti-Phishing-, sicheren Anlagen- und sicheren Links-Richtlinien.
+- **Microsoft Defender (ATP)**: Anti-Phishing-, Safe-Attachments- und Safe-Links-Richtlinien anzeigen, anlegen, bearbeiten und löschen (inkl. zugehöriger Regeln und Empfängerbereiche).
 - **Quarantäne**: Anzeigen, Freigeben und Löschen von Nachrichten in Quarantäne.
 - **Mobile Device Management (MDM)**: Verwaltung von Geräterichtlinien und Geräten in Quarantäne.
 - **DLP & Compliance**: DLP-Richtlinien und -Regeln, Aufbewahrungsrichtlinien und Vertraulichkeitsbezeichnungen anzeigen und exportieren; Modus einer DLP-Richtlinie ändern (benötigt „Compliance verbinden“).
@@ -39,7 +39,7 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
 
 ### 🔧 Systemkonfiguration
 - **Regionaleinstellungen**: Anpassen von Sprache, Zeitzone sowie Datums- und Zeitformaten für Postfächer.
-- **Mail-Routing (Cross-Premises)**: Anzeigen von Mail-Connectors, akzeptierten und Remote-Domänen.
+- **Mail-Routing (Cross-Premises)**: Mail-Connectors anzeigen, anlegen und aktivieren/deaktivieren; akzeptierte und Remote-Domänen anzeigen.
 - **Hybrid Exchange**: Hybrid-Status (lokale Organisation, Organisationsbeziehungen, IntraOrganization-Connectors, Connectors, Migrationsendpunkte) und Verbund-Vertrauensstellung prüfen und exportieren; Link zum Hybrid Configuration Wizard.
 - **Multi-Forest**: Empfänger je Domäne und Herkunft (AD-synchronisiert/Cloud) suchen und exportieren; Microsoft-Entra-Connect-Synchronisation starten/stoppen (auf dem Entra-Connect-Server mit Modul *ADSync*).
 
