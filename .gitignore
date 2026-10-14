@@ -1,2 +1,19 @@
-/Logs
-\# Screenshots/Thumbs.db
+# Laufzeit-Logs (werden neben dem Skript unter Logs\ erzeugt)
+Logs/
+*.log
+*.bak
+
+# Exporte / temporäre Dateien
+# (automatisch gespeicherte Berichte enthalten personenbezogene Daten)
+Reports/
+*.tmp
+
+# Betriebssystem-Artefakte
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor-/IDE-Artefakte
+.vscode/
+.idea/
+*.code-workspace
