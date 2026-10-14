@@ -9,6 +9,52 @@ Jede Änderung wird direkt unter einer **konkreten Versionsnummer mit Datum** ei
 Die Einträge bis einschließlich 0.1.1 wurden nachträglich aus der Git-Historie
 (Commits und Pull Requests) rekonstruiert.
 
+## [0.3.0] - 2026-10-14
+
+Folge-Release zum Audit: Die in 0.2.0 offenen Punkte (blockierende Oberfläche, fehlende Compliance-Verbindung,
+langsame Berichte, fehlende Felder der Organisationseinstellungen, funktionsloser Button „Gruppenmitglieder anzeigen“)
+wurden behoben; dazu weitere Fehler aus einer erneuten Prüfung. Details: [docs/AUDIT.md](docs/AUDIT.md).
+
+### Hinzugefügt
+- **Arbeitsanzeige mit Abbrechen** (`src/Modules/UI/Busy.ps1`): Lange Abfragen zeigen ein Overlay mit Meldung,
+  Fortschritt und Schaltfläche „Abbrechen“. Das Fenster wird währenddessen weiter gezeichnet und bleibt reaktionsfähig
+  (`Start-UIBusy`, `Update-UIBusy`, `Stop-UIBusy`, `Step-UIProgress`).
+- **Zentraler Click-Verteiler:** Alle über `Register-EventHandler` registrierten Buttons ignorieren Klicks, solange ein
+  Vorgang läuft (keine Doppelausführung), zeigen den Warte-Cursor und fangen unbehandelte Fehler ab.
+- **Schutz beim Schließen:** Wird das Fenster während eines Vorgangs geschlossen, wird stattdessen der Vorgang abgebrochen.
+- **Schaltfläche „Compliance verbinden“** (`Connect-IPPSSession`, Security & Compliance PowerShell) für DLP-,
+  Aufbewahrungs- und Bezeichnungsfunktionen; aktiv nach der Exchange-Online-Verbindung, lädt nur die benötigten Cmdlets.
+- **„Gruppenmitglieder anzeigen“** lädt die Mitglieder der ausgewählten Gruppe (neben „Mitglieder exportieren“).
+- **Organisationseinstellungen:** Feld `HierarchicalAddressBookRoot` ergänzt; 26 bereits im Layout vorhandene, aber nicht
+  angebundene Steuerelemente (u. a. Bookings-Namensrichtlinie, MailTips für alle, Schwellwert großes Publikum, EWS, OAuth,
+  öffentliche Ordner, IP-Sperrliste) werden jetzt geladen und gespeichert.
+- **Berichte:** Auswahlliste der Berichtstypen (Postfachgrößen, letzte Anmeldung, Postfach- und Kalenderberechtigungen,
+  Gruppenmitglieder u. a.), Laufzeit- und Ergebnisanzeige, Teilergebnisse bei Abbruch.
+
+### Geändert
+- **Berichte schneller:** Postfachstatistiken werden über die REST-Cmdlets per Pipeline gebündelt abgefragt
+  (`Get-EXOMailbox | Get-EXOMailboxStatistics`) statt einzeln pro Postfach; Berechtigungsberichte nutzen
+  `Get-EXOMailboxPermission`/`Get-EXOMailboxFolderPermission` mit Fallback auf die klassischen Cmdlets.
+- **Organisationseinstellungen speichern nur Änderungen:** Vergleich mit dem Stand beim Laden, Vorschau „alt → neu“ mit
+  Bestätigung, ungültige Parameter werden nicht mehr an `Set-OrganizationConfig` übergeben.
+- **Verbindungsprüfung:** `Confirm-ExchangeConnection` prüft lokal über `Get-ConnectionInformation` und speichert ein
+  positives Ergebnis 120 Sekunden zwischen (vorher ein Server-Aufruf vor jeder Aktion).
+- **Dashboard:** Empfängerzählung per Streaming mit Fortschritt und Abbruchmöglichkeit.
+- **Gruppen:** Mitgliederlisten mit `List`/`HashSet` statt Array-Verkettung und `Where-Object` je Mitglied.
+- HealthCheck und Troubleshooting verweisen bei fehlenden Compliance-Cmdlets auf „Compliance verbinden“.
+
+### Behoben
+- Berichte waren nicht nutzbar: Die Auswahlliste `cmbReportType` wurde nie befüllt.
+- Gruppen: Trennung mehrerer Mitglieder per Regex fehlerhaft; `Get-DistributionGroup`/`Get-UnifiedGroup` lieferten nur
+  die ersten 1000 Einträge; `Items.Clear()` bei gebundener Liste löste eine Ausnahme aus; nach dem Erstellen einer Gruppe
+  wurde fälschlich `Get-SharedMailboxPermissionsAction` aufgerufen.
+- Ressourcen (Raum-/Gerätepostfächer) und Mobilgeräte in Quarantäne: fehlendes `-ResultSize Unlimited` (nur 1000 Einträge).
+- Organisationseinstellungen: Zuordnungen zu nicht existierenden Steuerelementen und Parametern
+  (`InformationBarrierMode`, `OfficeFeatures`, `txtHierAddressBookRoot`) entfernt.
+- Verbindungsstatus: Farben der Statusanzeige werden aus den Theme-Brushes gesetzt; unerreichbarer Code in
+  `Confirm-ExchangeConnection` entfernt; Trennen setzt auch den Compliance-Status zurück.
+- PSScriptAnalyzer: Zuweisungen an automatische Variablen (`$sender`, `$event`) im neuen Code vermieden.
+
 ## [0.2.0] - 2026-10-14
 
 Audit- und Modularisierungs-Release: Sicherheit, Befehle, Verweise, GUI, Performance, Repository-Struktur,
@@ -177,7 +223,8 @@ Aufteilung in Module und neues, modernes Design. Details zu allen Befunden: [doc
 - Import der frühen Skriptversionen V0.0.1 bis V0.0.9 inklusive Funktionsmodulen, externer XAML-Oberfläche
   (`assets/EXOGUI.xaml`), Grafiken und Konfigurationsdateien (INI/JSON).
 
-[0.2.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/dffe553...main
+[0.3.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/cda8c87...main
+[0.2.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/dffe553...cda8c87
 [0.1.1]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/commit/dc4d8de
 [0.0.13]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/commit/8425e6f
 [0.0.12]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/commit/b16bfc8

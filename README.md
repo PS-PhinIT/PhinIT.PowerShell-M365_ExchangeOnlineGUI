@@ -1,6 +1,6 @@
 # easyEXO - Exchange Online Verwaltungstool
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-0.3.0-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
 
 > Screenshots der aktuellen Version werden unter [`docs/screenshots/`](docs/screenshots/) abgelegt.
 
@@ -14,6 +14,7 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
 
 ### 📊 Dashboard
 - **Statistiken**: Zeigt nach Verbindung eine dynamische Übersicht über wichtige Exchange-Objekte wie Postfächer, Gruppen, Kontakte und Ressourcen.
+- **Berichte**: Postfachgrößen, letzte Anmeldung, Postfach-/Kalenderberechtigungen und Gruppenmitglieder – gebündelt abgefragt, abbrechbar und als CSV exportierbar.
 
 ### 🗂️ Grundlegende Verwaltung
 - **Kalenderberechtigungen**: Einfaches Anzeigen, Hinzufügen, Ändern und Entfernen von Berechtigungen für Benutzerkalender. Setzen von Standard- und anonymen Berechtigungen.
@@ -47,7 +48,7 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
 - **Windows** mit **Windows PowerShell 5.1** oder **PowerShell 7.x** (WPF-Oberfläche, STA-Modus – wird bei Bedarf automatisch neu gestartet)
 - **ExchangeOnlineManagement-Modul** ab Version 3.0.0, **empfohlen ab 3.7.0** (für `Get-MessageTraceV2` / `Get-MessageTraceDetailV2` in der Nachrichtenverfolgung). Das Skript prüft beim Start, ob das Modul installiert ist.
 - **Exchange-Online-Berechtigungen** passend zu den genutzten Funktionen (Prinzip der minimalen Rechte, z. B. *Recipient Management*, *View-Only Organization Management*, *Organization Management*).
-- Für Compliance-Funktionen (DLP, Aufbewahrung, Vertraulichkeitsbezeichnungen) zusätzlich eine Verbindung über `Connect-IPPSSession` (Security & Compliance PowerShell).
+- Für Compliance-Funktionen (DLP, Aufbewahrung, Vertraulichkeitsbezeichnungen) zusätzlich eine Verbindung über `Connect-IPPSSession` (Security & Compliance PowerShell) – in der GUI per Schaltfläche **„Compliance verbinden“** nach der Exchange-Online-Anmeldung.
 - **Keine lokalen Administratorrechte erforderlich** – nur für eine optionale, automatische Installation von PowerShell 7 werden ggf. erhöhte Rechte durch den Installer angefordert.
 - **Internetverbindung** für die Verbindung zu Exchange Online.
 
@@ -59,8 +60,9 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
     ```powershell
     .\src\easyEXO.ps1
     ```
-4.  **Verbinden**: Klicken Sie auf den Button „Mit Exchange Online verbinden“. Nach erfolgreicher Authentifizierung werden die GUI-Elemente aktiviert. Ein erneuter Klick trennt die Verbindung.
-5.  **Verwalten**: Navigieren Sie über die linke Navigationsleiste durch die Bereiche. Ändernde und löschende Aktionen werden vor der Ausführung bestätigt.
+4.  **Verbinden**: Klicken Sie auf den Button „Mit Exchange Online verbinden“. Nach erfolgreicher Authentifizierung werden die GUI-Elemente aktiviert. Ein erneuter Klick trennt die Verbindung. Für DLP-/Aufbewahrungsfunktionen zusätzlich „Compliance verbinden“ klicken.
+5.  **Verwalten**: Navigieren Sie über die linke Navigationsleiste durch die Bereiche. Ändernde und löschende Aktionen werden vor der Ausführung bestätigt; Organisationseinstellungen zeigen vor dem Speichern eine Vorschau der Änderungen.
+6.  **Lange Abfragen**: Während Berichte, Gruppen- oder Dashboard-Abfragen laufen, zeigt ein Overlay den Fortschritt an. Über „Abbrechen“ (oder Schließen des Fensters) wird der Vorgang beendet; bereits geladene Teilergebnisse bleiben sichtbar.
 
 ## Konfiguration
 
@@ -84,8 +86,8 @@ Alle Aktionen, Fehler und wichtige Informationen werden in einer Log-Datei im Un
 │   │   └── Theme.xaml           # Farben und Styles (modernes Design)
 │   └── Modules/
 │       ├── Core/                # Logging, Konfiguration (Registry), Umgebung, Hilfsfunktionen
-│       ├── UI/                  # Fenster/XAML-Laden, Steuerelemente, Dialoge, Navigation
-│       ├── Exchange/            # Verbindung zu Exchange Online
+│       ├── UI/                  # Fenster/XAML-Laden, Steuerelemente, Dialoge, Navigation, Arbeitsanzeige (Busy.ps1)
+│       ├── Exchange/            # Verbindung zu Exchange Online und Security & Compliance (IPPS)
 │       └── Features/            # Fachmodule je Bereich (Postfächer, Gruppen, Mail-Flow, Sicherheit …)
 ├── docs/
 │   ├── AUDIT.md                 # Audit-Bericht (Sicherheit, Performance, Funktionen, GUI …)

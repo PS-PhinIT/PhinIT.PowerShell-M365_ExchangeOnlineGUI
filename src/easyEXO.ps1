@@ -27,7 +27,7 @@
 # -------------------------------------------------
 # Version (bei jedem Release anpassen und in CHANGELOG.md dokumentieren)
 # -------------------------------------------------
-$script:AppVersion = "0.2.0"
+$script:AppVersion = "0.3.0"
 
 # WPF benötigt einen STA-Thread (Standard bei Windows PowerShell 5.1 und pwsh 7 unter Windows).
 # Bei Start mit -MTA wird das Skript automatisch im STA-Modus neu gestartet.

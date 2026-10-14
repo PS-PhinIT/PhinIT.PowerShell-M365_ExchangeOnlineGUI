@@ -17,8 +17,8 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
 │   │   └── Theme.xaml       # Farben und Styles (einzige Stelle für Farben)
 │   └── Modules/
 │       ├── Core/            # Logging, Konfiguration, Umgebung, Hilfsfunktionen
-│       ├── UI/              # Fenster/XAML, Steuerelemente, Dialoge, Navigation
-│       ├── Exchange/        # Verbindung zu Exchange Online
+│       ├── UI/              # Fenster/XAML, Steuerelemente, Dialoge, Navigation, Arbeitsanzeige (Busy.ps1)
+│       ├── Exchange/        # Verbindung zu Exchange Online und Security & Compliance (IPPS)
 │       └── Features/        # Fachmodule je Bereich
 ├── CHANGELOG.md
 ├── CODE_OF_CONDUCT.md
@@ -54,7 +54,7 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
    ```
 4. Erhöhen Sie die Versionsnummer in `$script:AppVersion` (`src/easyEXO.ps1`) gemäß [Semantic Versioning](https://semver.org/lang/de/).
 5. Tragen Sie Ihre Änderungen in der [CHANGELOG.md](CHANGELOG.md) direkt unter dieser **konkreten Versionsnummer mit Datum** ein
-   (z. B. `## [0.2.1] - JJJJ-MM-TT`). Abschnitte ohne Versionsnummer werden nicht geführt.
+   (z. B. `## [0.3.1] - JJJJ-MM-TT`). Abschnitte ohne Versionsnummer werden nicht geführt.
 6. Erstellen Sie einen Pull Request gegen `main` und füllen Sie die PR-Vorlage aus.
 
 ## Richtlinien
@@ -67,6 +67,15 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
 - **GUI/Design:** Keine fest kodierten Farben an Buttons/Steuerelementen; stattdessen die Styles aus
   `src/GUI/Theme.xaml` verwenden (`SecondaryButton`, `SuccessButton`, `DangerButton`, `WarningButton`, `NavButton` …).
 - **Lange Exchange-Abfragen** möglichst mit `-ResultSize`/`-PropertySets` begrenzen und nicht in Schleifen pro Objekt ausführen.
+  Listenabfragen ohne Identität immer mit `-ResultSize Unlimited` (Standard sind nur 1000 Einträge).
+- **Arbeitsanzeige:** Länger laufende Vorgänge in `Start-UIBusy -Message … -Cancelable` / `Stop-UIBusy` (im `finally`)
+  einschließen und Pipelines mit `Step-UIProgress` bzw. Schleifen mit `Update-UIBusy`/`Assert-UINotCancelled` versehen
+  (`src/Modules/UI/Busy.ps1`). Die Exchange-Online-Sitzung ist an den Runspace der GUI gebunden – Abfragen daher nicht
+  in Hintergrund-Runspaces auslagern.
+- **Click-Handler** über `Register-EventHandler` registrieren (zentraler Verteiler mit Fehlerbehandlung und Sperre während
+  laufender Vorgänge) statt direkt per `Add_Click`.
+- **Compliance-Cmdlets** (DLP, Aufbewahrung, Bezeichnungen) vorher mit `Test-ComplianceConnection` prüfen und auf
+  „Compliance verbinden“ hinweisen.
 - **Keine Geheimnisse** (Passwörter, Tokens, Tenant-IDs) in Code, Logs oder Screenshots.
 - **Destruktive Aktionen** (Entfernen, Löschen, Freigeben) müssen vor der Ausführung eine Bestätigung anfordern.
 - **CSV-Exporte** immer über `ConvertTo-SafeCsvObject` leiten (Schutz vor Formel-Injection).

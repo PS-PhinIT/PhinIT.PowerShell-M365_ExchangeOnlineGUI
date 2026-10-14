@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Version geprüft** | 0.1.1 (`easyEXO_V0.1.1.ps1`, ~28.500 Zeilen) |
-| **Version nach Behebung** | 0.2.0 (`src/easyEXO.ps1` + `src/Modules/**`, `src/GUI/*.xaml`) |
+| **Version nach Behebung** | 0.2.0, offene Punkte und Nachprüfung in 0.3.0 (`src/easyEXO.ps1` + `src/Modules/**`, `src/GUI/*.xaml`) |
 | **Datum** | 2026-10-14 |
 | **Umfang** | Sicherheit, Befehle (Exchange-Cmdlets), Verweise (Funktionen/XAML-Elemente), GUI, Performance, Funktionen, Repository-Struktur und Dokumentation |
 | **Methodik** | Manuelle Code-Review, PowerShell-Parser (`Parser::ParseFile`), PSScriptAnalyzer 1.25 (Error/Warning), Abgleich aller `FindName`/`Get-XamlElement`-Aufrufe mit dem XAML, Abgleich der verwendeten Cmdlets mit der aktuellen ExchangeOnlineManagement-Dokumentation |
@@ -14,16 +14,16 @@ Legende: ✅ behoben · ⚠️ offen / bekannte Einschränkung
 
 | Kategorie | Befunde | Behoben | Offen |
 |---|---:|---:|---:|
-| Sicherheit | 9 | 9 | 0 |
-| Befehle | 13 | 12 | 1 |
-| Verweise / Funktionen | 13 | 11 | 2 |
-| GUI | 15 | 14 | 1 |
-| Performance | 4 | 3 | 1 |
+| Sicherheit | 10 | 10 | 0 |
+| Befehle | 16 | 16 | 0 |
+| Verweise / Funktionen | 17 | 17 | 0 |
+| GUI | 18 | 18 | 0 |
+| Performance | 6 | 6 | 0 |
 | Code-Qualität (PSScriptAnalyzer) | 4 | 2 | 2 |
 | Architektur / Modularisierung | 4 | 4 | 0 |
 | Repository / Dokumentation | 6 | 6 | 0 |
 
-Ergebnis nach Behebung: **0 Parser-Fehler** in allen 30 Skriptdateien; PSScriptAnalyzer meldet nur noch 3 Fehler der Regel
+Ergebnis nach Behebung: **0 Parser-Fehler** in allen 31 Skriptdateien; PSScriptAnalyzer meldet nur noch 3 Fehler der Regel
 `PSAvoidUsingComputerNameHardcoded` (beabsichtigte Konnektivitätstests gegen `outlook.office365.com`, False Positive).
 Alle Funktionsaufrufe lassen sich modulübergreifend auflösen; alle `StaticResource`-Verweise sind im Theme definiert.
 
@@ -42,6 +42,7 @@ Alle Funktionsaufrufe lassen sich modulübergreifend auflösen; alle `StaticReso
 | S7 | **Fehlende Bestätigungen** vor destruktiven Aktionen (FullAccess/SendAs/Weiterleitung/Kalenderberechtigung entfernen); 7 Bestätigungsdialoge waren durch `Show-MessageBox -Type YesNo` funktionslos (Aktion lief ohne Rückfrage). | Mittel | ✅ Bestätigungen ergänzt; `Show-MessageBox` gibt bei Fehlern `No` zurück (fail-safe). |
 | S8 | Authenticode-Signatur nach Änderungen ungültig. | Info | ✅ Signaturblock entfernt; Neusignierung durch Maintainer dokumentiert ([SECURITY.md](../SECURITY.md)). |
 | S9 | Logs enthalten personenbezogene Daten (UPNs, E-Mail-Adressen). | Info | ✅ Dokumentiert (README, SECURITY.md); `Logs/` per `.gitignore` ausgeschlossen. |
+| S10 | Organisationseinstellungen: „Speichern“ übertrug **alle** Felder (auch unveränderte und nicht geladene) an `Set-OrganizationConfig` – Gefahr, Tenant-Einstellungen ungewollt zu überschreiben. | Mittel | ✅ 0.3.0: nur geänderte Werte, Vorschau „alt → neu“ mit Bestätigung, ungültige Parameter werden verworfen. |
 
 ## 2. Befehle (Exchange-Cmdlets)
 
@@ -59,7 +60,10 @@ Alle Funktionsaufrufe lassen sich modulübergreifend auflösen; alle `StaticReso
 | B10 | DLP-/Label-Cmdlets ohne IPPS-Sitzung nicht verfügbar | ✅ Prüfung per `Get-Command` mit Hinweis auf `Connect-IPPSSession` |
 | B11 | `Get-DistributionGroupMember` / `Get-UnifiedGroupLinks` ohne `-ResultSize Unlimited` (nur 1000 Einträge) | ✅ |
 | B13 | Mobilgeräte zulassen/blockieren nutzte `Set-MobileDevice` – dieses Cmdlet existiert in Exchange Online nicht | ✅ `Set-CASMailbox -ActiveSyncAllowedDeviceIDs/-ActiveSyncBlockedDeviceIDs @{Add=…}` (`Set-MobileDeviceAccessState`) |
-| B12 | Compliance-Funktionen (`Get-OwnRetentionCompliancePolicy`, `Get-OwnDlpCompliancePolicy`) benötigen `Connect-IPPSSession`, die GUI baut nur eine EXO-Verbindung auf | ⚠️ offen – Fehlermeldung erscheint; IPPS-Verbindung wäre ein neues Feature |
+| B12 | Compliance-Funktionen (`Get-OwnRetentionCompliancePolicy`, `Get-OwnDlpCompliancePolicy`) benötigen `Connect-IPPSSession`, die GUI baut nur eine EXO-Verbindung auf | ✅ 0.3.0: Schaltfläche „Compliance verbinden“ (`Connect-OwnComplianceSession`, `-CommandName` begrenzt); HealthCheck/Troubleshooting weisen darauf hin |
+| B14 | `Get-Mailbox` (Raum/Gerät) und `Get-MobileDevice` (Quarantäne) ohne `-ResultSize Unlimited` (nur 1000 Einträge) | ✅ 0.3.0 |
+| B15 | Gruppenübersicht: `Get-DistributionGroup`/`Get-UnifiedGroup` ohne `-ResultSize Unlimited` | ✅ 0.3.0 |
+| B16 | `Set-OrganizationConfig` wurde mit nicht existierenden Parametern (`InformationBarrierMode`, `OfficeFeatures`, `PowerShellMax*`) aufgerufen | ✅ 0.3.0: Parameter-Whitelist, nicht unterstützte Felder werden übersprungen und protokolliert |
 
 ## 3. Verweise / Funktionen
 
@@ -75,9 +79,13 @@ Alle Funktionsaufrufe lassen sich modulübergreifend auflösen; alle `StaticReso
 | V8 | Organisationseinstellungen: `ActivityBasedAuthenticationTimeoutInterval` aus falschem Steuerelement gelesen | ✅ |
 | V9 | `Show-MessageBox` kannte `YesNo` nicht | ✅ |
 | V10 | Versionsnummer `0.1.XX` als Platzhalter in Registry/Info-Dialog | ✅ `$script:AppVersion` (aktuell 0.2.0) |
-| V11 | Organisationseinstellungen: Steuerelemente `cmbInformationBarrierMode`, `cmbOfficeFeatures`, `txtHierAddressBookRoot` werden gesucht, existieren aber nicht im XAML (werden stillschweigend übersprungen) | ⚠️ offen – kein Fehler, aber Einstellungen nicht bearbeitbar |
+| V11 | Organisationseinstellungen: Steuerelemente `cmbInformationBarrierMode`, `cmbOfficeFeatures`, `txtHierAddressBookRoot` werden gesucht, existieren aber nicht im XAML (werden stillschweigend übersprungen) | ✅ 0.3.0: Feld `txtHierarchicalAddressBookRoot` ergänzt; `InformationBarrierMode`/`OfficeFeatures` sind keine Parameter von `Set-OrganizationConfig` und wurden entfernt |
 | V13 | Fehlgeschlagene/abgebrochene Anmeldung wurde als „verbunden“ gewertet (Dialog-Rückgabewerte im Pipeline-Output) | ✅ Status über `$script:isConnected`, Dialog-Rückgaben verworfen |
-| V12 | `btnShowGroupMembers` wird gesucht, aber ohne Click-Handler | ⚠️ offen – Mitglieder werden über die Gruppenauswahl geladen |
+| V12 | `btnShowGroupMembers` wird gesucht, aber ohne Click-Handler | ✅ 0.3.0: Button im Layout, lädt die Mitglieder der ausgewählten Gruppe |
+| V14 | Berichte: Auswahlliste `cmbReportType` wurde nie befüllt – kein Bericht ausführbar | ✅ 0.3.0 |
+| V15 | Gruppen: Regex zum Trennen mehrerer Mitglieder fehlerhaft; nach dem Erstellen einer Gruppe Aufruf von `Get-SharedMailboxPermissionsAction` mit falschem Parameter | ✅ 0.3.0 |
+| V16 | 26 Steuerelemente der Organisationseinstellungen im XAML ohne Anbindung im Code (Werte weder geladen noch gespeichert) | ✅ 0.3.0 |
+| V17 | `Confirm-ExchangeConnection`: unerreichbarer Code nach `return`; Statusfarben über nicht definierte Brushes | ✅ 0.3.0 |
 
 ## 4. GUI
 
@@ -91,13 +99,16 @@ Alle Funktionsaufrufe lassen sich modulübergreifend auflösen; alle `StaticReso
 | G6 | Verbinden-Button konnte nicht trennen; Umgebungsprüfung bei jeder Verbindung blockierend | ✅ |
 | G7 | Banner-Erkennung des EXO-Moduls fehlerhaft | ✅ |
 | G8 | Version nicht sichtbar; `txtVersion` im Code referenziert, aber nicht im XAML | ✅ Fenstertitel, Kopfzeile, Info-Dialog |
-| G9 | Alle Exchange-Abfragen laufen im UI-Thread – das Fenster reagiert bei großen Tenants während Abfragen nicht | ⚠️ bekannte Einschränkung (Umstellung auf Runspaces wäre ein größeres Refactoring) |
+| G9 | Alle Exchange-Abfragen laufen im UI-Thread – das Fenster reagiert bei großen Tenants während Abfragen nicht | ✅ 0.3.0: Arbeits-Overlay mit Fortschritt und „Abbrechen“; die Oberfläche wird während Abfragen weiter verarbeitet (Dispatcher). Echte Hintergrund-Runspaces sind nicht möglich, da die EXO-Sitzung an den GUI-Runspace gebunden ist. |
 | G10 | Feste Fenstergröße 1700×1000 – auf kleinen Bildschirmen abgeschnitten | ✅ Größe wird beim Start auf den Arbeitsbereich des Bildschirms begrenzt |
 | G11 | 141 von 161 Buttons mit lokal gesetzten Farben – Hover-/Pressed-Effekte der Styles wirkungslos, uneinheitliche Farben | ✅ Button-Varianten im Theme (`SecondaryButton`, `SuccessButton`, `DangerButton`, `WarningButton`) |
 | G12 | Editierbare ComboBoxen ließen keine Texteingabe zu (Vorlage ohne `IsEditable`-Zweig) | ✅ |
 | G13 | Navigation markierte den aktiven Bereich über fest gesetzte Farben im Code | ✅ `Tag="Active"` + Style-Trigger |
 | G14 | `CornerRadius`-Attribute wurden beim Laden per Regex aus dem XAML entfernt | ✅ entfernt (nur an `Border` verwendet) |
 | G15 | Veraltetes, uneinheitliches Design | ✅ neues Theme `src/GUI/Theme.xaml` (Fluent-Stil) |
+| G16 | `Items.Clear()` auf Listen mit gebundener `ItemsSource` löste eine Ausnahme aus | ✅ 0.3.0: `ItemsSource = $null` |
+| G17 | Mehrfachklicks starteten Abfragen parallel; Fenster ließ sich während einer Abfrage schließen | ✅ 0.3.0: Click-Verteiler sperrt während laufender Vorgänge; Schließen bricht den Vorgang ab |
+| G18 | Unbehandelte Ausnahmen in Click-Handlern konnten die Anwendung beenden | ✅ 0.3.0: zentrale Fehlerbehandlung mit Log und Statusleiste |
 
 ## 5. Performance
 
@@ -105,8 +116,10 @@ Alle Funktionsaufrufe lassen sich modulübergreifend auflösen; alle `StaticReso
 |---|---|---|
 | P1 | `Get-DistributionGroupMember` lud nur 1000 Mitglieder (Funktion, nicht Performance) | ✅ |
 | P2 | Dashboard lädt mehrere Empfängertypen jeweils mit `-ResultSize Unlimited` (bei großen Tenants langsam) | ✅ ein `Get-EXORecipient -PropertySets Minimum`-Aufruf mit Gruppierung |
-| P3 | Berichte iterieren pro Objekt mit Einzelabfragen (N+1, z. B. Postfachstatistiken) | ⚠️ offen |
+| P3 | Berichte iterieren pro Objekt mit Einzelabfragen (N+1, z. B. Postfachstatistiken) | ✅ 0.3.0: `Get-EXOMailbox \| Get-EXOMailboxStatistics` per Pipeline (REST, gebündelt); Berechtigungsberichte bleiben je Postfach (von Exchange Online vorgegeben), sind aber abbrechbar |
 | P4 | Mehrfache `Add-Type`-Aufrufe für WPF-Assemblies | ✅ einmalig im Launcher |
+| P5 | Verbindungsprüfung führte vor jeder Aktion einen Server-Aufruf (`Get-OrganizationConfig`) aus | ✅ 0.3.0: lokale Prüfung über `Get-ConnectionInformation`, Ergebnis 120 s zwischengespeichert |
+| P6 | Gruppenmitglieder: Array-Verkettung (`+=`) und `Where-Object` je Mitglied für den Besitzer-Abgleich | ✅ 0.3.0: `List`/`HashSet` |
 
 ## 6. Code-Qualität (PSScriptAnalyzer)
 
@@ -114,14 +127,14 @@ Alle Funktionsaufrufe lassen sich modulübergreifend auflösen; alle `StaticReso
 |---|---:|---:|---|
 | `PSPossibleIncorrectUsageOfRedirectionOperator` (`Count > 0`) | 3 | 0 | ✅ |
 | `PSAvoidDefaultValueSwitchParameter` | 1 | 0 | ✅ |
-| `PSUseShouldProcessForStateChangingFunctions`, `PSUseApprovedVerbs`, `PSUseSingularNouns` | 80 | 81 | ⚠️ Stil – Umbenennung würde alle Aufrufe betreffen |
+| `PSUseShouldProcessForStateChangingFunctions`, `PSUseApprovedVerbs`, `PSUseSingularNouns` | 80 | 93 | ⚠️ Stil – Umbenennung würde alle Aufrufe betreffen; Anstieg durch neue UI-Hilfsfunktionen (`Start-/Update-/Stop-UIBusy`, Berichts-Helfer), die nur GUI-Zustand ändern |
 | `PSAvoidUsingComputerNameHardcoded` | 3 | 3 | ⚠️ False Positive (Konnektivitätstest gegen Microsoft-Endpunkte) |
 
 ## 7. Architektur / Modularisierung
 
 | # | Befund | Status |
 |---|---|---|
-| A1 | Monolithisches Skript mit ~28.400 Zeilen (210 Funktionen, XAML eingebettet) – schwer wartbar und reviewbar | ✅ Launcher + 29 Moduldateien (`src/Modules/Core`, `UI`, `Exchange`, `Features`) |
+| A1 | Monolithisches Skript mit ~28.400 Zeilen (210 Funktionen, XAML eingebettet) – schwer wartbar und reviewbar | ✅ Launcher + 30 Moduldateien (`src/Modules/Core`, `UI`, `Exchange`, `Features`) |
 | A2 | XAML (~7.000 Zeilen) als Here-String im Skript | ✅ `src/GUI/MainWindow.xaml` + `src/GUI/Theme.xaml` |
 | A3 | Pfade über `$PSScriptRoot`/`$PSCommandPath` (bei Dot-Sourcing aus Unterordnern falsch) | ✅ zentrale `$script:AppRoot`/`$script:AppScriptPath` |
 | A4 | Unausgeglichene `#region`-Marker | ✅ bereinigt |
@@ -143,8 +156,9 @@ eigenen Scope und hätten den gemeinsamen Zustand der GUI aufgebrochen.
 
 ## Empfehlungen für Folgeversionen
 
-1. Optionale Verbindung zu Security & Compliance (`Connect-IPPSSession`) für DLP-/Aufbewahrungsfunktionen.
-2. Langlaufende Abfragen in Runspaces auslagern (GUI bleibt bedienbar).
-3. Berichte ohne N+1-Abfragen (Batch-Abfragen, `-PropertySets`).
-4. Fehlende Steuerelemente der Organisationseinstellungen ergänzen oder den Code entfernen.
-5. Launcher und alle Moduldateien nach jedem Release neu signieren.
+Die Empfehlungen aus 0.2.0 (Compliance-Verbindung, bedienbare Oberfläche bei langen Abfragen, Berichte ohne N+1,
+Organisationseinstellungen) sind in 0.3.0 umgesetzt. Weiterhin gilt:
+
+1. Launcher und alle Moduldateien nach jedem Release neu signieren.
+2. Weitere direkt per `Add_Click` registrierte Handler schrittweise auf `Register-EventHandler` umstellen.
+3. Funktionstest der Oberfläche unter Windows mit einem Test-Tenant vor jedem Release (WPF ist in der CI nicht testbar).
