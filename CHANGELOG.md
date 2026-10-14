@@ -9,10 +9,24 @@ Jede Änderung wird direkt unter einer **konkreten Versionsnummer mit Datum** ei
 Die Einträge bis einschließlich 0.1.1 wurden nachträglich aus der Git-Historie
 (Commits und Pull Requests) rekonstruiert.
 
-## [0.1.2] - 2026-10-14
+## [0.2.0] - 2026-10-14
 
-Audit-Release: Sicherheit, Befehle, Verweise, GUI, Performance und Repository-Struktur.
-Details zu allen Befunden: [docs/AUDIT.md](docs/AUDIT.md).
+Audit- und Modularisierungs-Release: Sicherheit, Befehle, Verweise, GUI, Performance, Repository-Struktur,
+Aufteilung in Module und neues, modernes Design. Details zu allen Befunden: [docs/AUDIT.md](docs/AUDIT.md).
+
+### Architektur
+- **Modularisierung:** Das bisher monolithische Skript (~28.400 Zeilen) wurde aufgeteilt in
+  - `src/easyEXO.ps1` – schlanker Launcher (Umgebungsprüfung, Modul-Laden, Fenster, zentrale Event-Handler),
+  - `src/Modules/Core/` – Logging, Konfiguration (Registry), Umgebungsprüfung, Hilfsfunktionen,
+  - `src/Modules/UI/` – Fenster/XAML-Laden, Steuerelemente, Dialoge, Navigation,
+  - `src/Modules/Exchange/` – Verbindungsaufbau/-abbau,
+  - `src/Modules/Features/` – 20 Fachmodule (Postfächer, Kalender, Gruppen, Ressourcen, Kontakte,
+    Transportregeln, Posteingangsregeln, Nachrichtenverfolgung, Abwesenheit, Sicherheit, Mobilgeräte,
+    Organisations- und Regionaleinstellungen, HealthCheck, Audit, Berichte, Troubleshooting u. a.).
+- Module werden per Dot-Sourcing in einer festen Reihenfolge (`$script:ModuleFiles`) geladen; fehlende Dateien führen
+  zu einer klaren Fehlermeldung statt zu Folgefehlern.
+- **GUI ausgelagert:** `src/GUI/MainWindow.xaml` (Layout) und `src/GUI/Theme.xaml` (Farben/Styles); das Theme wird beim
+  Start in die Fenster-Ressourcen eingefügt (`Get-MainWindowXaml`).
 
 ### Sicherheit
 - **Code-Injection in der Exchange-Diagnose behoben:** Benutzereingaben werden nicht mehr per Textersetzung in
@@ -55,6 +69,23 @@ Details zu allen Befunden: [docs/AUDIT.md](docs/AUDIT.md).
 - Gruppenmitglieder werden vollständig geladen (`-ResultSize Unlimited` bei `Get-DistributionGroupMember`/
   `Get-UnifiedGroupLinks`).
 - Exchange-Verbindung wird auch bei unerwarteten Fehlern im `finally`-Block getrennt.
+- Fehlgeschlagene oder abgebrochene Anmeldung wurde als „verbunden“ gewertet (Rückgabewerte von Dialogen) – behoben.
+- Mobilgeräte zulassen/blockieren: das nicht existierende Cmdlet `Set-MobileDevice` wurde durch
+  `Set-CASMailbox -ActiveSyncAllowedDeviceIDs/-ActiveSyncBlockedDeviceIDs` ersetzt (`Set-MobileDeviceAccessState`).
+- Editierbare ComboBoxen (z. B. Zeitzonen-/Formatauswahl) ließen keine Texteingabe zu – Vorlage korrigiert.
+- `CornerRadius`-Attribute wurden beim XAML-Laden pauschal entfernt – nicht mehr nötig und entfernt.
+- Unausgeglichene `#region`/`#endregion`-Marker bereinigt.
+
+### Design (GUI)
+- Neues, modernes Theme im Fluent-Stil: einheitliche Farbpalette, abgerundete Buttons mit Hover-/Pressed-Zuständen,
+  Karten-Optik für GroupBoxen, modernisierte Eingabefelder, ComboBoxen, DataGrids und Tabs.
+- Button-Varianten statt fest kodierter Einzelfarben (`SecondaryButton`, `SuccessButton`, `DangerButton`,
+  `WarningButton`); vorher verhinderten lokale Farben bei 141 Buttons jeden Hover-Effekt.
+- Navigation: dunkle Seitenleiste, aufklappbare Bereiche mit eigenem Stil, aktiver Bereich wird hervorgehoben
+  (über `Tag="Active"` statt fest gesetzter Farben).
+- Verbinden-Button wechselt im verbundenen Zustand automatisch in den „Trennen“-Stil.
+- Versionsanzeige in der Kopfzeile (`txtVersion` war im Code referenziert, fehlte aber im XAML).
+- Fenstergröße wird beim Start an den verfügbaren Bildschirmbereich angepasst (kleine Displays/Skalierung).
 
 ### Hinzugefügt
 - Verbinden-Button trennt eine bestehende Verbindung (mit Bestätigung) und setzt die Dashboard-Statistiken zurück.
@@ -62,10 +93,15 @@ Details zu allen Befunden: [docs/AUDIT.md](docs/AUDIT.md).
 - Freigegebene Postfächer: Buttons „Postfach entfernen“, „In GAL anzeigen“, „Berechtigungen exportieren“ sowie
   Funktion zum Entfernen der Weiterleitung.
 - Posteingangsregeln: Button „Regeln exportieren“.
-- Zentrale Versionsvariable `$script:AppVersion` (Fenstertitel, Info-Dialog, Registry).
+- Zentrale Versionsvariable `$script:AppVersion` (Fenstertitel, Kopfzeile, Info-Dialog, Registry).
 - Automatischer Neustart im STA-Modus, falls das Skript in einem MTA-Thread gestartet wird.
 - Repository-Dokumentation: `CHANGELOG.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
   `docs/AUDIT.md`, Pull-Request-Vorlage.
+
+### Performance
+- Dashboard-Statistiken mit **einer** Abfrage (`Get-EXORecipient -RecipientTypeDetails … -PropertySets Minimum`,
+  Fallback `Get-Recipient`) statt mehrerer vollständiger Abfragen je Empfängertyp.
+- WPF-Assemblies werden nur noch einmal zu Beginn geladen.
 
 ### Geändert
 - Neue Ordnerstruktur: Skript unter `src/easyEXO.ps1` (ohne Versionsnummer im Dateinamen), Dokumentation unter `docs/`,
@@ -141,7 +177,7 @@ Details zu allen Befunden: [docs/AUDIT.md](docs/AUDIT.md).
 - Import der frühen Skriptversionen V0.0.1 bis V0.0.9 inklusive Funktionsmodulen, externer XAML-Oberfläche
   (`assets/EXOGUI.xaml`), Grafiken und Konfigurationsdateien (INI/JSON).
 
-[0.1.2]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/dffe553...main
+[0.2.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/dffe553...main
 [0.1.1]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/commit/dc4d8de
 [0.0.13]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/commit/8425e6f
 [0.0.12]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/commit/b16bfc8

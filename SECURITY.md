@@ -7,8 +7,8 @@ Sicherheitsupdates werden ausschließlich für die jeweils aktuelle Version auf 
 
 | Version | Unterstützt |
 |---------|-------------|
-| 0.1.2   | ✅          |
-| < 0.1.2 | ❌          |
+| 0.2.0   | ✅          |
+| < 0.2.0 | ❌          |
 
 ## Sicherheitslücke melden
 
@@ -30,10 +30,12 @@ Sie erhalten in der Regel innerhalb von 7 Tagen eine erste Rückmeldung.
 
 - **Code-Signatur prüfen:** Releases werden mit dem öffentlichen Code-Signing-Zertifikat von
   <https://github.com/PS-easyIT/PowerShell_Certificate> signiert. Prüfen Sie die Signatur vor der Ausführung mit
-  `Get-AuthenticodeSignature .\src\easyEXO.ps1`. Unsignierte Entwicklungsstände (z. B. direkt aus `main`) sollten
+  `Get-ChildItem .\src -Recurse -Filter *.ps1 | Get-AuthenticodeSignature` (Launcher und alle Moduldateien). Unsignierte Entwicklungsstände (z. B. direkt aus `main`) sollten
   nur nach eigener Prüfung ausgeführt werden.
 - **Least Privilege:** Für die meisten Funktionen genügen Exchange-Online-Rollen wie *Exchange Administrator* oder
   *Recipient Management*. Lokale Windows-Administratorrechte sind für die Verbindung zu Exchange Online **nicht** erforderlich.
-- **Logs:** Die Logdateien unter `Logs\` können Benutzer-/Postfachnamen (personenbezogene Daten) enthalten.
+- **Integrität der Module:** Der Launcher lädt ausschließlich die in `$script:ModuleFiles` festgelegten Dateien aus
+  `src\Modules\`. Schützen Sie den Programmordner vor Schreibzugriff durch Dritte.
+- **Logs:** Die Logdateien unter `src\Logs\` können Benutzer-/Postfachnamen (personenbezogene Daten) enthalten.
   Behandeln Sie diese entsprechend Ihren Datenschutzvorgaben und löschen Sie sie regelmäßig.
 - **Exporte:** CSV/HTML-Exporte enthalten Mandantendaten – speichern Sie diese nur an geschützten Orten.

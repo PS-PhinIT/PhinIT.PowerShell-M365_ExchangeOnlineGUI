@@ -1,6 +1,6 @@
 # easyEXO - Exchange Online Verwaltungstool
 
-![Version](https://img.shields.io/badge/version-0.1.2-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-0.2.0-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
 
 > Screenshots der aktuellen Version werden unter [`docs/screenshots/`](docs/screenshots/) abgelegt.
 
@@ -8,7 +8,7 @@
 
 **easyEXO** ist ein leistungsstarkes PowerShell-basiertes Tool mit einer grafischen Benutzeroberfläche (WPF), das die Verwaltung von Microsoft Exchange Online vereinfacht. Es bündelt eine Vielzahl von administrativen Aufgaben in einer zentralen Konsole und richtet sich an IT-Administratoren, die eine effiziente Alternative zur webbasierten Exchange-Verwaltungskonsole und zur reinen Kommandozeile suchen.
 
-Das Tool bietet einen modularen Aufbau mit verschiedenen Tabs für spezifische Verwaltungsbereiche, von der grundlegenden Postfach- und Kalenderverwaltung bis hin zu komplexen Mailflow-Regeln, Sicherheitsrichtlinien und Fehlerbehebungsdiagnosen.
+Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldateien, GUI-Layout und Design als eigene XAML-Dateien) und bietet ein modernes Design mit verschiedenen Bereichen für spezifische Verwaltungsbereiche, von der grundlegenden Postfach- und Kalenderverwaltung bis hin zu komplexen Mailflow-Regeln, Sicherheitsrichtlinien und Fehlerbehebungsdiagnosen.
 
 ## Hauptfunktionen
 
@@ -53,8 +53,8 @@ Das Tool bietet einen modularen Aufbau mit verschiedenen Tabs für spezifische V
 
 ## Anwendung
 
-1.  **Herunterladen**: Laden Sie das Skript [`src/easyEXO.ps1`](src/easyEXO.ps1) herunter (oder klonen Sie das Repository).
-2.  **Signatur / Ausführungsrichtlinie**: Releases werden vom Maintainer mit dem öffentlichen Code-Signing-Zertifikat von https://github.com/PS-easyIT/PowerShell_Certificate signiert. Importieren Sie dieses Zertifikat, wenn Ihre Ausführungsrichtlinie (`AllSigned`/`RemoteSigned`) signierte Skripte verlangt. Der Quellstand im Repository ist nach Änderungen unsigniert – siehe [SECURITY.md](SECURITY.md).
+1.  **Herunterladen**: Klonen Sie das Repository oder laden Sie es als ZIP herunter. Benötigt wird der **vollständige Ordner `src/`** (Launcher `easyEXO.ps1`, `Modules/` und `GUI/`). Bei ZIP-Downloads ggf. vorher `Get-ChildItem .\src -Recurse | Unblock-File` ausführen.
+2.  **Signatur / Ausführungsrichtlinie**: Releases werden vom Maintainer mit dem öffentlichen Code-Signing-Zertifikat von https://github.com/PS-easyIT/PowerShell_Certificate signiert – das gilt für den Launcher **und alle Moduldateien** unter `src/Modules/`. Importieren Sie dieses Zertifikat, wenn Ihre Ausführungsrichtlinie (`AllSigned`/`RemoteSigned`) signierte Skripte verlangt. Der Quellstand im Repository ist nach Änderungen unsigniert – siehe [SECURITY.md](SECURITY.md).
 3.  **Ausführen**: Starten Sie das Skript in einer PowerShell-Konsole:
     ```powershell
     .\src\easyEXO.ps1
@@ -71,14 +71,22 @@ Hier kann z. B. der **Debug-Modus** aktiviert werden, um detailliertere Log-Ausg
 
 ## Logging
 
-Alle Aktionen, Fehler und wichtige Informationen werden in einer Log-Datei im Unterordner `Logs` neben dem Skript gespeichert (`Logs/ExchangeTool.log`, UTF-8). Die Logs enthalten u. a. Benutzernamen/E-Mail-Adressen (personenbezogene Daten) – bitte entsprechend schützen und nicht einchecken (`Logs/` ist in `.gitignore` ausgeschlossen).
+Alle Aktionen, Fehler und wichtige Informationen werden in einer Log-Datei im Unterordner `Logs` neben dem Launcher gespeichert (`src/Logs/ExchangeTool.log`, UTF-8). Die Logs enthalten u. a. Benutzernamen/E-Mail-Adressen (personenbezogene Daten) – bitte entsprechend schützen und nicht einchecken (`Logs/` ist in `.gitignore` ausgeschlossen).
 
 ## Projektstruktur
 
 ```text
 .
 ├── src/
-│   └── easyEXO.ps1              # Hauptskript (GUI/XAML eingebettet)
+│   ├── easyEXO.ps1              # Launcher / Einstiegspunkt (startet die GUI)
+│   ├── GUI/
+│   │   ├── MainWindow.xaml      # Layout des Hauptfensters
+│   │   └── Theme.xaml           # Farben und Styles (modernes Design)
+│   └── Modules/
+│       ├── Core/                # Logging, Konfiguration (Registry), Umgebung, Hilfsfunktionen
+│       ├── UI/                  # Fenster/XAML-Laden, Steuerelemente, Dialoge, Navigation
+│       ├── Exchange/            # Verbindung zu Exchange Online
+│       └── Features/            # Fachmodule je Bereich (Postfächer, Gruppen, Mail-Flow, Sicherheit …)
 ├── docs/
 │   ├── AUDIT.md                 # Audit-Bericht (Sicherheit, Performance, Funktionen, GUI …)
 │   └── screenshots/             # Screenshots der aktuellen Version
