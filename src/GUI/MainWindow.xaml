@@ -6468,6 +6468,7 @@
                                 <GroupBox Header="Regelverwaltung">
                                     <StackPanel Margin="10">
                                         <Button
+                                            Style="{StaticResource SecondaryButton}"
                                             x:Name="btnRefreshAutoReply"
                                             Margin="0,0,0,5"
                                             Padding="10,5"
@@ -6477,8 +6478,10 @@
                                             x:Name="btnBulkAutoReply"
                                             Margin="0,5,0,5"
                                             Padding="10,5"
-                                            Content="Masseneinrichtung" />
+                                            Content="Masseneinrichtung"
+                                            ToolTip="Abwesenheitsnotiz für alle markierten Benutzer der Statusliste oder für mehrere Adressen im Feld 'Benutzer' (getrennt durch ; oder ,) aktivieren" />
                                         <Button
+                                            Style="{StaticResource SecondaryButton}"
                                             x:Name="btnExportAutoReply"
                                             Margin="0,5,0,0"
                                             Padding="10,5"
@@ -6497,9 +6500,18 @@
                                     <TextBlock
                                         FontSize="12"
                                         Foreground="#856404"
-                                        Text="Umbruch in der Abwesenheitsnotiz mit HTML Code 'br' setzten"
+                                        Text="Zeilenumbrüche werden automatisch übernommen. Platzhalter {StartDate} und {EndDate} werden durch das gewählte Start- und Enddatum ersetzt."
                                         TextWrapping="Wrap" />
                                 </Border>
+
+                                <TextBlock
+                                    x:Name="helpLinkAutoReply"
+                                    Margin="0,0,0,10"
+                                    HorizontalAlignment="Right"
+                                    Cursor="Hand"
+                                    Foreground="#0067c0"
+                                    Text="Hilfe zu automatischen Antworten"
+                                    TextDecorations="Underline" />
 
                             </StackPanel>
 
@@ -6511,7 +6523,8 @@
                                 <DataGrid
                                     Name="dgAutoReplyStatus"
                                     AutoGenerateColumns="False"
-                                    IsReadOnly="True">
+                                    IsReadOnly="True"
+                                    SelectionMode="Extended">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn
                                             Width="Auto"
