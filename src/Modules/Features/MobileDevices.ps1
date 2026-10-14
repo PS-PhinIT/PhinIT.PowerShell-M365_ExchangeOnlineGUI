@@ -220,7 +220,7 @@ function Get-QuarantinedDevicesAction {
     
     try {
         # Get-MobileDevice mit Filter für Quarantäne-Status
-        $devices = Get-MobileDevice -Filter "DeviceAccessState -eq 'Quarantined'" -ErrorAction Stop
+        $devices = Get-MobileDevice -Filter "DeviceAccessState -eq 'Quarantined'" -ResultSize Unlimited -ErrorAction Stop
 
         # DataGrid im UI-Thread aktualisieren
         if ($null -ne $script:dgQuarantinedDevices) {

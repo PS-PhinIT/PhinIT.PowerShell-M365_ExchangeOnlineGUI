@@ -74,7 +74,7 @@ function Get-RoomResourcesAction {
     try {
         Write-Log  "Rufe alle Raumressourcen ab" -Type "Info"
         
-        $rooms = Get-Mailbox -RecipientTypeDetails RoomMailbox |
+        $rooms = Get-Mailbox -RecipientTypeDetails RoomMailbox -ResultSize Unlimited |
                  Select-Object DisplayName, Name, PrimarySmtpAddress, ResourceCapacity, Office
         
         Write-Log  "Erfolgreich $($rooms.Count) Raumressourcen abgerufen" -Type "Success"
@@ -97,7 +97,7 @@ function Get-EquipmentResourcesAction {
     try {
         Write-Log  "Rufe alle Ausstattungsressourcen ab" -Type "Info"
         
-        $equipment = Get-Mailbox -RecipientTypeDetails EquipmentMailbox | 
+        $equipment = Get-Mailbox -RecipientTypeDetails EquipmentMailbox -ResultSize Unlimited | 
                      Select-Object DisplayName, Name, PrimarySmtpAddress, ResourceCapacity, Office
         
         Write-Log  "Erfolgreich $($equipment.Count) Ausstattungsressourcen abgerufen" -Type "Success"

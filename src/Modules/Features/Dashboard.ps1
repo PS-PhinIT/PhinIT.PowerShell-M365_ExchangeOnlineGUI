@@ -80,8 +80,9 @@ function Refresh-DashboardStatistics {
             }
         }
 
-        # Performance: Alle Empfängertypen mit EINER Abfrage laden und clientseitig gruppieren
-        # (statt sechs separater Get-Mailbox/Get-*Group -ResultSize Unlimited Aufrufe).
+        # Performance: Alle Empfängertypen mit EINER Abfrage laden und während des Empfangs zählen
+        # (keine Zwischenspeicherung aller Objekte, Fortschrittsanzeige, abbrechbar).
+        Start-UIBusy -Message "Lade Dashboard-Statistiken..." -Title "Dashboard" -Cancelable
         try {
             Write-Log "Rufe Empfängerstatistik ab..." -Type "Debug"
             $recipientTypes = @(
@@ -89,17 +90,22 @@ function Refresh-DashboardStatistics {
                 'MailUniversalDistributionGroup', 'MailUniversalSecurityGroup', 'MailNonUniversalGroup',
                 'RoomList', 'GroupMailbox'
             )
+            $countByType = @{}
+            $countRecipient = {
+                process {
+                    $typeName = [string]$_.RecipientTypeDetails
+                    if ($countByType.ContainsKey($typeName)) { $countByType[$typeName]++ } else { $countByType[$typeName] = 1 }
+                }
+            }
             if (Get-Command -Name Get-EXORecipient -ErrorAction SilentlyContinue) {
-                $recipients = Get-EXORecipient -RecipientTypeDetails $recipientTypes -ResultSize Unlimited -PropertySets Minimum -ErrorAction Stop
+                Get-EXORecipient -RecipientTypeDetails $recipientTypes -ResultSize Unlimited -PropertySets Minimum -ErrorAction Stop |
+                    Step-UIProgress -Activity "Zähle Empfänger" | & $countRecipient
             }
             else {
-                $recipients = Get-Recipient -RecipientTypeDetails $recipientTypes -ResultSize Unlimited -ErrorAction Stop
+                Get-Recipient -RecipientTypeDetails $recipientTypes -ResultSize Unlimited -ErrorAction Stop |
+                    Step-UIProgress -Activity "Zähle Empfänger" | & $countRecipient
             }
 
-            $countByType = @{}
-            foreach ($typeGroup in @($recipients | Group-Object -Property RecipientTypeDetails)) {
-                $countByType[[string]$typeGroup.Name] = $typeGroup.Count
-            }
             $getCount = { param([string[]]$Types) ($Types | ForEach-Object { if ($countByType.ContainsKey($_)) { $countByType[$_] } else { 0 } } | Measure-Object -Sum).Sum }
 
             Set-StatText "txtStatTotalMailboxes" (& $getCount @('UserMailbox'))
@@ -107,10 +113,13 @@ function Refresh-DashboardStatistics {
             Set-StatText "txtStatGroups" (& $getCount @('MailUniversalDistributionGroup', 'MailUniversalSecurityGroup', 'MailNonUniversalGroup', 'RoomList', 'GroupMailbox'))
             Set-StatText "txtStatResources" (& $getCount @('RoomMailbox', 'EquipmentMailbox'))
         } catch {
-            Write-Log "Fehler beim Abrufen der Empfängerstatistik: $($_.Exception.Message)" -Type "Warning"
+            $statText = if ($script:UICancelRequested) { "Abgebrochen" } else { "Fehler" }
+            Write-Log "Empfängerstatistik nicht vollständig abgerufen ($statText): $($_.Exception.Message)" -Type "Warning"
             foreach ($statName in @("txtStatTotalMailboxes", "txtStatSharedMailboxes", "txtStatGroups", "txtStatResources")) {
-                Set-StatText $statName "Fehler"
+                Set-StatText $statName $statText
             }
+        } finally {
+            Stop-UIBusy
         }
 
         # Domänen abrufen

@@ -153,8 +153,8 @@ function Register-EventHandler {
         }
         else {
             # Event-Handler direkt hinzufügen
-            $event = "Add_$EventName"
-            $Control.$event($Handler)
+            $addMethodName = "Add_$EventName"
+            $Control.$addMethodName($Handler)
         }
         Write-Log  "Event-Handler für $ControlName.$EventName registriert" -Type "Info"
         return $true

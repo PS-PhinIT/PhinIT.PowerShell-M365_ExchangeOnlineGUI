@@ -342,6 +342,12 @@ $script:btnConnect.Add_Click({
     }
 })
 
+# Zusätzliche Verbindung zu Security & Compliance (DLP, Aufbewahrung, Vertraulichkeitsbezeichnungen)
+$script:btnConnectCompliance = Get-XamlElement -ElementName "btnConnectCompliance"
+$null = Register-EventHandler -Control $script:btnConnectCompliance -Handler {
+    $null = Connect-OwnComplianceSession
+} -ControlName "btnConnectCompliance"
+
 # Hinweis: Der Schließen-Button wird im Abschnitt "Kopfzeilen-Buttons" registriert (trennt vorher die Exchange-Verbindung).
 # Die Navigations-Buttons werden zentral in Initialize-TabNavigation registriert (keine doppelten Click-Handler).
 
@@ -444,7 +450,7 @@ Es ermöglicht Administratoren und Helpdesk-Mitarbeitern, schnell und effizient 
 # -------------------------------------------------
 $null = Initialize-UIBusyOverlay
 $script:Form.Add_Closing({
-    param($sender, $e)
+    param($closingSource, $e)
     if ($script:UIBusyDepth -gt 0) {
         # Während eine Abfrage läuft, nicht schließen, sondern den Vorgang abbrechen
         $e.Cancel = $true

@@ -205,7 +205,7 @@ function Step-UIProgress {
 # Ignoriert Klicks während ein Vorgang läuft, zeigt den Warte-Cursor an und fängt Fehler ab,
 # damit eine Ausnahme im Handler nicht die gesamte Anwendung beendet.
 $script:UIClickDispatcher = {
-    param($sender, $e)
+    param($uiSource, $e)
 
     if ($script:UIBusyDepth -gt 0) {
         Write-Log "Klick ignoriert - es läuft bereits ein Vorgang." -Type "Debug"
@@ -213,17 +213,17 @@ $script:UIClickDispatcher = {
     }
 
     $__uiHandlerList = $null
-    if (-not $script:UIClickHandlers.TryGetValue($sender.PSObject.BaseObject, [ref]$__uiHandlerList)) { return }
+    if (-not $script:UIClickHandlers.TryGetValue($uiSource.PSObject.BaseObject, [ref]$__uiHandlerList)) { return }
 
     $__uiPreviousCursor = [System.Windows.Input.Mouse]::OverrideCursor
     try {
         [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
         foreach ($__uiHandler in @($__uiHandlerList)) {
             try {
-                & $__uiHandler $sender $e
+                & $__uiHandler $uiSource $e
             }
             catch {
-                $__uiName = if ($sender -is [System.Windows.FrameworkElement]) { $sender.Name } else { "$sender" }
+                $__uiName = if ($uiSource -is [System.Windows.FrameworkElement]) { $uiSource.Name } else { "$uiSource" }
                 Write-Log "Unbehandelter Fehler im Click-Handler von '$__uiName': $($_.Exception.Message)" -Type "Error"
                 Update-StatusBar -Message "Fehler: $($_.Exception.Message)" -Type Error
             }

@@ -167,6 +167,15 @@
                         Margin="8,5,8,10"
                         Content="Mit Exchange verbinden" />
 
+                    <Button
+                        x:Name="btnConnectCompliance"
+                        Height="30"
+                        Margin="8,0,8,10"
+                        Content="Compliance verbinden"
+                        IsEnabled="False"
+                        Style="{StaticResource SecondaryButton}"
+                        ToolTip="Zusätzliche Verbindung zu Security &amp; Compliance (Connect-IPPSSession) für DLP- und Aufbewahrungsrichtlinien. Erst nach der Exchange-Verbindung verfügbar." />
+
                     <GroupBox
                         Margin="8,0,8,25"
                         Padding="8"

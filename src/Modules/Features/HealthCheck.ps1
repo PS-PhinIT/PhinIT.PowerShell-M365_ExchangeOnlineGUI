@@ -36,7 +36,7 @@ function Get-OwnRetentionCompliancePolicy {
         # Überprüfen, ob das Cmdlet verfügbar ist
         $cmdletAvailable = Get-Command Get-RetentionCompliancePolicy -ErrorAction SilentlyContinue
         if (-not $cmdletAvailable) {
-            throw "Das Cmdlet 'Get-RetentionCompliancePolicy' ist nicht verfügbar."
+            throw "Das Cmdlet 'Get-RetentionCompliancePolicy' ist nicht verfügbar. Bitte zuerst über 'Compliance verbinden' (Connect-IPPSSession) eine Verbindung zu Security & Compliance herstellen."
         }
 
         # Parameter für das eigentliche Cmdlet vorbereiten
@@ -114,7 +114,7 @@ function Get-OwnDlpCompliancePolicy {
         # Überprüfen, ob das Cmdlet verfügbar ist
         $cmdletAvailable = Get-Command Get-DlpCompliancePolicy -ErrorAction SilentlyContinue
         if (-not $cmdletAvailable) {
-            throw "Das Cmdlet 'Get-DlpCompliancePolicy' ist nicht verfügbar. Dies kann auf fehlende Lizenzen (z.B. Microsoft 365 E3/E5) oder Berechtigungen hindeuten."
+            throw "Das Cmdlet 'Get-DlpCompliancePolicy' ist nicht verfügbar. Bitte zuerst über 'Compliance verbinden' (Connect-IPPSSession) eine Verbindung zu Security & Compliance herstellen. Ist die Verbindung aktiv, fehlen ggf. Lizenzen (z.B. Microsoft 365 E3/E5) oder Berechtigungen."
         }
 
         # Parameter für das eigentliche Cmdlet vorbereiten
@@ -443,6 +443,17 @@ function Test-ComplianceService {
         } else {
             $details.Add("❌ FEHLER: Die Organisationskonfiguration konnte nicht abgerufen werden. Grundlegende Compliance-Prüfungen sind nicht möglich.")
             $overallStatus = "Fehler"
+        }
+
+        # Ohne Compliance-Sitzung (Connect-IPPSSession) sind die folgenden Cmdlets nicht vorhanden
+        if (-not (Test-ComplianceConnection)) {
+            $details.Add("ℹ️ HINWEIS: Keine Verbindung zu Security & Compliance. DLP- und Aufbewahrungsrichtlinien werden erst nach 'Compliance verbinden' (Connect-IPPSSession) geprüft.")
+            if ($overallStatus -ne "Fehler") { $overallStatus = "Warnung" }
+            return [PSCustomObject]@{
+                CheckName = "Compliance-Service"
+                Status    = $overallStatus
+                Details   = $details -join "`n"
+            }
         }
 
         # 2. Test: Abrufen von Aufbewahrungsrichtlinien (Retention Policies)

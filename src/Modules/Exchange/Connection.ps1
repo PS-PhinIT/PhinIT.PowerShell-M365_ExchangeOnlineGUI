@@ -125,7 +125,9 @@ function Connect-OwnExchangeOnline {
         
         Write-Log "Exchange Online Verbindung erfolgreich hergestellt für $script:userPrincipalName" -Type "Success"
         $script:txtConnectionStatus.Text = "Verbunden mit Exchange Online ($script:userPrincipalName)"
-        $script:txtConnectionStatus.Foreground = "#008000"
+        $script:txtConnectionStatus.Foreground = $script:connectedBrush
+        $script:LastConnectionCheck = [datetime]::UtcNow
+        Update-ComplianceButtonState
         Update-StatusBar -Message "Exchange Online Verbindung erfolgreich hergestellt für $script:userPrincipalName" -Type "Success"
         
         return $true
@@ -134,7 +136,7 @@ function Connect-OwnExchangeOnline {
         $errorMsg = $_.Exception.Message
         Write-Log "Fehler beim Verbinden mit Exchange Online: $errorMsg" -Type "Error"
         $script:txtConnectionStatus.Text = "Nicht verbunden"
-        $script:txtConnectionStatus.Foreground = "#d83b01"
+        $script:txtConnectionStatus.Foreground = $script:disconnectedBrush
         $Global:IsConnectedToExo = $false
         $script:isConnected = $false
         $null = Show-MessageBox -Message "Fehler beim Verbinden mit Exchange Online: $errorMsg" -Title "Verbindungsfehler" -Type "Error"
@@ -151,9 +153,12 @@ function Disconnect-ExchangeOnlineSession {
         Disconnect-ExchangeOnline -Confirm:$false -ErrorAction Stop
         Log-Action "Exchange Online Verbindung getrennt"
         
-        # Setze alle Verbindungsvariablen zurück
+        # Setze alle Verbindungsvariablen zurück (Disconnect-ExchangeOnline trennt auch die Compliance-Sitzung)
         $Global:IsConnectedToExo = $false
         $script:isConnected = $false
+        $script:isComplianceConnected = $false
+        $script:LastConnectionCheck = [datetime]::MinValue
+        Update-ComplianceButtonState
         
         if ($null -ne $script:txtStatus) {
             $script:txtStatus.Text = "Exchange Verbindung getrennt"
@@ -179,55 +184,161 @@ function Disconnect-ExchangeOnlineSession {
         Log-Action "Fehler beim Trennen der Verbindung: $errorMsg"
         
         # Zeige Fehlermeldung an den Benutzer
-        try {
-            [System.Windows.MessageBox]::Show(
-                "Fehler beim Trennen der Verbindung: $errorMsg", 
-                "Fehler", 
-                [System.Windows.MessageBoxButton]::OK, 
-                [System.Windows.MessageBoxImage]::Error)
-        }
-        catch {
-            # Fallback, falls MessageBox fehlschlägt
-            Write-Log "Fehler beim Trennen der Verbindung: $errorMsg"  
-        }
+        Write-Log "Fehler beim Trennen der Verbindung: $errorMsg" -Type "Error"
+        $null = Show-MessageBox -Message "Fehler beim Trennen der Verbindung: $errorMsg" -Title "Fehler" -Type "Error"
         
         return $false
     }
 }
 
-# Funktion zur Überprüfung der Exchange Online-Verbindung
+# Funktion zur Überprüfung der Exchange Online-Verbindung.
+# Ein erfolgreiches Ergebnis wird für $script:ConnectionCheckCacheSeconds zwischengespeichert, damit nicht
+# jede Aktion einen zusätzlichen Roundtrip (früher Get-OrganizationConfig) zu Exchange Online auslöst.
+$script:LastConnectionCheck = [datetime]::MinValue
+$script:ConnectionCheckCacheSeconds = 120
+
 function Confirm-ExchangeConnection {
     [CmdletBinding()]
-    param()
+    [OutputType([bool])]
+    param(
+        # Zwischenspeicher ignorieren und die Verbindung sofort prüfen
+        [switch]$Force
+    )
     
     try {
-        # Überprüfen, ob eine der Verbindungsvariablen gesetzt ist
-        if ($Global:IsConnectedToExo -eq $true -or $script:isConnected -eq $true) {
-            # Verbindung testen durch Abrufen einer Exchange-Information
-            try {
-                $null = Get-OrganizationConfig -ErrorAction Stop
-                # Stelle sicher, dass beide Variablen konsistent sind
-                $Global:IsConnectedToExo = $true
-                $script:isConnected = $true
-                return $true
-                Update-StatusBar -Message "Exchange Online Verbindung erfolgreich geprüft" -Type "Success"
-            }
-            catch {
-                # Verbindung ist nicht mehr gültig, setze beide Variablen zurück
-                $Global:IsConnectedToExo = $false
-                $script:isConnected = $false
-                Write-Log "Exchange Online Verbindung getrennt: $($_.Exception.Message)" -Type "Warning"
-                return $false
-            }
-        }
-        else {
+        if (-not ($Global:IsConnectedToExo -eq $true -or $script:isConnected -eq $true)) {
             return $false
         }
+
+        if (-not $Force -and ([datetime]::UtcNow - $script:LastConnectionCheck).TotalSeconds -lt $script:ConnectionCheckCacheSeconds) {
+            return $true
+        }
+
+        $connected = $false
+        if (Get-Command -Name Get-ConnectionInformation -ErrorAction SilentlyContinue) {
+            # Lokale Prüfung ohne Netzwerkzugriff (ExchangeOnlineManagement V3)
+            $exoConnections = @(Get-ConnectionInformation -ErrorAction SilentlyContinue | Where-Object {
+                $_.State -eq "Connected" -and -not $_.IsEopSession
+            })
+            $connected = $exoConnections.Count -gt 0
+        }
+        else {
+            $null = Get-OrganizationConfig -ErrorAction Stop
+            $connected = $true
+        }
+
+        if ($connected) {
+            $Global:IsConnectedToExo = $true
+            $script:isConnected = $true
+            $script:LastConnectionCheck = [datetime]::UtcNow
+            return $true
+        }
+
+        # Verbindung ist nicht mehr gültig, Status zurücksetzen
+        $Global:IsConnectedToExo = $false
+        $script:isConnected = $false
+        $script:LastConnectionCheck = [datetime]::MinValue
+        Write-Log "Exchange Online Verbindung ist nicht mehr aktiv." -Type "Warning"
+        if ($null -ne $script:txtConnectionStatus) {
+            $script:txtConnectionStatus.Text = "Nicht verbunden"
+            $script:txtConnectionStatus.Foreground = $script:disconnectedBrush
+        }
+        return $false
     }
     catch {
         $Global:IsConnectedToExo = $false
         $script:isConnected = $false
+        $script:LastConnectionCheck = [datetime]::MinValue
         Write-Log "Fehler bei der Überprüfung der Exchange Online-Verbindung: $($_.Exception.Message)" -Type "Error"
+        return $false
+    }
+}
+
+# -------------------------------------------------
+# Abschnitt: Security & Compliance (Connect-IPPSSession)
+# -------------------------------------------------
+# Cmdlets, die aus der Compliance-Sitzung importiert werden. Die Einschränkung verhindert,
+# dass gleichnamige Exchange-Online-Cmdlets der bestehenden Sitzung überschrieben werden.
+$script:ComplianceCommandNames = @(
+    "Get-RetentionCompliancePolicy",
+    "Get-RetentionComplianceRule",
+    "Get-DlpCompliancePolicy",
+    "Get-DlpComplianceRule",
+    "Get-Label",
+    "Get-LabelPolicy"
+)
+$script:isComplianceConnected = $false
+
+function Update-ComplianceButtonState {
+    [CmdletBinding()]
+    param()
+
+    $button = $script:btnConnectCompliance
+    if ($null -eq $button -and $null -ne $script:Form) { $button = $script:Form.FindName("btnConnectCompliance") }
+    if ($null -eq $button) { return }
+
+    $button.IsEnabled = ($script:isConnected -eq $true -and $script:isComplianceConnected -ne $true)
+    $button.Content = if ($script:isComplianceConnected -eq $true) { "Compliance verbunden" } else { "Compliance verbinden" }
+}
+
+function Test-ComplianceConnection {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param()
+
+    if ($script:isComplianceConnected -ne $true) { return $false }
+    return [bool](Get-Command -Name "Get-DlpCompliancePolicy" -ErrorAction SilentlyContinue)
+}
+
+function Connect-OwnComplianceSession {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param()
+
+    try {
+        if (-not (Confirm-ExchangeConnection)) {
+            $null = Show-MessageBox -Message "Bitte verbinden Sie sich zuerst mit Exchange Online." -Title "Nicht verbunden" -Type "Warning"
+            return $false
+        }
+        if (-not (Get-Command -Name Connect-IPPSSession -ErrorAction SilentlyContinue)) {
+            throw "Connect-IPPSSession ist nicht verfügbar. Bitte das Modul ExchangeOnlineManagement aktualisieren."
+        }
+
+        $upn = $script:userPrincipalName
+        if ([string]::IsNullOrWhiteSpace($upn) -and (Get-Command -Name Get-ConnectionInformation -ErrorAction SilentlyContinue)) {
+            $upn = [string](Get-ConnectionInformation -ErrorAction SilentlyContinue | Where-Object { -not $_.IsEopSession } | Select-Object -First 1 -ExpandProperty UserPrincipalName)
+        }
+
+        $connectParams = @{
+            CommandName = $script:ComplianceCommandNames
+            ErrorAction = "Stop"
+        }
+        if (-not [string]::IsNullOrWhiteSpace($upn)) { $connectParams["UserPrincipalName"] = $upn }
+        $cmdInfo = Get-Command -Name Connect-IPPSSession -ErrorAction SilentlyContinue
+        if ($cmdInfo -and $cmdInfo.Parameters.ContainsKey("ShowBanner")) { $connectParams["ShowBanner"] = $false }
+
+        Write-Log "Verbinde mit Security & Compliance (Connect-IPPSSession) für $upn" -Type "Info"
+        Update-StatusBar -Message "Verbinde mit Security & Compliance..." -Type Info
+        Connect-IPPSSession @connectParams
+
+        if (-not (Get-Command -Name "Get-DlpCompliancePolicy" -ErrorAction SilentlyContinue)) {
+            throw "Die Compliance-Cmdlets wurden nach der Anmeldung nicht bereitgestellt."
+        }
+
+        $script:isComplianceConnected = $true
+        Update-ComplianceButtonState
+        Write-Log "Security & Compliance Verbindung hergestellt." -Type "Success"
+        Log-Action "Security & Compliance Verbindung hergestellt ($upn)"
+        Update-StatusBar -Message "Security & Compliance verbunden (DLP/Aufbewahrung verfügbar)." -Type Success
+        return $true
+    }
+    catch {
+        $script:isComplianceConnected = $false
+        Update-ComplianceButtonState
+        $errorMsg = $_.Exception.Message
+        Write-Log "Fehler bei Connect-IPPSSession: $errorMsg" -Type "Error"
+        Update-StatusBar -Message "Compliance-Verbindung fehlgeschlagen: $errorMsg" -Type Error
+        $null = Show-MessageBox -Message "Die Verbindung zu Security & Compliance konnte nicht hergestellt werden:`n$errorMsg" -Title "Compliance-Verbindung" -Type "Error"
         return $false
     }
 }

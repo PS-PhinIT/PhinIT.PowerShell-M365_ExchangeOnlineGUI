@@ -543,14 +543,14 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "Data Loss Prevention (DLP)-Diagnose"
         Description = "Überprüfen Sie DLP-Richtlinien und deren Anwendung zum Schutz sensibler Daten."
-        PowerShellCheck = "if (Get-Command Get-DlpCompliancePolicy -ErrorAction SilentlyContinue) { Get-DlpCompliancePolicy | Format-Table Name, Mode, Enabled -AutoSize } else { 'Hinweis: DLP-Richtlinien werden über Security & Compliance PowerShell verwaltet. Bitte zusätzlich Connect-IPPSSession ausführen oder das Purview-Portal verwenden.' }"
+        PowerShellCheck = "if (Get-Command Get-DlpCompliancePolicy -ErrorAction SilentlyContinue) { Get-DlpCompliancePolicy | Format-Table Name, Mode, Enabled -AutoSize } else { 'Hinweis: DLP-Richtlinien werden über Security & Compliance PowerShell verwaltet. Bitte zuerst links auf ''Compliance verbinden'' klicken (Connect-IPPSSession) oder das Purview-Portal verwenden.' }"
         AdminCenterLink = "https://compliance.microsoft.com/datalossprevention"
         Tooltip = "DLP-Richtlinien im Compliance Center überprüfen"
     },
     @{
         Name = "Sensitivity Labels-Diagnose"
         Description = "Überprüfen Sie die Konfiguration von Vertraulichkeitsbezeichnungen für E-Mails und Dokumente."
-        PowerShellCheck = "if (Get-Command Get-Label -ErrorAction SilentlyContinue) { Get-Label | Format-Table Name, DisplayName, Priority -AutoSize } else { 'Hinweis: Vertraulichkeitsbezeichnungen werden über Security & Compliance PowerShell verwaltet. Bitte zusätzlich Connect-IPPSSession ausführen oder das Purview-Portal verwenden.' }"
+        PowerShellCheck = "if (Get-Command Get-Label -ErrorAction SilentlyContinue) { Get-Label | Format-Table Name, DisplayName, Priority -AutoSize } else { 'Hinweis: Vertraulichkeitsbezeichnungen werden über Security & Compliance PowerShell verwaltet. Bitte zuerst links auf ''Compliance verbinden'' klicken (Connect-IPPSSession) oder das Purview-Portal verwenden.' }"
         AdminCenterLink = "https://compliance.microsoft.com/informationprotection"
         Tooltip = "Vertraulichkeitsbezeichnungen im Compliance Center überprüfen"
     },
