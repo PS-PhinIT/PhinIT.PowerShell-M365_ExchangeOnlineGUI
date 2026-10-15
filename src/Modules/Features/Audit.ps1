@@ -110,7 +110,8 @@ function Get-MailboxAuditConfigForUser {
                         }
                     }
                     if ($null -eq $auditLogs) {
-                        $targetMailbox = [string]$mailboxObj.PrimarySmtpAddress
+                        $targetMailbox = [string]$mailboxObj.UserPrincipalName
+                        if ([string]::IsNullOrWhiteSpace($targetMailbox)) { $targetMailbox = [string]$mailboxObj.PrimarySmtpAddress }
                         $unifiedLogs = @(Search-UnifiedAuditLog -StartDate $startDate -EndDate $endDate -FreeText $targetMailbox -RecordType ExchangeItem -ResultSize 5000 -ErrorAction Stop)
                         if ($unifiedLogs.Count -ge 5000) {
                             $result += "⚠️ Suchlimit von 5000 Audit-Ereignissen erreicht; der Postfachnachweis kann unvollständig sein.`n"

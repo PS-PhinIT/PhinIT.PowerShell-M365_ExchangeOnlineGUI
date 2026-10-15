@@ -52,7 +52,12 @@ Cmdletreferenzen: [Set-Mailbox](https://learn.microsoft.com/powershell/module/ex
   Gruppenfehler und unvollständige Mitgliedschaften, Stellvertreterlöschung und Mindestdauer `0`, Audit-Zielpostfach,
   historische Nachrichtendetails, Kontaktlisten und Abbruch, Multi-Forest-Fehlerstatus, CSV-/CLIXML-Berichtsexport
   sowie blockierter Regelimport für leere, fehlende und unterschiedlich benannte Dateipfade ohne Tenantoperationen.
+  Zusätzlich abweichende UPN/SMTP-Adresse sowie UTC-, Zeitzonenoffset- und aktuelle Tagesintervalle geprüft.
 - Sicherheitsspezifische Prüfläufe für CSV-Schutz, Importvalidierung und Quote-Breakout in Diagnosevorlagen erfolgreich.
+- Abschließende Sicherheitsreview des Diffs einschließlich Importsperre: keine neue belastbare Schwachstelle gefunden.
+- Automatisierte Validierung angestoßen: CodeQL kann den PowerShell-Code nicht analysieren; die automatische
+  Code-Review war wegen eines nicht verfügbaren Modells nicht ausführbar. Deshalb zusätzliche unabhängige
+  Read-only-Code-Review; deren Hinweis zum UPN-/SMTP-Unterschied wurde behoben und gezielt nachgeprüft.
 - **Nicht durchgeführt:** Windows-PowerShell-5.1-/WPF-Laufzeittest, Excel-Integration und Live-Exchange-/Purview-Test.
   Cmdlet-Verfügbarkeit, Rollen, Dienständerungen und dynamische Bindings müssen im Windows-Testmandanten geprüft werden.
   Keine vollständige Zeile-für-Zeile-Neuprüfung aller Module und keine Sicherheitsgarantie.
