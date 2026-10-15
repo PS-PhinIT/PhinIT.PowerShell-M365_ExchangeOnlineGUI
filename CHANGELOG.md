@@ -104,7 +104,8 @@ XAML-Injection in Dialogen, fehlende Bestätigungen und einheitliches Design. De
   Parameter (u. a. `Description`, `ImpersonationProtectionEnabled`, `SpoofProtectionEnabled`, `EnableRedirect`) – jetzt die dokumentierten Parameter
   (`AdminDisplayName`, `EnableTargetedUserProtection`, `EnableMailboxIntelligenceProtection`, `Enable`, `Redirect`,
   `DeliverMessageAfterScan`, `TrackClicks`, `AllowClickThrough` …); Aktionen für sichere Anlagen
-  (Allow/Block/DynamicDelivery); fehlende Regeln werden angelegt, Empfängerbereiche lassen sich leeren.
+  (Allow/Block/DynamicDelivery); fehlende Regeln werden angelegt, Empfängerbereiche lassen sich leeren. Beim Bearbeiten
+  bleiben vorhandene Empfänger ohne `@` (Alias/Name) Empfänger und werden nicht mehr als Domäne gespeichert.
 - **Quarantäne:** Es wurde nur die erste Seite geladen; ungültige Typwerte; „Ausgewählte freigeben/löschen“ verarbeitete
   nur eine Nachricht.
 - **Mobile Geräte:** `AllowBluetooth` mit ungültigem Wert; ungültiges Feld „Beschreibung“; Mindest-Kennwortlänge ohne

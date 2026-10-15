@@ -16,7 +16,7 @@ Legende: ✅ behoben · ⚠️ offen / bekannte Einschränkung. Befunde ab S12, 
 |---|---:|---:|---:|
 | Sicherheit | 19 | 19 | 0 |
 | Befehle | 33 | 33 | 0 |
-| Verweise / Funktionen | 39 | 38 | 1 |
+| Verweise / Funktionen | 39 | 39 | 0 |
 | GUI | 29 | 29 | 0 |
 | Performance | 12 | 12 | 0 |
 | Code-Qualität (PSScriptAnalyzer) | 5 | 4 | 1 |
@@ -136,7 +136,7 @@ Hauptfensters ist im Code angebunden (Ausnahme: reine Layout-Container `tabOrgSe
 | V36 | Organisationseinstellungen: „Speichern“/„Exportieren“ erst nach dem ersten Laden; Regionaleinstellungen: Absturz der Fortschrittsanzeige (`Dispatcher.Invoke`), Warnungen als Fehler gezählt | ✅ 0.5.0 |
 | V37 | Mobile Geräte: Zulassen/Blockieren ließ die Geräte-ID in der Gegenliste; Dashboard: „Zurücksetzen“ ohne Wirkung; Abwesenheitsnotizen: Massen-Deaktivierung lud die Liste je Benutzer | ✅ 0.5.0 |
 | V38 | Toter Code: über 30 nie aufgerufene Funktionen (u. a. zehn Altfunktionen in `Groups.ps1`, Kalender-/Kontakt-Altfunktionen, `Test-ModuleInstalled`, `Write-StatusMessage`), ungenutzte Variablen, wirkungslose Checkbox „Authentifizierung“ im Connector-Dialog | ✅ 0.5.0: entfernt (keine Verweise mehr) |
-| V39 | Defender-Regeln: Einträge in „Gesendet an“ ohne `@` werden beim Bearbeiten als Domänen behandelt | ⚠️ offen (vorbestehend, geringe Auswirkung) |
+| V39 | Defender-Regeln: Einträge in „Gesendet an“ ohne `@` werden beim Bearbeiten als Domänen behandelt | ✅ vorhandene `SentTo`-Einträge und Einträge ohne Punkt (Alias/Name) bleiben Empfänger (`ConvertTo-SecurityRuleScope -KnownRecipients`) |
 
 ## 4. GUI
 

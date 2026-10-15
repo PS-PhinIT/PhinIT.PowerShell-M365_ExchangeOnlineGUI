@@ -7,19 +7,26 @@
 # Nicht direkt ausführen.
 # =====================================================================
 
-# Teilt die Eingabe "Anwenden auf" (mit Semikolon getrennt) in Domänen und Empfängeradressen auf.
+# Teilt die Eingabe "Anwenden auf" (mit Semikolon getrennt) in Domänen und Empfänger auf.
+# Empfänger sind Einträge mit "@", Einträge ohne Punkt (Alias/Name) sowie Einträge, die bereits als
+# Empfänger in der Regel stehen (-KnownRecipients, z. B. $rule.SentTo); alle übrigen gelten als Domänen.
 # Leere Listen werden als $null geliefert - bei Set-*Rule entfernt das die jeweilige Bedingung.
 function ConvertTo-SecurityRuleScope {
     [CmdletBinding()]
     param(
         [AllowNull()]
         [AllowEmptyString()]
-        [string]$Text
+        [string]$Text,
+
+        [AllowNull()]
+        [object[]]$KnownRecipients
     )
 
+    $known = @($KnownRecipients | Where-Object { $null -ne $_ } | ForEach-Object { "$_".Trim() } | Where-Object { $_ -ne "" })
     $entries = @("$Text" -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-    $domains = @($entries | Where-Object { $_ -notlike "*@*" })
-    $recipients = @($entries | Where-Object { $_ -like "*@*" })
+    $isRecipient = { param($entry) $entry -like "*@*" -or $entry -notlike "*.*" -or $known -contains $entry }
+    $domains = @($entries | Where-Object { -not (& $isRecipient $_) })
+    $recipients = @($entries | Where-Object { & $isRecipient $_ })
     [PSCustomObject]@{
         Domains    = if ($domains.Count -gt 0) { [string[]]$domains } else { $null }
         Recipients = if ($recipients.Count -gt 0) { [string[]]$recipients } else { $null }
@@ -385,7 +392,7 @@ function Set-AntiPhishingPolicyAction {
         $btnSave.Add_Click({
             try {
                 $policyName = $txtPolicyName.Text
-                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text
+                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text -KnownRecipients $(if ($null -ne $rule) { @($rule.SentTo) })
                 if (-not $ruleLookupFailed -and -not (Test-SecurityRuleKeepsCondition -Rule $rule -Scope $scope)) {
                     Show-MessageBox -Message "Die zugehörige Regel '$($rule.Name)' benötigt mindestens einen Empfänger oder eine Domäne unter 'Anwenden auf'." -Title "Eingabe fehlt" -Type Warning
                     return
@@ -808,7 +815,7 @@ function Set-SafeAttachmentPolicyAction {
                     Show-MessageBox -Message "Bitte geben Sie eine E-Mail-Adresse für die Umleitung an." -Title "Eingabe fehlt" -Type Warning
                     return
                 }
-                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text
+                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text -KnownRecipients $(if ($null -ne $rule) { @($rule.SentTo) })
                 if (-not $ruleLookupFailed -and -not (Test-SecurityRuleKeepsCondition -Rule $rule -Scope $scope)) {
                     Show-MessageBox -Message "Die zugehörige Regel '$($rule.Name)' benötigt mindestens einen Empfänger oder eine Domäne unter 'Anwenden auf'." -Title "Eingabe fehlt" -Type Warning
                     return
@@ -1263,7 +1270,7 @@ function Set-SafeLinksPolicyAction {
         $btnSave.Add_Click({
             try {
                 $policyName = $txtPolicyName.Text
-                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text
+                $scope = ConvertTo-SecurityRuleScope -Text $txtAppliedTo.Text -KnownRecipients $(if ($null -ne $rule) { @($rule.SentTo) })
                 if (-not $ruleLookupFailed -and -not (Test-SecurityRuleKeepsCondition -Rule $rule -Scope $scope)) {
                     Show-MessageBox -Message "Die zugehörige Regel '$($rule.Name)' benötigt mindestens einen Empfänger oder eine Domäne unter 'Anwenden auf'." -Title "Eingabe fehlt" -Type Warning
                     return
