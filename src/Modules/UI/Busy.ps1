@@ -197,7 +197,11 @@ function Step-UIProgress {
                 Update-UIBusy -Message "$Activity ($stepCount Objekte)"
             }
         }
+        Assert-UINotCancelled
         $InputObject
+    }
+    end {
+        Assert-UINotCancelled
     }
 }
 

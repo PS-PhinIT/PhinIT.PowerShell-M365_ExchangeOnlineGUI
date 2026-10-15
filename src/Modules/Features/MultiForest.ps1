@@ -102,6 +102,7 @@ function Get-ForestObjectsAction {
     $domainSuffix = if ([string]::IsNullOrWhiteSpace($search.Domain)) { $null } else { "@" + $search.Domain.ToLowerInvariant() }
     $rows = New-Object 'System.Collections.Generic.List[object]'
     $cancelled = $false
+    $failed = $false
     Start-UIBusy -Message "Suche Objekte..." -Title "Multi-Forest" -Cancelable
     try {
         # Abfrage als Scriptblock, damit die Ergebnisse direkt (gestreamt) verarbeitet werden
@@ -129,6 +130,7 @@ function Get-ForestObjectsAction {
             $cancelled = $true
         }
         else {
+            $failed = $true
             $errorMsg = $_.Exception.Message
             Write-Log "Fehler bei der Objektsuche: $errorMsg" -Type "Error"
             Show-MessageBox -Message "Fehler bei der Objektsuche: $errorMsg" -Title "Fehler" -Type "Error"
@@ -142,7 +144,8 @@ function Get-ForestObjectsAction {
     $syncedCount = @($rows | Where-Object { $_.Forest -like "*AD-synchronisiert*" }).Count
     $message = "$($rows.Count) Objekte gefunden ($syncedCount AD-synchronisiert)."
     if ($cancelled) { $message = "Suche abgebrochen - Teilergebnis: $message" }
-    Update-StatusBar -Message $message -Type $(if ($cancelled) { "Warning" } else { "Success" })
+    elseif ($failed) { $message = "Suche fehlgeschlagen - unvollständiges Teilergebnis: $message" }
+    Update-StatusBar -Message $message -Type $(if ($failed) { "Error" } elseif ($cancelled) { "Warning" } else { "Success" })
 }
 
 # Lädt das Modul ADSync (nur auf dem Microsoft-Entra-Connect-Server vorhanden)

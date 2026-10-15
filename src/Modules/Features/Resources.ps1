@@ -527,7 +527,7 @@ function Update-ResourceSettingsAction {
             $calendarParams.Add("MaximumDurationInMinutes", $MaximumDurationInMinutes)
         }
         
-        if ($PSBoundParameters.ContainsKey('MinimumDurationInMinutes') -and $MinimumDurationInMinutes -gt 0) {
+        if ($PSBoundParameters.ContainsKey('MinimumDurationInMinutes') -and $MinimumDurationInMinutes -ge 0) {
             $calendarParams.Add("MinimumDurationInMinutes", $MinimumDurationInMinutes)
         }
         
@@ -591,8 +591,8 @@ function Update-ResourceSettingsAction {
             $calendarParams.Add("OrganizerInfo", $OrganizerInfo)
         }
         
-        if ($PSBoundParameters.ContainsKey('ResourceDelegates') -and $ResourceDelegates.Count -gt 0) {
-            $calendarParams.Add("ResourceDelegates", $ResourceDelegates)
+        if ($PSBoundParameters.ContainsKey('ResourceDelegates')) {
+            $calendarParams.Add("ResourceDelegates", $(if (@($ResourceDelegates).Count -gt 0) { $ResourceDelegates } else { $null }))
         }
         
         if ($PSBoundParameters.ContainsKey('ConflictPercentageAllowed') -and $ConflictPercentageAllowed -ge 0) {
@@ -921,7 +921,7 @@ function Show-ResourceSettingsDialog {
         $txtMaxDuration.Text = if ($resourceSettings.MaximumDurationInMinutes) { $resourceSettings.MaximumDurationInMinutes.ToString() } else { "" }
         $txtMaxDuration.Tag = "z.B. 480"
         
-        $txtMinDuration.Text = if ($resourceSettings.MinimumDurationInMinutes) { $resourceSettings.MinimumDurationInMinutes.ToString() } else { "" }
+        $txtMinDuration.Text = if ($null -ne $resourceSettings.MinimumDurationInMinutes) { $resourceSettings.MinimumDurationInMinutes.ToString() } else { "" }
         $txtMinDuration.Tag = "z.B. 15"
         
         $chkAllowRecurring.IsChecked = $resourceSettings.AllowRecurringMeetings
@@ -1035,7 +1035,7 @@ function Show-ResourceSettingsDialog {
                     @{ Box = $txtCapacity; Param = "Capacity"; Label = "Kapazität"; Min = 1 }
                     @{ Box = $txtBookingWindow; Param = "BookingWindowInDays"; Label = "Buchungszeitraum (Tage)"; Min = 1 }
                     @{ Box = $txtMaxDuration; Param = "MaximumDurationInMinutes"; Label = "Maximale Dauer (Minuten)"; Min = 1 }
-                    @{ Box = $txtMinDuration; Param = "MinimumDurationInMinutes"; Label = "Minimale Dauer (Minuten)"; Min = 1 }
+                    @{ Box = $txtMinDuration; Param = "MinimumDurationInMinutes"; Label = "Minimale Dauer (Minuten)"; Min = 0 }
                     @{ Box = $txtPostReservationTime; Param = "PostReservationMaxClaimTimeInMinutes"; Label = "Nachreservierungszeit (Min)"; Min = 1 }
                     @{ Box = $txtConflictPercentage; Param = "ConflictPercentageAllowed"; Label = "Erlaubter Konfliktprozentsatz"; Min = 0 }
                     @{ Box = $txtMaxConflictInstances; Param = "MaximumConflictInstances"; Label = "Maximale Konfliktinstanzen"; Min = 0 }
@@ -1060,7 +1060,9 @@ function Show-ResourceSettingsDialog {
                     $params.Add("Location", $txtLocation.Text)
                 }
                 
-                $params.Add("AutoAccept", $chkAutoAccept.IsChecked)
+                if ([bool]$chkAutoAccept.IsChecked -ne [bool]$resourceSettings.AutoAccept) {
+                    $params.Add("AutoAccept", [bool]$chkAutoAccept.IsChecked)
+                }
                 $params.Add("AllowConflicts", $chkAllowConflicts.IsChecked)
                 
                 $params.Add("AllowRecurringMeetings", $chkAllowRecurring.IsChecked)
@@ -1083,12 +1085,9 @@ function Show-ResourceSettingsDialog {
                     $params.Add("AdditionalResponse", $txtAdditionalResponse.Text)
                 }
                 
-                if ($txtResourceDelegates.Text -ne "" -and $txtResourceDelegates.Text -ne $txtResourceDelegates.Tag) {
-                    $delegatesArray = $txtResourceDelegates.Text -split ";" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
-                    if ($delegatesArray.Count -gt 0) {
-                        $params.Add("ResourceDelegates", $delegatesArray)
-                    }
-                }
+                $delegatesText = if ($txtResourceDelegates.Text -eq [string]$txtResourceDelegates.Tag) { "" } else { $txtResourceDelegates.Text }
+                $delegatesArray = @($delegatesText -split ";" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
+                $params.Add("ResourceDelegates", $delegatesArray)
                 
                 # Ressourceneinstellungen aktualisieren
                 $result = Update-ResourceSettingsAction @params

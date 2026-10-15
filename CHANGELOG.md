@@ -26,6 +26,29 @@ Grenzen der Prüfung stehen in [docs/AUDIT.md](docs/AUDIT.md#nachprüfung-051--2
 - **Dashboard:** Fehler beim Laden von Empfängern oder Domänen werden nicht mehr als vollständiger Erfolg
   gemeldet. Nach einem Abbruch erfolgt keine weitere Domänenabfrage; die Arbeitsanzeige wird weiterhin
   im `finally` aufgeräumt.
+- **Berichte:** Alle elf Berichtsfunktionen akzeptieren die initial leere Ergebnisliste; zuvor brachen die
+  Aufrufe bereits bei der Parameterbindung ab.
+- **Gruppen:** Fehlerdialoge und Mitgliedschaftsergebnisse verunreinigen die Gruppenrückgabe nicht mehr.
+  Fehlgeschlagene Mitgliedschaften werden separat gemeldet statt eine vollständige Einrichtung vorzutäuschen.
+- **Weiterleitungen:** Ein SMTP-Ziel ersetzt nun ein vorhandenes `ForwardingAddress`; Anzeige und Berichte
+  berücksichtigen dessen tatsächlichen Vorrang vor `ForwardingSmtpAddress`.
+- **Audit:** Der Unified-Audit-Fallback prüft das Zielpostfach über `MailboxOwnerUPN` statt den Akteur mit dem
+  Postfach gleichzusetzen; Suchlimit wird ausdrücklich angezeigt.
+- **Nachrichtenverfolgung:** Detailabfragen enthalten den Zeitraum der ausgewählten Nachricht, auch außerhalb
+  des standardmäßigen 48-Stunden-Fensters.
+- **Ressourcen:** Stellvertreterlisten lassen sich vollständig leeren; unverändertes Speichern aktiviert keine
+  zuvor abgeschaltete Kalenderverarbeitung. Mindestdauer `0` wird angezeigt, akzeptiert und übertragen.
+- **Abbruch / Multi-Forest:** Abbruch auch nach Verarbeitung des letzten Pipelineobjekts und am Pipelineende
+  prüfen; Suchfehler nicht mehr als erfolgreiche leere Suche melden.
+- **Kontakte:** Listenabfragen mit vorhandener Fortschritts-/Abbruchanzeige und ohne zusätzliche
+  `Get-OrganizationConfig`-Abfrage; Cmdletfehler brechen zuverlässig ab.
+
+### Sicherheit
+- **Transportregelimport gesperrt:** Die bisherigen CSV-/CLIXML-Exporte verlieren Bedingungen, Ausnahmen und
+  weitere Einstellungen. Die Wiederherstellung konnte dadurch wirksame Regeln ungewollt ausweiten.
+  Importausführung entfernt, kompatible Fehlerrückgabe beibehalten und GUI-Schaltfläche deaktiviert.
+  Exporte bleiben ausdrücklich **Berichte, keine Sicherungen**. Ein verlustfreier Import erfordert eine
+  gesonderte Implementierung; vorhandene Berichte dürfen nicht zur Wiederherstellung verwendet werden.
 
 ### Entfernt
 - Vollständige Screenshot-Ablage einschließlich ihrer README; Verweise in README und Mitwirkungsrichtlinien

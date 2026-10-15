@@ -5754,10 +5754,14 @@
                                             x:Name="btnExportRules"
                                             Margin="0,25,0,5"
                                             Padding="10,5"
-                                            Content="Exportieren" />
+                                            ToolTip="Bericht – nicht zur Wiederherstellung geeignet"
+                                            Content="Bericht exportieren" />
                                         <Button
                                             Style="{StaticResource SecondaryButton}"
                                             x:Name="btnImportRules"
+                                            IsEnabled="False"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            ToolTip="Import aus Sicherheitsgründen deaktiviert: Berichte enthalten keine vollständigen Regeldefinitionen."
                                             Margin="0,5,0,0"
                                             Padding="10,5"
                                             Content="Importieren" />

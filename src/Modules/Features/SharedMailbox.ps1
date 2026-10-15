@@ -519,7 +519,7 @@ function Set-SharedMailboxForwardingAction {
             Write-Log  "Weiterleitung für Shared Mailbox erfolgreich entfernt" -Type "Success"
         } else {
             # Weiterleitung setzen
-            Set-Mailbox -Identity $Mailbox -ForwardingSmtpAddress $ForwardingAddress -DeliverToMailboxAndForward $DeliverToMailboxAndForward -ErrorAction Stop
+            Set-Mailbox -Identity $Mailbox -ForwardingAddress $null -ForwardingSmtpAddress $ForwardingAddress -DeliverToMailboxAndForward $DeliverToMailboxAndForward -ErrorAction Stop
             Write-Log  "Weiterleitung für Shared Mailbox erfolgreich gesetzt" -Type "Success"
         }
         
@@ -1003,11 +1003,11 @@ function Initialize-SharedMailboxTab {
                     # Anzeige der Weiterleitungen in einem neuen Fenster oder Dialog
                     $forwardingText = "Aktive Weiterleitungen:`n`n"
                     foreach ($fwd in $forwardingMailboxes) {
-                        # ForwardingSmtpAddress (z. B. "smtp:user@extern.de") hat Vorrang vor ForwardingAddress (Empfängerobjekt)
-                        $forwardingTarget = if (-not [string]::IsNullOrWhiteSpace("$($fwd.ForwardingSmtpAddress)")) {
-                            "$($fwd.ForwardingSmtpAddress)" -replace '^smtp:', ''
-                        } else {
+                        # Exchange bevorzugt ForwardingAddress (Empfängerobjekt) vor ForwardingSmtpAddress.
+                        $forwardingTarget = if (-not [string]::IsNullOrWhiteSpace("$($fwd.ForwardingAddress)")) {
                             "$($fwd.ForwardingAddress)"
+                        } else {
+                            "$($fwd.ForwardingSmtpAddress)" -replace '^smtp:', ''
                         }
                         $keepCopyText = if ($fwd.DeliverToMailboxAndForward) { "Ja" } else { "Nein" }
                         $forwardingText += "- $($fwd.DisplayName) <$($fwd.PrimarySmtpAddress)> → $forwardingTarget (Kopie behalten: $keepCopyText)`n"

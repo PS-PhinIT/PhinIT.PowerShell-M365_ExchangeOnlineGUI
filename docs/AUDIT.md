@@ -10,12 +10,35 @@ Behauptung einer erneuten vollständigen Live-Prüfung.
 
 | Bereich | Prüfung / Ergebnis |
 |---|---|
-| Sicherheit | Repositoryweite Suche nach sicherheitskritischen Operationen in 34 PowerShell-Dateien; vertiefte Prüfung von Helpers, Environment, Troubleshooting, Transportregel-Import, Berichtexport und Verbindungslogik. Keine belastbar ausnutzbare neue Schwachstelle festgestellt. |
-| Funktionen / Performance | Dashboard-Fehlerstatus und Abbruchfluss korrigiert; nach Abbruch keine zusätzliche Domänenabfrage. Bestehende gebündelte Empfängerabfrage bleibt unverändert. |
+| Sicherheit | Repositoryweite Suche nach sicherheitskritischen Operationen in 34 PowerShell-Dateien; vertiefte Prüfung von Helpers, Environment, Troubleshooting, Transportregel-Import, Berichtexport und Verbindungslogik. Funktionsprüfung zeigt sicherheitsrelevanten Semantikverlust beim Regel-Roundtrip; Import deshalb vollständig gesperrt (siehe unten). |
+| Funktionen / Performance | Berichtserstellung, Gruppenrückgaben, Weiterleitungspriorität, Audit-Zielzuordnung, historische Nachrichtendetails und Ressourcenbearbeitung korrigiert. Dashboard-/Multi-Forest-Fehlerstatus sowie Pipeline-Abbruch verbessert; Kontaktlisten mit kooperativem Fortschritt statt zusätzlicher Verbindungsabfrage. |
 | GUI | Titel der Arbeitsanzeige korrigiert: `$title` überschrieb wegen case-insensitiver Variablennamen den Parameter `$Title`. Vier auskommentierte Navigationsschaltflächen für Hybrid, Multi-Forest, DLP und eDiscovery aktiviert; vorhandene Funktionen waren dadurch nicht erreichbar. |
 | Verweise | XML-basierte Prüfung der literalen Hauptfenster-Verweise: vier nur in Kommentaren vorhandene Namen gefunden und als echte Elemente wiederhergestellt. Danach 478 benannte Elemente, keine fehlenden literalen Ziele; Theme-Ressourcen und lokale Markdown-Verweise ohne fehlende Ziele nach Bereinigung. Dynamische Namen und Laufzeit-Bindings erfordern Windows-Tests. |
 | Struktur | Ein versionloser Launcher `src/easyEXO.ps1`, Fachmodule getrennt von GUI und Kernfunktionen. Keine alten Skriptkopien oder Screenshot-Bilddateien im Ausgangsstand; leere Screenshot-Ablage samt README und aktuellen Verweisen entfernt. |
 | Dokumentation / Historie | README, CHANGELOG, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, LICENSE und Audit-Bericht bleiben erhalten. Historie mit Git und den zusammengeführten Pull Requests #2 und #3 abgeglichen; 0.5.1 mit konkretem Datum dokumentiert. |
+
+### Weitere verifizierte Befunde und Behebung
+
+| Befund | Behebung |
+|---|---|
+| Leere verpflichtende `List[object]`-Ergebnisparameter blockierten alle Berichte bereits bei der Parameterbindung. | `[AllowEmptyCollection()]` an allen elf Ergebnisparametern. |
+| Gruppenfehlerdialoge lieferten `OK` statt eines leeren Ergebnisses; Mitgliedschaftsaufrufe lieferten zusätzliche Booleanwerte. | Ausgaben verworfen beziehungsweise ausgewertet; ausschließlich Gruppenobjekt mit separater Liste fehlgeschlagener Mitglieder zurückgeben, Teilerfolg in GUI melden. |
+| `ForwardingAddress` überstimmt ein gleichzeitig gesetztes `ForwardingSmtpAddress`. | Beim SMTP-Wechsel Empfängerweiterleitung löschen; tatsächliche Priorität in Anzeige und Berichten. |
+| Unified-Audit-Suche verwendete das Zielpostfach als Akteurfilter. | Serverseitige Freitextsuche, exakter Abgleich von `AuditData.MailboxOwnerUPN`, Sortierung und maximal zehn angezeigte Treffer; Hinweis bei 5000 Suchergebnissen. |
+| Nachrichtendetailabfrage ohne Zeitraum betrachtete nur die letzten 48 Stunden. | UTC-Tagesintervall um die ausgewählte Nachricht übergeben. |
+| Leere Ressourcenstellvertreter wurden verworfen; `None` wurde beim unveränderten Speichern zu `AutoUpdate`; Mindestdauer `0` war nicht einstellbar. | Explizites Leeren weiterreichen, Automatik nur bei Checkboxänderung setzen, Nullwert für Mindestdauer erhalten. |
+| Abbruch konnte beim letzten Pipelineobjekt übergangen werden; Multi-Forest meldete nach Backendfehler Erfolg. | Abbruch nach Nachrichtenverarbeitung und im `end`-Block prüfen; Fehlerstatus getrennt führen. |
+| Unbegrenzte Kontaktlisten blockierten die GUI ohne Fortschritt, zusätzliche Organisationsabfrage pro Kontaktliste. | Bestehende Busy-/Progress-Funktionen mit `finally`, zentraler Verbindungsprüfung und `-ErrorAction Stop`. |
+| Transportregelberichte ließen zusätzliche Bedingungen/Ausnahmen weg und konnten anschließend mit `Enforce` importiert werden. | Gefährliche Importausführung entfernt; direkter Funktionsaufruf gibt vor Datei-/Tenantzugriff einen erklärten Fehlschlag zurück. GUI deaktiviert, Exporte als nicht wiederherstellbare Berichte gekennzeichnet. |
+
+**Bewusste Einschränkung:** Transportregelimport bleibt gesperrt, bis eine verlustfreie Übertragung einschließlich
+aller Bedingungen, Ausnahmen und verhaltensrelevanten Einstellungen nachweisbar implementiert ist.
+Die Importsperre ist eine Sicherheitsmaßnahme, keine Behauptung einer reparierten vollständigen Wiederherstellung.
+
+Cmdletreferenzen: [Set-Mailbox](https://learn.microsoft.com/powershell/module/exchangepowershell/set-mailbox),
+[Search-UnifiedAuditLog](https://learn.microsoft.com/powershell/module/exchangepowershell/search-unifiedauditlog),
+[Get-MessageTraceDetailV2](https://learn.microsoft.com/powershell/module/exchangepowershell/get-messagetracedetailv2),
+[Set-CalendarProcessing](https://learn.microsoft.com/powershell/module/exchangepowershell/set-calendarprocessing).
 
 ### Validierung und Grenzen
 
@@ -25,6 +48,10 @@ Behauptung einer erneuten vollständigen Live-Prüfung.
   1 OverwritingBuiltInCmdlets). Keine pauschale Unterdrückung dieser bestehenden Hinweise.
 - Isolierte Aufrufe mit ersetzten GUI-/Exchange-Abhängigkeiten bestätigen Overlay-Titel sowie Dashboard-Erfolg,
   Empfängerfehler, Domänenfehler und Abbruch; keine Domänenabfrage nach Abbruch und ausgeglichener Busy-Zähler.
+- Weitere isolierte Prüfungen: alle elf Ergebnisparameter, leerer Statistikbericht, Weiterleitungspriorität,
+  Gruppenfehler und unvollständige Mitgliedschaften, Stellvertreterlöschung und Mindestdauer `0`, Audit-Zielpostfach,
+  historische Nachrichtendetails, Kontaktlisten und Abbruch, Multi-Forest-Fehlerstatus, CSV-/CLIXML-Berichtsexport
+  sowie blockierter Regelimport für leere, fehlende und unterschiedlich benannte Dateipfade ohne Tenantoperationen.
 - Sicherheitsspezifische Prüfläufe für CSV-Schutz, Importvalidierung und Quote-Breakout in Diagnosevorlagen erfolgreich.
 - **Nicht durchgeführt:** Windows-PowerShell-5.1-/WPF-Laufzeittest, Excel-Integration und Live-Exchange-/Purview-Test.
   Cmdlet-Verfügbarkeit, Rollen, Dienständerungen und dynamische Bindings müssen im Windows-Testmandanten geprüft werden.

@@ -23,7 +23,9 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
 - **Kontakte**: Suchen und Bearbeiten von Mail-Kontakten.
 
 ### ⚙️ Mailflow
-- **Transportregeln**: Erstellen, Anzeigen, Aktivieren/Deaktivieren und Exportieren/Importieren von Mailflow-Regeln.
+- **Transportregeln**: Erstellen, Anzeigen, Aktivieren/Deaktivieren und Berichtsexport von Mailflow-Regeln.
+  Der CSV-/CLIXML-Import ist aus Sicherheitsgründen deaktiviert: Diese Berichte enthalten keine vollständigen
+  Regeldefinitionen und sind nicht zur Wiederherstellung geeignet.
 - **Posteingangsregeln**: Verwaltung von Posteingangsregeln für einzelne Benutzerpostfächer.
 - **Nachrichtenverfolgung**: Detaillierte Suche und Analyse von E-Mail-Zustellungen.
 - **Automatische Antworten**: Abwesenheitsnotizen für einzelne oder mehrere Benutzer (Masseneinrichtung), Platzhalter `{StartDate}`/`{EndDate}`, Zeilenumbrüche werden übernommen.

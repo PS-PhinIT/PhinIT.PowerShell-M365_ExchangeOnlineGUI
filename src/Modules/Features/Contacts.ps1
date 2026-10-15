@@ -168,31 +168,23 @@ function Initialize-ContactsTab {
         } -ControlName "btnUpdateContact"
         
         Register-EventHandler -Control $btnShowMailContacts -Handler {
-            # Verbindungsprüfung - nur bei Bedarf
-            if (-not $script:isConnected) {
-                [System.Windows.MessageBox]::Show("Bitte stellen Sie zuerst eine Verbindung zu Exchange Online her.", "Keine Verbindung", 
-                    [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
-                return
-            }
+            if (-not (Confirm-ExchangeConnection)) { return }
             
             $script:txtStatus.Text = "Lade MailContacts..."
+            Start-UIBusy -Message "Lade MailContacts..." -Title "Kontakte" -Cancelable
             try {
-                # Versuche einen einfachen Exchange-Befehl zur Verbindungsprüfung
-                Get-OrganizationConfig -ErrorAction Stop | Out-Null
-                
-                # Exchange-Befehle ausführen
-                $contacts = Get-Recipient -RecipientType MailContact -ResultSize Unlimited | 
-                    Select-Object DisplayName, PrimarySmtpAddress, ExternalEmailAddress, RecipientTypeDetails
-                
-                # Als Array behandeln
-                if ($null -ne $contacts -and -not ($contacts -is [Array])) {
-                    $contacts = @($contacts)
-                }
+                $contacts = @(Get-Recipient -RecipientType MailContact -ResultSize Unlimited -ErrorAction Stop |
+                    Step-UIProgress -Activity "Lade MailContacts" |
+                    Select-Object DisplayName, PrimarySmtpAddress, ExternalEmailAddress, RecipientTypeDetails)
                 
                 $script:lstContacts.ItemsSource = $contacts
                 $script:txtStatus.Text = "$($contacts.Count) MailContacts gefunden"
             }
             catch {
+                if ($script:UICancelRequested -or $_.Exception -is [System.OperationCanceledException]) {
+                    Update-StatusBar -Message "Laden der MailContacts abgebrochen." -Type Warning
+                    return
+                }
                 $errorMsg = $_.Exception.Message
                 
                 # Wenn der Fehler auf eine abgelaufene Verbindung hindeutet
@@ -214,6 +206,9 @@ function Initialize-ContactsTab {
                         "Fehler", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Error)
                 }
             }
+            finally {
+                Stop-UIBusy
+            }
         } -ControlName "btnShowMailContacts"
         
         Write-Log  "Event-Handler für btnShowMailUsers registrieren" -Type "Info"
@@ -226,17 +221,26 @@ function Initialize-ContactsTab {
             }
             
             $script:txtStatus.Text = "Lade MailUsers..."
+            Start-UIBusy -Message "Lade MailUsers..." -Title "Kontakte" -Cancelable
             try {
-                $users = @(Get-MailUser -ResultSize Unlimited -ErrorAction Stop | 
+                $users = @(Get-MailUser -ResultSize Unlimited -ErrorAction Stop |
+                    Step-UIProgress -Activity "Lade MailUsers" |
                     Select-Object DisplayName, PrimarySmtpAddress, ExternalEmailAddress, RecipientTypeDetails)
                 
                 $script:lstContacts.ItemsSource = $users
                 $script:txtStatus.Text = "$($users.Count) MailUsers gefunden"
             }
             catch {
+                if ($script:UICancelRequested -or $_.Exception -is [System.OperationCanceledException]) {
+                    Update-StatusBar -Message "Laden der MailUsers abgebrochen." -Type Warning
+                    return
+                }
                 $errorMsg = $_.Exception.Message
                 $script:txtStatus.Text = "Fehler beim Laden der MailUsers: $errorMsg"
                 Show-MessageBox -Message "Fehler beim Laden der MailUsers: $errorMsg" -Title "Fehler" -Type "Error"
+            }
+            finally {
+                Stop-UIBusy
             }
         } -ControlName "btnShowMailUsers"
         

@@ -448,7 +448,7 @@ function New-ExoGroupAction {
 
     try {
         if (-not $script:isConnected) {
-            Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
+            $null = Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
             Update-StatusBar -Message "Nicht verbunden." -Type Warning
             return $null
         }
@@ -456,7 +456,7 @@ function New-ExoGroupAction {
         $alias = if ($GroupEmail.Contains("@")) { $GroupEmail.Split('@')[0] } else { $GroupEmail }
         if ([string]::IsNullOrWhiteSpace($alias)) {
             Write-Log "New-ExoGroupAction: Ungültige E-Mail '$GroupEmail' zur Alias-Generierung." -Type Error
-            Show-MessageBox -Message "Die angegebene E-Mail-Adresse '$GroupEmail' ist ungültig für die Alias-Generierung." -Title "Ungültige Eingabe" -Type Error
+            $null = Show-MessageBox -Message "Die angegebene E-Mail-Adresse '$GroupEmail' ist ungültig für die Alias-Generierung." -Title "Ungültige Eingabe" -Type Error
             Update-StatusBar -Message "Ungültige E-Mail für Alias." -Type Error
             return $null
         }
@@ -540,7 +540,7 @@ function New-ExoGroupAction {
                 default { # Sollte durch ValidateSet nicht erreicht werden
                     $errMsg = "New-ExoGroupAction: Nicht unterstützter Gruppentyp '$GroupType'."
                     Write-Log $errMsg -Type Error
-                    Show-MessageBox -Message $errMsg -Title "Nicht unterstützter Typ" -Type Warning
+                    $null = Show-MessageBox -Message $errMsg -Title "Nicht unterstützter Typ" -Type Warning
                     Update-StatusBar -Message "Nicht unterstützter Gruppentyp: $GroupType" -Type Warning
                     return $null
                 }
@@ -552,16 +552,19 @@ function New-ExoGroupAction {
                 Update-StatusBar -Message $successMsg -Type Success
                 if (Test-Path Function:\Log-Action) { Log-Action "Gruppe '$($newGroup.DisplayName)' (Identity: $($newGroup.Identity)) erstellt." }
 
+                $failedMembers = [System.Collections.Generic.List[string]]::new()
                 if ($Members -and $Members.Count -gt 0) {
                     Write-Log "Füge Mitglieder zur neuen Gruppe '$($newGroup.DisplayName)' hinzu..." -Type Info
                     foreach ($member in $Members) {
                         if (-not [string]::IsNullOrWhiteSpace($member)) {
                             # Korrekte Parameter für Add-ExoGroupMemberAction
-                            Add-ExoGroupMemberAction -Identity $newGroup.Identity -MemberIdentity $member -ErrorAction SilentlyContinue 
+                            $added = Add-ExoGroupMemberAction -Identity $newGroup.Identity -MemberIdentity $member
+                            if ($added -ne $true) { $failedMembers.Add($member) }
                         }
                     }
                 }
-                return $newGroup 
+                $newGroup | Add-Member -NotePropertyName FailedMembers -NotePropertyValue $failedMembers.ToArray() -Force
+                return $newGroup
             } else {
                 $errMsg = "Gruppe '$GroupName' konnte nicht erstellt werden. Überprüfen Sie die Exchange Online-Protokolle oder vorherige Fehlermeldungen."
                 Write-Log $errMsg -Type Error
@@ -578,7 +581,7 @@ function New-ExoGroupAction {
         $errMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Unbekannter Fehler beim Erstellen der Gruppe."
         Write-Log "Fehler in New-ExoGroupAction für Gruppe '$GroupName': $errMsg" -Type Error
         if (Test-Path Function:\Log-Action) { Log-Action "Fehler New-ExoGroupAction '$GroupName': $errMsg" }
-        Show-MessageBox -Message "Fehler beim Erstellen der Gruppe '$GroupName':`n$($_.Exception.Message)" -Title "Fehler bei Erstellung" -Type Error
+        $null = Show-MessageBox -Message "Fehler beim Erstellen der Gruppe '$GroupName':`n$($_.Exception.Message)" -Title "Fehler bei Erstellung" -Type Error
         Update-StatusBar -Message "Fehler beim Erstellen der Gruppe '$GroupName'." -Type Error
         return $null
     }
@@ -1295,11 +1298,18 @@ function Initialize-GroupsTab {
                     $createResult = New-ExoGroupAction @createParams 
                     
                     if ($createResult) { # New-ExoGroupAction gibt das Gruppenobjekt oder $null zurück
-                        Update-StatusBar -Message "Gruppe '$($createResult.DisplayName)' erfolgreich erstellt." -Type Success
-                        Write-Log "Gruppe '$($createResult.DisplayName)' erfolgreich erstellt." -Type "Success"
+                        if (@($createResult.FailedMembers).Count -gt 0) {
+                            $message = "Gruppe '$($createResult.DisplayName)' erstellt, aber folgende Mitglieder konnten nicht hinzugefügt werden: $($createResult.FailedMembers -join ', ')."
+                            Update-StatusBar -Message $message -Type Warning
+                            Write-Log $message -Type Warning
+                            $null = Show-MessageBox -Message $message -Title "Gruppe teilweise eingerichtet" -Type Warning
+                        } else {
+                            Update-StatusBar -Message "Gruppe '$($createResult.DisplayName)' erfolgreich erstellt." -Type Success
+                            Write-Log "Gruppe '$($createResult.DisplayName)' erfolgreich erstellt." -Type "Success"
+                        }
                         $script:txtGroupName.Text = ""
                         $script:txtGroupEmail.Text = ""
-                        $script:txtGroupMembers.Text = ""
+                        $script:txtGroupMembers.Text = $createResult.FailedMembers -join "; "
                         $script:txtGroupDescription.Text = ""
                         Refresh-ExistingGroupsDropdown 
                     } # Fehlerfall wird in New-ExoGroupAction behandelt (Statusbar, Log)
