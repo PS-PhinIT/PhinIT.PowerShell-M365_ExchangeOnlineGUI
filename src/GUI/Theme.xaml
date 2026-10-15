@@ -43,6 +43,33 @@
     <SolidColorBrush x:Key="NavHoverBrush" Color="#22344D" />
     <SolidColorBrush x:Key="NavTextBrush" Color="#E6EDF3" />
     <SolidColorBrush x:Key="OverlayBrush" Color="#990F1B2D" />
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="LinkBrush" Color="#0067C0" />
+    <!--  Kopfzeile, Navigationsleiste und Statusleiste (dunkel)  -->
+    <SolidColorBrush x:Key="HeaderBackgroundBrush" Color="#0F1B2D" />
+    <SolidColorBrush x:Key="HeaderTextBrush" Color="#E2E2E2" />
+    <SolidColorBrush x:Key="HeaderSubtleTextBrush" Color="#9FB3C8" />
+    <SolidColorBrush x:Key="HeaderLinkBrush" Color="#D0E8FF" />
+    <SolidColorBrush x:Key="HeaderCloseBrush" Color="#FF5252" />
+    <SolidColorBrush x:Key="NavPanelBrush" Color="#22344D" />
+    <SolidColorBrush x:Key="NavPanelBorderBrush" Color="#2F4560" />
+    <!--  Statusleiste: Farben pro Meldungstyp (Update-StatusBar / Get-StatusBrush), lesbar auf HeaderBackgroundBrush  -->
+    <SolidColorBrush x:Key="StatusInfoBrush" Color="#E2E2E2" />
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="#6CCB5F" />
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="#FFC83D" />
+    <SolidColorBrush x:Key="StatusErrorBrush" Color="#FF6B6B" />
+    <SolidColorBrush x:Key="StatusDebugBrush" Color="#9FB3C8" />
+    <!--  Hinweisboxen  -->
+    <SolidColorBrush x:Key="HintBackgroundBrush" Color="#FFF3CD" />
+    <SolidColorBrush x:Key="HintBorderBrush" Color="#FFEAA7" />
+    <SolidColorBrush x:Key="HintTextBrush" Color="#856404" />
+    <!--  Dashboard-Kennzahlen  -->
+    <SolidColorBrush x:Key="StatMailboxesBrush" Color="#0078D4" />
+    <SolidColorBrush x:Key="StatSharedMailboxesBrush" Color="#107C10" />
+    <SolidColorBrush x:Key="StatGroupsBrush" Color="#D83B01" />
+    <SolidColorBrush x:Key="StatResourcesBrush" Color="#5C2D91" />
+    <SolidColorBrush x:Key="StatDomainsBrush" Color="#008272" />
+    <Color x:Key="CardShadowColor">#CCCCCC</Color>
 
     <!--  ===== Basis-Template für alle Buttons (abgerundet) =====  -->
     <ControlTemplate x:Key="RoundedButtonTemplate" TargetType="Button">

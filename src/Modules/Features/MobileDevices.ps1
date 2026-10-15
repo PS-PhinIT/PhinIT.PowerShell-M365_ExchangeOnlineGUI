@@ -74,12 +74,10 @@ function New-MobileDevicePolicyAction {
             <StackPanel>
                 <Label Content="Richtlinienname:" FontWeight="SemiBold"/>
                 <TextBox x:Name="txtPolicyName" Margin="0,0,0,10"/>
-                <Label Content="Beschreibung (optional):" FontWeight="SemiBold"/>
-                <TextBox x:Name="txtPolicyDescription" Margin="0,0,0,10" Height="60" TextWrapping="Wrap" AcceptsReturn="True"/>
                 <CheckBox x:Name="chkAllowNonProvisionableDevices" Content="Nicht-provisionierbare Geräte zulassen" Margin="0,10,0,10"/>
                 <CheckBox x:Name="chkAllowSimplePassword" Content="Einfache Passwörter zulassen" Margin="0,0,0,10"/>
-                <Label Content="Minimale Passwortlänge:" FontWeight="SemiBold"/>
-                <TextBox x:Name="txtMinPasswordLength" Margin="0,0,0,10"/>
+                <Label Content="Minimale Passwortlänge (1-16, optional - aktiviert die Kennwortpflicht):" FontWeight="SemiBold"/>
+                <TextBox x:Name="txtMinPasswordLength" Margin="0,0,0,10" ToolTip="Mit einer Mindestlänge wird ein Gerätekennwort erforderlich (PasswordEnabled)."/>
                 <CheckBox x:Name="chkRequireDeviceEncryption" Content="Geräteverschlüsselung erforderlich" Margin="0,0,0,10"/>
                 <CheckBox x:Name="chkAllowCamera" Content="Kamera erlauben" Margin="0,0,0,10"/>
                 <CheckBox x:Name="chkAllowWiFi" Content="WLAN erlauben" Margin="0,0,0,10"/>
@@ -96,10 +94,10 @@ function New-MobileDevicePolicyAction {
 
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]$xamlDialog)
         $dialog = [Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $dialog
 
         # UI-Elemente referenzieren
         $txtPolicyName = $dialog.FindName("txtPolicyName")
-        $txtPolicyDescription = $dialog.FindName("txtPolicyDescription")
         $chkAllowNonProvisionableDevices = $dialog.FindName("chkAllowNonProvisionableDevices")
         $chkAllowSimplePassword = $dialog.FindName("chkAllowSimplePassword")
         $txtMinPasswordLength = $dialog.FindName("txtMinPasswordLength")
@@ -122,26 +120,28 @@ function New-MobileDevicePolicyAction {
 
                 $params = @{
                     Name = $policyName
-                    AllowNonProvisionableDevices = $chkAllowNonProvisionableDevices.IsChecked
-                    AllowSimplePassword = $chkAllowSimplePassword.IsChecked
-                    RequireDeviceEncryption = $chkRequireDeviceEncryption.IsChecked
-                    AllowCamera = $chkAllowCamera.IsChecked
-                    AllowWiFi = $chkAllowWiFi.IsChecked
-                    AllowBluetooth = $chkAllowBluetooth.IsChecked
+                    AllowNonProvisionableDevices = [bool]$chkAllowNonProvisionableDevices.IsChecked
+                    AllowSimplePassword = [bool]$chkAllowSimplePassword.IsChecked
+                    RequireDeviceEncryption = [bool]$chkRequireDeviceEncryption.IsChecked
+                    AllowCamera = [bool]$chkAllowCamera.IsChecked
+                    AllowWiFi = [bool]$chkAllowWiFi.IsChecked
+                    # AllowBluetooth erwartet Allow, Disable oder HandsfreeOnly (kein Boolean)
+                    AllowBluetooth = if ($chkAllowBluetooth.IsChecked) { 'Allow' } else { 'Disable' }
                     ErrorAction = 'Stop'
-                }
-                if (-not [string]::IsNullOrWhiteSpace($txtPolicyDescription.Text)) {
-                    $params.Description = $txtPolicyDescription.Text.Trim()
                 }
                 if (-not [string]::IsNullOrWhiteSpace($txtMinPasswordLength.Text)) {
                     $minLen = $txtMinPasswordLength.Text.Trim()
-                    if ($minLen -match '^\d+$') {
-                        $params.MinPasswordLength = [int]$minLen
+                    if ($minLen -notmatch '^\d{1,2}$' -or [int]$minLen -lt 1 -or [int]$minLen -gt 16) {
+                        Show-MessageBox -Message "Die minimale Passwortlänge muss eine Zahl zwischen 1 und 16 sein." -Title "Ungültige Eingabe" -Type Warning
+                        return
                     }
+                    # MinPasswordLength (und AllowSimplePassword) wirken nur, wenn ein Gerätekennwort erforderlich ist
+                    $params.PasswordEnabled = $true
+                    $params.MinPasswordLength = [int]$minLen
                 }
 
                 # Richtlinie erstellen
-                New-MobileDeviceMailboxPolicy @params
+                $null = New-MobileDeviceMailboxPolicy @params
 
                 $dialog.DialogResult = $true
                 $dialog.Close()
@@ -220,7 +220,7 @@ function Get-QuarantinedDevicesAction {
     
     try {
         # Get-MobileDevice mit Filter für Quarantäne-Status
-        $devices = Get-MobileDevice -Filter "DeviceAccessState -eq 'Quarantined'" -ResultSize Unlimited -ErrorAction Stop
+        $devices = @(Get-MobileDevice -Filter "DeviceAccessState -eq 'Quarantined'" -ResultSize Unlimited -ErrorAction Stop)
 
         # DataGrid im UI-Thread aktualisieren
         if ($null -ne $script:dgQuarantinedDevices) {
@@ -231,7 +231,7 @@ function Get-QuarantinedDevicesAction {
             Write-Log "DataGrid 'dgQuarantinedDevices' wurde nicht im Skript-Kontext gefunden." -Type "Warning"
         }
 
-        $deviceCount = if ($null -ne $devices) { $devices.Count } else { 0 }
+        $deviceCount = $devices.Count
         Update-StatusBar -Message "$deviceCount unter Quarantäne gestellte(s) Gerät(e) gefunden." -Type Success
         Log-Action "Unter Quarantäne gestellte Geräte geladen: $deviceCount gefunden."
         
@@ -274,11 +274,14 @@ function Set-MobileDeviceAccessState {
         throw "Das Gerät '$deviceIdentity' besitzt keine DeviceId."
     }
 
+    # Gerät in die eine Liste aufnehmen und gleichzeitig aus der jeweils anderen entfernen,
+    # damit ein früherer Eintrag (z.B. "blockiert") die neue Entscheidung nicht überstimmt.
+    $deviceId = [string]$Device.DeviceId
     if ($AccessState -eq "Allowed") {
-        Set-CASMailbox -Identity $mailboxIdentity -ActiveSyncAllowedDeviceIDs @{ Add = [string]$Device.DeviceId } -ErrorAction Stop
+        Set-CASMailbox -Identity $mailboxIdentity -ActiveSyncAllowedDeviceIDs @{ Add = $deviceId } -ActiveSyncBlockedDeviceIDs @{ Remove = $deviceId } -ErrorAction Stop
     }
     else {
-        Set-CASMailbox -Identity $mailboxIdentity -ActiveSyncBlockedDeviceIDs @{ Add = [string]$Device.DeviceId } -ErrorAction Stop
+        Set-CASMailbox -Identity $mailboxIdentity -ActiveSyncBlockedDeviceIDs @{ Add = $deviceId } -ActiveSyncAllowedDeviceIDs @{ Remove = $deviceId } -ErrorAction Stop
     }
     Write-Log "Mobilgerät '$($Device.DeviceId)' für '$mailboxIdentity' auf '$AccessState' gesetzt." -Type "Info"
 }
@@ -399,20 +402,20 @@ function Initialize-MDMTab {
         # --- Event Handlers ---
 
         # ActiveSync Policies
-        Register-EventHandler -Control $btnGetMobileDevicePolicies -Handler { Get-MobileDevicePoliciesAction } -ControlName "btnGetMobileDevicePolicies"
-        Register-EventHandler -Control $btnNewMobileDevicePolicy -Handler { New-MobileDevicePolicyAction } -ControlName "btnNewMobileDevicePolicy"
-        Register-EventHandler -Control $btnRemoveMobileDevicePolicy -Handler { Remove-MobileDevicePolicyAction } -ControlName "btnRemoveMobileDevicePolicy"
+        $null = Register-EventHandler -Control $btnGetMobileDevicePolicies -Handler { Get-MobileDevicePoliciesAction } -ControlName "btnGetMobileDevicePolicies"
+        $null = Register-EventHandler -Control $btnNewMobileDevicePolicy -Handler { New-MobileDevicePolicyAction } -ControlName "btnNewMobileDevicePolicy"
+        $null = Register-EventHandler -Control $btnRemoveMobileDevicePolicy -Handler { Remove-MobileDevicePolicyAction } -ControlName "btnRemoveMobileDevicePolicy"
 
         # Quarantined Devices
-        Register-EventHandler -Control $btnGetQuarantinedDevices -Handler { Get-QuarantinedDevicesAction } -ControlName "btnGetQuarantinedDevices"
-        Register-EventHandler -Control $btnAllowDevice -Handler { Allow-QuarantinedDeviceAction } -ControlName "btnAllowDevice"
-        Register-EventHandler -Control $btnBlockDevice -Handler { Block-QuarantinedDeviceAction } -ControlName "btnBlockDevice"
+        $null = Register-EventHandler -Control $btnGetQuarantinedDevices -Handler { Get-QuarantinedDevicesAction } -ControlName "btnGetQuarantinedDevices"
+        $null = Register-EventHandler -Control $btnAllowDevice -Handler { Allow-QuarantinedDeviceAction } -ControlName "btnAllowDevice"
+        $null = Register-EventHandler -Control $btnBlockDevice -Handler { Block-QuarantinedDeviceAction } -ControlName "btnBlockDevice"
 
         # Handler for policy selection change
         if ($null -ne $dgMobileDevicePolicies) {
             $dgMobileDevicePolicies.Add_SelectionChanged({
-                param($sender, $e)
-                $selectedPolicy = $sender.SelectedItem
+                param($eventSender)
+                $selectedPolicy = $eventSender.SelectedItem
                 if ($null -ne $selectedPolicy -and $null -ne $script:txtMobilePolicyDetails) {
                     # In a real implementation, you would get the full policy object and format it.
                     $details = $selectedPolicy | Out-String

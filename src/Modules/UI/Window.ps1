@@ -22,12 +22,8 @@ function Load-XAML {
         # Lade XAML aus dem übergebenen String
         Write-Log "Lade XAML aus String-Variable..." -Type "Info"
         
-        # Problematische Event-Handler entfernen
-        $xamlString = $XamlContent
-        $xamlString = $xamlString -replace 'SelectionChanged="lstContacts_SelectionChanged"', ''
-        
-        # XML parsen
-        [xml]$xmlContent = $xamlString
+        # XML parsen (Event-Handler werden ausschließlich im Code registriert, nicht per XAML-Attribut)
+        [xml]$xmlContent = $XamlContent
         
         # Parse XAML
         $reader = New-Object System.Xml.XmlNodeReader $xmlContent
@@ -83,35 +79,29 @@ function Load-XAML {
 # Abschnitt: GUI-Elemente referenzieren
 # -------------------------------------------------
 function Get-XamlElement {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
         [string]$ElementName,
-        
+
         [Parameter(Mandatory = $false)]
-        [switch]$Required = $false
+        [switch]$Required
     )
-    
+
     try {
-        
         if ($null -eq $script:Form) {
             throw "Form-Objekt ist nicht initialisiert"
         }
-        
-        
+
         $element = $script:Form.FindName($ElementName)
-        
         if ($null -eq $element -and $Required.IsPresent) {
             throw "Erforderliches Element nicht gefunden: $ElementName"
-        }
-        elseif ($null -eq $element) {
-        }
-        else {
         }
         return $element
     }
     catch {
-        $errorMsg = $_.Exception.Message
         if ($Required.IsPresent) { throw }
+        Write-Log "Get-XamlElement '$ElementName': $($_.Exception.Message)" -Type "Debug"
         return $null
     }
 }
@@ -196,4 +186,36 @@ function Get-MainWindowXaml {
 
     Write-Log "GUI geladen: $windowFile (Theme: $themeFile)" -Type "Debug"
     return $windowXaml.Replace($placeholder, $themeXml.DocumentElement.InnerXml)
+}
+
+function Add-ThemeResource {
+    <#
+    .SYNOPSIS
+        Stellt die Farben und Styles aus Theme.xaml in einem zusätzlichen Fenster (Dialog) bereit.
+    .DESCRIPTION
+        Eigene Fenster erben die Ressourcen des Hauptfensters nicht. Direkt nach dem Laden des
+        Dialogs aufrufen; im Inline-XAML Theme-Ressourcen mit {DynamicResource <Key>} verwenden.
+        Die impliziten Styles (Button, TextBox, DataGrid …) gelten danach auch im Dialog.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.FrameworkElement]$Window
+    )
+
+    try {
+        if ([string]::IsNullOrEmpty($script:ThemeXamlCache)) {
+            $themeFile = Join-Path -Path $script:GuiRoot -ChildPath "Theme.xaml"
+            $script:ThemeXamlCache = Get-Content -LiteralPath $themeFile -Raw -Encoding UTF8
+        }
+        # Je Fenster ein eigenes ResourceDictionary (keine geteilten Style-/Brush-Instanzen zwischen Fenstern)
+        $themeDictionary = [System.Windows.Markup.XamlReader]::Parse($script:ThemeXamlCache)
+        $Window.Resources.MergedDictionaries.Add($themeDictionary)
+        return $true
+    }
+    catch {
+        Write-Log "Theme konnte nicht auf das Fenster angewendet werden: $($_.Exception.Message)" -Type "Warning"
+        return $false
+    }
 }

@@ -38,11 +38,6 @@ function Get-RegistryConfig {
                 $config["General"]["Version"] = $regValues.Version
             }
             
-            # ThemeColor
-            if ($null -ne $regValues.ThemeColor) {
-                $config["General"]["ThemeColor"] = $regValues.ThemeColor
-            }
-            
             # DefaultUser
             if ($null -ne $regValues.DefaultUser) {
                 $config["General"]["DefaultUser"] = $regValues.DefaultUser
@@ -52,11 +47,7 @@ function Get-RegistryConfig {
             if ($null -ne $regValues.LogPath) {
                 $config["Paths"]["LogPath"] = $regValues.LogPath
             }
-            
-            # HeaderLogoURL
-            if ($null -ne $regValues.HeaderLogoURL) {
-                $config["UI"]["HeaderLogoURL"] = $regValues.HeaderLogoURL
-            }
+
         }
         
         return $config
@@ -68,14 +59,11 @@ function Get-RegistryConfig {
                 "Debug" = "0"
                 "AppName" = "easyEXO | Exchange Online Management Tool"
                 "Version" = $script:AppVersion
-                "ThemeColor" = "#0078D7"
             }
             "Paths" = @{
                 "LogPath" = "$script:AppRoot\Logs"
             }
-            "UI" = @{
-                "HeaderLogoURL" = "https://psscripts.de"
-            }
+            "UI" = @{}
         }
     }
 }

@@ -47,16 +47,9 @@ Um die Werte für einen bestimmten Benutzer zu überprüfen, können Sie einen T
 "@
             }
             "PowerShell" {
-                # Sammeln von verfügbaren Informationen über Remote PowerShell Limits
-                try {
-                    $orgConfig = Get-OrganizationConfig -ErrorAction SilentlyContinue
-                    $result += @"
+                # Die PowerShell-Drosselungswerte werden in Exchange Online nicht über Cmdlets offengelegt
+                $result += @"
 ### PowerShell Throttling Informationen
-
-PowerShell Verbindungslimits aus OrganizationConfig:
-- PowerShellMaxConcurrency: $($orgConfig.PowerShellMaxConcurrency)
-- PowerShellMaxCmdletQueueDepth: $($orgConfig.PowerShellMaxCmdletQueueDepth)
-- PowerShellMaxCmdletsExecutionDuration: $($orgConfig.PowerShellMaxCmdletsExecutionDuration)
 
 Standard Remote PowerShell Limits:
 - 3 Remote PowerShell Verbindungen pro Benutzer
@@ -65,11 +58,6 @@ Standard Remote PowerShell Limits:
 
 Weitere Informationen: https://learn.microsoft.com/de-de/powershell/exchange/exchange-online-powershell-v2?view=exchange-ps
 "@
-                }
-                catch {
-                    $result += "Fehler beim Abrufen von PowerShell-Konfigurationen: $($_.Exception.Message)`n`n"
-                    $result += "Dies könnte auf fehlende Berechtigungen oder Verbindungsprobleme hindeuten."
-                }
             }
             default {
                 # Allgemeine Informationen zu Exchange Online Throttling
@@ -119,113 +107,6 @@ Weitere Informationen:
 }
 
 # -------------------------------------------------
-# Abschnitt: Aktualisierte Throttling Policy Funktionen
-# -------------------------------------------------
-function Get-ThrottlingPolicyAction {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $false)]
-        [string]$PolicyName = "",
-        
-        [Parameter(Mandatory = $false)]
-        [switch]$ShowEWSOnly,
-        
-        [Parameter(Mandatory = $false)]
-        [switch]$DetailedView
-    )
-    
-    try {
-        Write-Log  "Rufe alternative Throttling-Informationen ab" -Type "Info"
-        
-        if ($ShowEWSOnly) {
-            return Get-ExchangeThrottlingInfo -InfoType "EWSPolicy"
-        }
-        elseif ($DetailedView) {
-            return Get-ExchangeThrottlingInfo -InfoType "PowerShell"
-        }
-        else {
-            return Get-ExchangeThrottlingInfo -InfoType "General"
-        }
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Abrufen der Throttling-Informationen: $errorMsg" -Type "Error"
-        Log-Action "Fehler beim Abrufen der Throttling-Informationen: $errorMsg"
-        return "Fehler beim Abrufen der Throttling-Informationen: $errorMsg"
-    }
-}
-
-# Funktion zur Unterstützung des Troubleshooting-Bereichs
-function Get-ThrottlingPolicyForTroubleshooting {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $false)]
-        [string]$PolicyType
-    )
-    
-    try {
-        Write-Log  "Führe Throttling Policy Troubleshooting aus: $PolicyType" -Type "Info"
-        
-        switch ($PolicyType) {
-            "EWSPolicy" {
-                # Spezifisch für EWS Throttling (für Migrationstools)
-                return Get-ExchangeThrottlingInfo -InfoType "EWSPolicy"
-            }
-            "PowerShell" {
-                # Für Remote PowerShell Throttling
-                return Get-ExchangeThrottlingInfo -InfoType "PowerShell"
-            }
-            "All" {
-                # Zeige alle Policies in der Übersicht
-                return Get-ExchangeThrottlingInfo -InfoType "General"
-            }
-            default {
-                # Standard-Ansicht
-                return Get-ExchangeThrottlingInfo -InfoType "General"
-            }
-        }
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Throttling Policy Troubleshooting: $errorMsg" -Type "Error"
-        Log-Action "Fehler beim Throttling Policy Troubleshooting: $errorMsg"
-        return "Fehler beim Abrufen der Throttling Policy Informationen: $errorMsg"
-    }
-}
-
-# Erweitere die Diagnostics-Funktionen um einen speziellen Throttling-Test
-function Test-EWSThrottlingPolicy {
-    [CmdletBinding()]
-    param()
-    
-    try {
-        Write-Log  "Prüfe EWS Throttling Policy für Migration" -Type "Info"
-        
-        # EWS Policy Informationen abrufen
-        $ewsPolicy = Get-ExchangeThrottlingInfo -InfoType "EWSPolicy"
-        
-        # Ergebnis formatieren mit Empfehlungen
-        $result = $ewsPolicy
-        $result += "`n`nZusätzliche Empfehlungen für Migrationen:`n"
-        $result += "- Verwenden Sie für große Migrationen mehrere Benutzerkonten, um die Throttling-Limits zu umgehen\n"
-        $result += "- Planen Sie Migrationen zu Zeiten geringerer Exchange-Auslastung\n"
-        $result += "- Implementieren Sie bei Throttling-Fehlern eine exponentielle Backoff-Strategie\n\n"
-        
-        $result += "Hinweis: Microsoft passt Throttling-Limits regelmäßig an, ohne dies zu dokumentieren.\n"
-        $result += "Bei anhaltenden Problemen wenden Sie sich an den Microsoft Support."
-        
-        Write-Log  "EWS Throttling Policy Test abgeschlossen" -Type "Success"
-        return $result
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log  "Fehler beim Testen der EWS Throttling Policy: $errorMsg" -Type "Error"
-        Log-Action "Fehler beim Testen der EWS Throttling Policy: $errorMsg"
-        return "Fehler beim Testen der EWS Throttling Policy: $errorMsg"
-    }
-}
-
-# -------------------------------------------------
 # Abschnitt: Exchange Online Troubleshooting Diagnostics
 # -------------------------------------------------
 
@@ -248,7 +129,7 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "RBAC-Berechtigungsprüfung für Benutzer"
         Description = "Überprüfen Sie, ob ein Benutzer die erforderlichen RBAC-Rollen besitzt, um bestimmte Exchange Online-Cmdlets auszuführen."
-        PowerShellCheck = "Get-ManagementRoleAssignment –RoleAssignee '[USER]'"
+        PowerShellCheck = "Get-ManagementRoleAssignment -RoleAssignee '[USER]'"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/permissions"
         Tooltip = "RBAC-Einstellungen zur Verwaltung von Benutzerberechtigungen öffnen"
         RequiresUser = $true
@@ -256,7 +137,7 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "RBAC-Berechtigungsvergleich für zwei Benutzer"
         Description = "Vergleichen Sie die RBAC-Rollen zweier Benutzer, um Unterschiede zu identifizieren, wenn ein Benutzer Cmdlet-Fehler erhält."
-        PowerShellCheck = "Compare-Object (Get-ManagementRoleAssignment –RoleAssignee '[USER1]') (Get-ManagementRoleAssignment –RoleAssignee '[USER2]')"
+        PowerShellCheck = "Compare-Object (Get-ManagementRoleAssignment -RoleAssignee '[USER1]') (Get-ManagementRoleAssignment -RoleAssignee '[USER2]')"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/permissions"
         Tooltip = "RBAC-Zuweisungen zur Fehlerbehebung überprüfen und vergleichen"
         RequiresTwoUsers = $true
@@ -264,7 +145,7 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "Empfänger-Fehlerdiagnose"
         Description = "Überprüfen Sie den Status und die Konfiguration eines Exchange Online-Empfängers, um Bereitstellungs- oder Synchronisierungsprobleme zu beheben."
-        PowerShellCheck = "Get-Recipient –Identity '[USER]'"
+        PowerShellCheck = "Get-Recipient -Identity '[USER]'"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/recipients"
         Tooltip = "Empfängerkonfiguration und Bereitstellungsstatus überprüfen"
         RequiresUser = $true
@@ -279,7 +160,7 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "Postfach- und Nachrichtengröße"
         Description = "Überprüfen Sie die Postfachgröße und Nachrichtengröße (einschließlich Anhänge), um Speicherprobleme zu identifizieren."
-        PowerShellCheck = "Get-MailboxStatistics –Identity '[USER]' | Select-Object DisplayName, TotalItemSize, ItemCount"
+        PowerShellCheck = "Get-MailboxStatistics -Identity '[USER]' | Select-Object DisplayName, TotalItemSize, ItemCount"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/mailboxes"
         Tooltip = "Postfachgröße und Speicherstatistiken überprüfen"
         RequiresUser = $true
@@ -287,13 +168,13 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "Diagnose gelöschter Postfächer"
         Description = "Überprüfen Sie den Status kürzlich gelöschter (soft-deleted) Postfächer zur Wiederherstellung oder Bereinigung."
-        PowerShellCheck = "Get-Mailbox –SoftDeletedMailbox"
+        PowerShellCheck = "Get-Mailbox -SoftDeletedMailbox -ResultSize Unlimited"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/deletedmailboxes"
         Tooltip = "Gelöschte Postfächer verwalten"
     },
     @{
         Name = "Exchange Remote PowerShell Drosselungsinformationen"
-        Description = "Bewerten Sie Remote PowerShell Drosselungseinstellungen, um Verbindungsprobleme zu minimieren. Hinweis: RPS wird ab Juli 2023 eingestellt - verwenden Sie REST-API-Cmdlets."
+        Description = "Bewerten Sie Remote PowerShell Drosselungseinstellungen, um Verbindungsprobleme zu minimieren. Hinweis: Remote PowerShell (RPS) wurde eingestellt - verwenden Sie die REST-basierten Cmdlets."
         PowerShellCheck = "Get-ExchangeThrottlingInfo -InfoType 'PowerShell'"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/settings"
         Tooltip = "Remote PowerShell Drosselungseinstellungen überprüfen"
@@ -308,7 +189,7 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "Archiv-Postfach-Diagnose"
         Description = "Überprüfen Sie die Konfiguration und den Status von Archiv-Postfächern, um sicherzustellen, dass die Archivierung aktiviert ist und funktioniert."
-        PowerShellCheck = "Get-Mailbox –Identity '[USER]' | Select-Object DisplayName, ArchiveStatus"
+        PowerShellCheck = "Get-Mailbox -Identity '[USER]' | Select-Object DisplayName, ArchiveStatus"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/archivemailboxes"
         Tooltip = "Konfiguration des Archivpostfachs überprüfen"
         RequiresUser = $true
@@ -316,7 +197,7 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "Aufbewahrungsrichtlinien-Diagnose für Benutzerpostfach"
         Description = "Überprüfen Sie die Aufbewahrungsrichtlinieneinstellungen (einschließlich Tags und Richtlinien) für ein Benutzerpostfach, um die Einhaltung der organisatorischen Richtlinien zu gewährleisten."
-        PowerShellCheck = "Get-Mailbox –Identity '[USER]' | Select-Object DisplayName, RetentionPolicy; Get-RetentionPolicy"
+        PowerShellCheck = "Get-Mailbox -Identity '[USER]' | Select-Object DisplayName, RetentionPolicy; Get-RetentionPolicy"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/compliance"
         Tooltip = "Einstellungen der Aufbewahrungsrichtlinie überprüfen"
         RequiresUser = $true
@@ -331,7 +212,7 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "Proxy-Adress-Konfliktdiagnose"
         Description = "Identifizieren Sie den Exchange-Empfänger, der eine bestimmte Proxy-Adresse (E-Mail-Adresse) verwendet, die Konflikte verursacht, z.B. Fehler bei der Postfacherstellung."
-        PowerShellCheck = "Get-Recipient –Filter {EmailAddresses -like '[EMAIL]'}"
+        PowerShellCheck = "Get-Recipient -Filter {EmailAddresses -like '[EMAIL]'}"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/recipients"
         Tooltip = "Proxy-Adresskonflikte identifizieren und beheben"
         RequiresEmail = $true
@@ -339,7 +220,7 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "Diagnose für sichere/blockierte Absenderlisten"
         Description = "Überprüfen Sie sichere Absender und blockierte Absender/Domains in den Junk-E-Mail-Einstellungen eines Postfachs, um potenzielle Zustellungsprobleme zu beheben."
-        PowerShellCheck = "Get-MailboxJunkEmailConfiguration –Identity '[USER]' | Select-Object SafeSenders, BlockedSenders"
+        PowerShellCheck = "Get-MailboxJunkEmailConfiguration -Identity '[USER]' | Select-Object SafeSenders, BlockedSenders"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/mailboxes"
         Tooltip = "Listen sicherer und blockierter Absender überprüfen"
         RequiresUser = $true
@@ -470,7 +351,7 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "Quarantäne-Diagnose"
         Description = "Überprüfen Sie die in Quarantäne befindlichen Nachrichten für einen bestimmten Benutzer oder die gesamte Organisation."
-        PowerShellCheck = "Get-QuarantineMessage -RecipientAddress '[USER]' | Format-Table ReceivedTime, SenderAddress, Subject, QuarantineTypes -AutoSize"
+        PowerShellCheck = "Get-QuarantineMessage -RecipientAddress '[USER]' -PageSize 1000 | Format-Table ReceivedTime, SenderAddress, Subject, QuarantineTypes -AutoSize"
         AdminCenterLink = "https://security.microsoft.com/quarantine"
         Tooltip = "Quarantäne-Nachrichten im Security Center überprüfen"
         RequiresUser = $true
@@ -514,7 +395,7 @@ $script:exchangeDiagnostics = @(
     @{
         Name = "Öffentliche Ordner-Diagnose"
         Description = "Überprüfen Sie die Konfiguration und Berechtigungen von öffentlichen Ordnern in Exchange Online."
-        PowerShellCheck = "Get-PublicFolder -Recurse | Format-Table Name, FolderPath, FolderSize -AutoSize"
+        PowerShellCheck = "Get-PublicFolder -Recurse -ResultSize Unlimited | Format-Table Name, FolderPath, FolderSize -AutoSize"
         AdminCenterLink = "https://admin.exchange.microsoft.com/#/publicfolders"
         Tooltip = "Öffentliche Ordner-Konfiguration überprüfen"
     },
@@ -556,9 +437,9 @@ $script:exchangeDiagnostics = @(
     },
     @{
         Name = "Exchange Online PowerShell-Modul-Diagnose"
-        Description = "Überprüfen Sie die installierte Version des Exchange Online PowerShell-Moduls und prüfen Sie auf Updates. Wichtig: RPS wird ab Juli 2023 eingestellt."
+        Description = "Überprüfen Sie die installierte Version des Exchange Online PowerShell-Moduls und prüfen Sie auf Updates. Remote PowerShell (RPS) wurde eingestellt - es werden nur REST-basierte Verbindungen (Modul ab Version 3) unterstützt."
         PowerShellCheck = "Get-InstalledModule ExchangeOnlineManagement | Select-Object Name, Version; Get-Module ExchangeOnlineManagement -ListAvailable | Select-Object Name, Version"
-        AdminCenterLink = "https://docs.microsoft.com/powershell/exchange/exchange-online-powershell-v2"
+        AdminCenterLink = "https://learn.microsoft.com/powershell/exchange/exchange-online-powershell-v2"
         Tooltip = "Exchange Online PowerShell-Dokumentation öffnen"
     },
     @{
@@ -631,21 +512,22 @@ function Start-ExchangeDiagnostic {
         $safeUser2 = [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent($User2.Trim())
         $safeEmail = [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent($Email.Trim())
 
-        if ($diagnostic.RequiresUser -and -not [string]::IsNullOrEmpty($User)) {
+        if ($diagnostic.RequiresUser) {
+            if ([string]::IsNullOrWhiteSpace($User)) {
+                throw "Diese Diagnose erfordert einen Benutzernamen."
+            }
             $command = $command.Replace('[USER]', $safeUser)
-        } elseif ($diagnostic.RequiresUser -and [string]::IsNullOrEmpty($User)) {
-            throw "Diese Diagnose erfordert einen Benutzernamen."
         }
         
         if ($diagnostic.RequiresTwoUsers) {
-            if ([string]::IsNullOrEmpty($User) -or [string]::IsNullOrEmpty($User2)) {
+            if ([string]::IsNullOrWhiteSpace($User) -or [string]::IsNullOrWhiteSpace($User2)) {
                 throw "Diese Diagnose erfordert zwei Benutzernamen."
             }
             $command = $command.Replace('[USER1]', $safeUser).Replace('[USER2]', $safeUser2)
         }
         
         if ($diagnostic.RequiresEmail) {
-            if ([string]::IsNullOrEmpty($Email)) {
+            if ([string]::IsNullOrWhiteSpace($Email)) {
                 throw "Diese Diagnose erfordert eine E-Mail-Adresse."
             }
             $command = $command.Replace('[EMAIL]', $safeEmail)
@@ -660,81 +542,45 @@ function Start-ExchangeDiagnostic {
             $result += "- Geplante Wartungsarbeiten`n"
             $result += "- Service-Advisories`n"
             $result += "- Incident-Historie`n"
-            return $result
+            return [PSCustomObject]@{ Success = $true; Text = $result }
         }
         
-        # Befehl ausführen
+        # Befehl ausführen; nicht-terminierende Fehler (2>&1) werden gesammelt, statt verloren zu gehen
         Write-Log  "Führe PowerShell-Befehl aus: $command" -Type "Info"
-        
-        # Create ScriptBlock from command string and execute
-        try {
-            $scriptBlock = [Scriptblock]::Create($command)
-            $result = & $scriptBlock | Out-String
-            
-            # Behandlung für leere Ergebnisse
-            if ([string]::IsNullOrWhiteSpace($result)) {
-                $result = "Die Abfrage wurde erfolgreich ausgeführt, lieferte aber keine Ergebnisse. Dies kann bedeuten, dass keine Daten vorhanden sind oder dass ein Filter keine Übereinstimmungen fand."
-            }
-        }
-        catch {
-            # Spezielle Behandlung für bekannte Fehler
-            if ($_.Exception.Message -like "*Get-ThrottlingPolicy*") {
-                Write-Log  "Get-ThrottlingPolicy ist nicht verfügbar, verwende alternative Informationsquellen" -Type "Warning"
-                $result = Get-ExchangeThrottlingInfo -InfoType $(if ($command -like "*EWS*") { "EWSPolicy" } elseif ($command -like "*PowerShell*") { "PowerShell" } else { "General" })
-            }
-            elseif ($_.Exception.Message -like "*not recognized as the name of a cmdlet*") {
-                Write-Log  "Cmdlet wird nicht erkannt: $($_.Exception.Message)" -Type "Warning"
-                
-                # Spezifische Behandlung für bekannte alte Cmdlets und deren Ersatz
-                if ($command -like "*Get-EXORecipient*") {
-                    Write-Log  "Versuche Get-Recipient als Alternative zu Get-EXORecipient" -Type "Info"
-                    $alternativeCommand = $command -replace "Get-EXORecipient", "Get-Recipient"
-                    try {
-                        $scriptBlock = [Scriptblock]::Create($alternativeCommand)
-                        $result = & $scriptBlock | Out-String
-                    } catch {
-                        throw "Fehler beim Ausführen des alternativen Befehls: $($_.Exception.Message)"
-                    }
-                }
-                elseif ($command -like "*Get-EXOMailboxStatistics*") {
-                    Write-Log  "Versuche Get-MailboxStatistics als Alternative zu Get-EXOMailboxStatistics" -Type "Info"
-                    $alternativeCommand = $command -replace "Get-EXOMailboxStatistics", "Get-MailboxStatistics"
-                    try {
-                        $scriptBlock = [Scriptblock]::Create($alternativeCommand)
-                        $result = & $scriptBlock | Out-String
-                    } catch {
-                        throw "Fehler beim Ausführen des alternativen Befehls: $($_.Exception.Message)"
-                    }
-                }
-                elseif ($command -like "*Get-EXOMailbox*") {
-                    Write-Log  "Versuche Get-Mailbox als Alternative zu Get-EXOMailbox" -Type "Info"
-                    $alternativeCommand = $command -replace "Get-EXOMailbox", "Get-Mailbox"
-                    try {
-                        $scriptBlock = [Scriptblock]::Create($alternativeCommand)
-                        $result = & $scriptBlock | Out-String
-                    } catch {
-                        throw "Fehler beim Ausführen des alternativen Befehls: $($_.Exception.Message)"
-                    }
-                }
-                else {
-                    throw
-                }
-            }
-            else {
-                throw
-            }
-        }
-        
-        Log-Action "Exchange-Diagnose ausgeführt: $($diagnostic.Name)"
-        Write-Log  "Diagnose abgeschlossen: $($diagnostic.Name)" -Type "Success"
-        
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message "Diagnose abgeschlossen: $($diagnostic.Name)" -Color $script:connectedBrush
-        }
-        
-        # Format und Filter Ausgabe für bessere Lesbarkeit
+        $diagnosticErrors = [System.Collections.Generic.List[System.Management.Automation.ErrorRecord]]::new()
+        $scriptBlock = [Scriptblock]::Create($command)
+        $result = & $scriptBlock 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) { $diagnosticErrors.Add($_) } else { $_ }
+        } | Out-String
+        $diagnosticSucceeded = $true
+
+        # Ausgabe für bessere Lesbarkeit kürzen
         if ($result.Length -gt 30000) {
             $result = $result.Substring(0, 30000) + "`n`n... (Output gekürzt - zu viele Daten)`n"
+        }
+
+        if ($diagnosticErrors.Count -gt 0) {
+            $errorLines = @($diagnosticErrors | ForEach-Object { "- $($_.Exception.Message)" })
+            Write-Log "Diagnose '$($diagnostic.Name)' meldete $($diagnosticErrors.Count) Fehler: $($diagnosticErrors[0].Exception.Message)" -Type "Warning"
+            if ([string]::IsNullOrWhiteSpace($result)) {
+                throw (@($diagnosticErrors | ForEach-Object { $_.Exception.Message }) -join "`n")
+            }
+            $diagnosticSucceeded = $false
+            $result += "`n=== Fehler während der Diagnose ($($diagnosticErrors.Count)) ===`n"
+            $result += ($errorLines -join "`n") + "`n"
+        }
+        elseif ([string]::IsNullOrWhiteSpace($result)) {
+            # Behandlung für leere Ergebnisse
+            $result = "Die Abfrage wurde erfolgreich ausgeführt, lieferte aber keine Ergebnisse. Dies kann bedeuten, dass keine Daten vorhanden sind oder dass ein Filter keine Übereinstimmungen fand."
+        }
+        
+        if ($diagnosticSucceeded) {
+            Log-Action "Exchange-Diagnose ausgeführt: $($diagnostic.Name)"
+            Write-Log  "Diagnose abgeschlossen: $($diagnostic.Name)" -Type "Success"
+        }
+        else {
+            Log-Action "Exchange-Diagnose mit Fehlern ausgeführt: $($diagnostic.Name)"
+            Write-Log  "Diagnose mit Fehlern abgeschlossen: $($diagnostic.Name)" -Type "Warning"
         }
         
         # Zusätzliche Hinweise für RPS-bezogene Diagnosen
@@ -746,16 +592,12 @@ function Start-ExchangeDiagnostic {
             $result += "Verwenden Sie Connect-ExchangeOnline ohne den -UseRPSSession Parameter.`n"
         }
         
-        return $result
+        return [PSCustomObject]@{ Success = $diagnosticSucceeded; Text = $result }
     }
     catch {
         $errorMsg = $_.Exception.Message
         Write-Log  "Fehler bei der Diagnose: $errorMsg" -Type "Error"
         Log-Action "Fehler bei der Exchange-Diagnose '$($diagnostic.Name)': $errorMsg"
-        
-        if ($null -ne $txtStatus) {
-            Update-GuiText -TextElement $txtStatus -Message "Fehler bei der Diagnose: $errorMsg"
-        }
         
         # Hilfreiche Fehlermeldung für häufige Probleme
         $result = "Fehler bei der Ausführung der Diagnose: $errorMsg`n`n"
@@ -765,9 +607,9 @@ function Start-ExchangeDiagnostic {
             $result += "1. Das verwendete Cmdlet ist in modernen Exchange Online PowerShell-Verbindungen nicht mehr verfügbar.`n"
             $result += "2. Sie benötigen möglicherweise zusätzliche Berechtigungen.`n"
             $result += "3. Die Exchange Online Verbindung wurde getrennt oder ist eingeschränkt.`n"
-            $result += "4. RPS (Remote PowerShell) wird ab Juli 2023 eingestellt - verwenden Sie REST-API-Cmdlets.`n`n"
+            $result += "4. Remote PowerShell (RPS) wurde eingestellt - verwenden Sie die REST-basierten Cmdlets.`n`n"
             $result += "Empfehlung: Aktualisieren Sie auf Exchange Online PowerShell V3 und verwenden Sie Connect-ExchangeOnline ohne -UseRPSSession.`n"
-            $result += "Weitere Informationen: https://m365scripts.com/news/rps-remote-powershell-retirement-in-exchange-online/"
+            $result += "Weitere Informationen: https://learn.microsoft.com/powershell/exchange/exchange-online-powershell-v2"
         }
         elseif ($errorMsg -like "*Benutzer nicht gefunden*" -or $errorMsg -like "*user not found*") {
             $result += "Der angegebene Benutzer konnte nicht gefunden werden. Mögliche Ursachen:`n"
@@ -796,7 +638,7 @@ function Start-ExchangeDiagnostic {
             $result += "4. Implementieren Sie eine Backoff-Strategie in Ihren Skripten.`n"
         }
         
-        return $result
+        return [PSCustomObject]@{ Success = $false; Text = $result }
     }
 }
 
@@ -842,7 +684,7 @@ function Initialize-TroubleshootingTab {
         }
         
         # Event-Handler für Diagnose-Button registrieren
-        Register-EventHandler -Control $btnRunDiagnostic -Handler {
+        $null = Register-EventHandler -Control $btnRunDiagnostic -Handler {
             try {
                 # Prüfen, ob eine Exchange-Verbindung besteht
                 if (-not $script:isConnected) {
@@ -867,25 +709,34 @@ function Initialize-TroubleshootingTab {
                 }
                 
                 $diagnosticIndex = $script:lstDiagnostics.SelectedItem.Index
-                $user = $script:txtDiagnosticUser.Text
-                $user2 = $script:txtDiagnosticUser2.Text
-                $email = $script:txtDiagnosticEmail.Text
+                $user = ([string]$script:txtDiagnosticUser.Text).Trim()
+                $user2 = ([string]$script:txtDiagnosticUser2.Text).Trim()
+                $email = ([string]$script:txtDiagnosticEmail.Text).Trim()
                 
                 Write-Log  "Führe Diagnose aus: Index=$diagnosticIndex, User=$user, User2=$user2, Email=$email" -Type "Info"
                 
-                $result = Start-ExchangeDiagnostic -DiagnosticIndex $diagnosticIndex -User $user -User2 $user2 -Email $email
+                Start-UIBusy -Message "Diagnose wird ausgeführt: $($script:lstDiagnostics.SelectedItem.Name)..." -Title "Diagnose"
+                try {
+                    $diagnosticResult = Start-ExchangeDiagnostic -DiagnosticIndex $diagnosticIndex -User $user -User2 $user2 -Email $email
+                }
+                finally {
+                    Stop-UIBusy
+                }
                 
                 if ($null -ne $script:txtDiagnosticResult) {
-                    $script:txtDiagnosticResult.Text = $result
-                    $script:txtStatus.Text = "Diagnose erfolgreich ausgeführt."
+                    $script:txtDiagnosticResult.Text = [string]$diagnosticResult.Text
+                }
+                if ($diagnosticResult.Success -eq $true) {
+                    Update-StatusBar -Message "Diagnose erfolgreich ausgeführt." -Type Success
+                }
+                else {
+                    Update-StatusBar -Message "Diagnose fehlgeschlagen oder mit Fehlern beendet - Details im Ergebnisfeld." -Type Error
                 }
             }
             catch {
                 $errorMsg = $_.Exception.Message
                 Write-Log  "Fehler bei der Diagnose: $errorMsg" -Type "Error"
-                if ($null -ne $script:txtStatus) {
-                $script:txtStatus.Text = "Fehler: $errorMsg"
-            }
+                Update-StatusBar -Message "Fehler: $errorMsg" -Type Error
                 
                 if ($null -ne $script:txtDiagnosticResult) {
                     $script:txtDiagnosticResult.Text = "Fehler bei der Diagnose: $errorMsg"

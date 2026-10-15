@@ -34,7 +34,7 @@ function Get-InboxRulesAction {
         $inboxRules = Get-InboxRule -Mailbox $UserIdentity -ErrorAction Stop
         
         # Daten für die Anzeige aufbereiten
-        $rulesForGrid = foreach ($rule in $inboxRules) {
+        $rulesForGrid = @(foreach ($rule in $inboxRules) {
             # Bedingungen sammeln
             $conditions = @()
             if ($rule.From) {
@@ -95,6 +95,7 @@ function Get-InboxRulesAction {
             # Objekt für DataGrid erstellen
             [PSCustomObject]@{
                 Identity = $rule.Identity
+                RuleIdentity = if ($null -ne $rule.RuleIdentity -and "$($rule.RuleIdentity)" -ne "") { "$($rule.RuleIdentity)" } else { "$($rule.Identity)" }
                 Name = $rule.Name
                 Description = $rule.Description
                 Enabled = $rule.Enabled
@@ -102,7 +103,7 @@ function Get-InboxRulesAction {
                 Conditions = $conditions -join '; '
                 Actions = $actions -join '; '
             }
-        }
+        })
         
         # Daten in das DataGrid laden
         if ($null -ne $script:dgInboxRules) {
@@ -132,6 +133,46 @@ function Get-InboxRulesAction {
         Log-Action "Fehler beim Abrufen der Inbox Rules für $UserIdentity - $errorMsg"
         return @()
     }
+}
+
+# Liefert die Regel-ID (RuleIdentity) einer Posteingangsregel. Die Identity von Get-InboxRule
+# enthält bereits das Postfach ("Postfach\Regel-ID") - für -Mailbox/-Identity wird nur die ID benötigt.
+function Get-InboxRuleIdPart {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RuleIdentity
+    )
+
+    $ruleId = $RuleIdentity.Trim()
+    $separatorIndex = $ruleId.LastIndexOf('\')
+    if ($separatorIndex -ge 0) {
+        $ruleId = $ruleId.Substring($separatorIndex + 1)
+    }
+    if ([string]::IsNullOrWhiteSpace($ruleId)) {
+        throw "Ungültige Regel-Identität: '$RuleIdentity'"
+    }
+    return $ruleId
+}
+
+# Wandelt einen Ordnerpfad aus Get-MailboxFolderStatistics ("/Posteingang/Unterordner") in das
+# für -MoveToFolder benötigte Format ("Posteingang\Unterordner") um.
+function ConvertTo-InboxRuleFolderPath {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FolderPath
+    )
+
+    $path = $FolderPath.Trim()
+    if ($path.StartsWith('/')) {
+        $path = $path.TrimStart('/').Replace('/', '\')
+        # Exchange stellt "/" in Ordnernamen als U+F8FF dar
+        $path = $path.Replace([string][char]0xF8FF, '/')
+    }
+    return $path.Trim('\')
 }
 
 function New-InboxRuleAction {
@@ -168,9 +209,10 @@ function New-InboxRuleAction {
             ErrorAction = "Stop"
         }
         
-        # Zielordner setzen (falls nicht Inbox)
-        if ($TargetFolder -ne "Inbox") {
-            $fullFolderPath = "$($UserIdentity):\$($TargetFolder)"
+        # Zielordner setzen (falls nicht Inbox); Format: "benutzer@domain:\Posteingang\Unterordner"
+        $folderPath = if ([string]::IsNullOrWhiteSpace($TargetFolder)) { "Inbox" } else { ConvertTo-InboxRuleFolderPath -FolderPath $TargetFolder }
+        if (-not [string]::IsNullOrWhiteSpace($folderPath) -and $folderPath -ne "Inbox") {
+            $fullFolderPath = "$($UserIdentity):\$($folderPath)"
             $ruleParams.Add("MoveToFolder", $fullFolderPath)
         }
         
@@ -180,7 +222,7 @@ function New-InboxRuleAction {
         }
         
         # Inbox Rule erstellen
-        $newRule = New-InboxRule @ruleParams
+        $null = New-InboxRule @ruleParams
         
         Write-Log "Inbox Rule '$RuleName' erfolgreich erstellt für $UserIdentity" -Type "Success"
         Log-Action "Inbox Rule erstellt: $RuleName für $UserIdentity"
@@ -216,12 +258,13 @@ function Set-InboxRuleStateAction {
             throw "Nicht mit Exchange Online verbunden."
         }
         
-        # Inbox Rule Status ändern - nur Identity verwenden (enthält bereits die Mailbox-Information)
+        # Inbox Rule Status ändern - Postfach und Regel-ID getrennt übergeben
+        $ruleId = Get-InboxRuleIdPart -RuleIdentity $RuleIdentity
         if ($Enabled) {
-            Enable-InboxRule -Identity "$UserIdentity\$RuleIdentity" -ErrorAction Stop
+            Enable-InboxRule -Mailbox $UserIdentity -Identity $ruleId -ErrorAction Stop
         }
         else {
-            Disable-InboxRule -Identity "$UserIdentity\$RuleIdentity" -ErrorAction Stop
+            Disable-InboxRule -Mailbox $UserIdentity -Identity $ruleId -ErrorAction Stop
         }
         
         Write-Log "Inbox Rule '$RuleIdentity' erfolgreich $state für $UserIdentity" -Type "Success"
@@ -255,8 +298,9 @@ function Remove-InboxRuleAction {
             throw "Nicht mit Exchange Online verbunden."
         }
         
-        # Inbox Rule löschen - nur Identity verwenden
-        Remove-InboxRule -Identity "$UserIdentity\$RuleIdentity" -Confirm:$false -ErrorAction Stop
+        # Inbox Rule löschen - Postfach und Regel-ID getrennt übergeben
+        $ruleId = Get-InboxRuleIdPart -RuleIdentity $RuleIdentity
+        Remove-InboxRule -Mailbox $UserIdentity -Identity $ruleId -Confirm:$false -ErrorAction Stop
         
         Write-Log "Inbox Rule '$RuleIdentity' erfolgreich gelöscht für $UserIdentity" -Type "Success"
         Log-Action "Inbox Rule '$RuleIdentity' wurde gelöscht für $UserIdentity"
@@ -294,8 +338,9 @@ function Move-InboxRuleAction {
         }
         
         # Aktuelle Regeln abrufen, um die Priorität zu bestimmen
-        $currentRules = Get-InboxRule -Mailbox $UserIdentity | Sort-Object Priority
-        $currentRule = $currentRules | Where-Object { $_.Identity -eq $RuleIdentity }
+        $ruleId = Get-InboxRuleIdPart -RuleIdentity $RuleIdentity
+        $currentRules = @(Get-InboxRule -Mailbox $UserIdentity -ErrorAction Stop | Sort-Object Priority)
+        $currentRule = $currentRules | Where-Object { "$($_.RuleIdentity)" -eq $ruleId -or "$($_.Identity)" -eq $RuleIdentity } | Select-Object -First 1
         
         if (-not $currentRule) {
             throw "Regel nicht gefunden: $RuleIdentity"
@@ -320,8 +365,8 @@ function Move-InboxRuleAction {
         }
         
         if ($newPriority -ne $currentPriority) {
-            # Inbox Rule Priorität ändern - nur Identity verwenden
-            Set-InboxRule -Identity "$UserIdentity\$RuleIdentity" -Priority $newPriority -ErrorAction Stop
+            # Inbox Rule Priorität ändern - Postfach und Regel-ID getrennt übergeben
+            Set-InboxRule -Mailbox $UserIdentity -Identity $ruleId -Priority $newPriority -ErrorAction Stop
             
             Write-Log "Inbox Rule '$RuleIdentity' erfolgreich $directionText verschoben für $UserIdentity" -Type "Success"
             Log-Action "Inbox Rule '$RuleIdentity' wurde $directionText verschoben für $UserIdentity (Priorität: $currentPriority -> $newPriority)"
@@ -330,7 +375,7 @@ function Move-InboxRuleAction {
         }
         else {
             Write-Log "Inbox Rule kann nicht weiter $directionText verschoben werden" -Type "Warning"
-            Show-MessageBox -Message "Die Regel befindet sich bereits ganz oben oder ganz unten in der Liste." -Title "Verschieben nicht möglich" -Type Info
+            $null = Show-MessageBox -Message "Die Regel befindet sich bereits ganz oben oder ganz unten in der Liste." -Title "Verschieben nicht möglich" -Type Info
             return $false
         }
     }
@@ -423,79 +468,6 @@ function Get-MailboxFoldersAction {
         Write-Log "Fehler beim Abrufen der Postfach-Ordner: $errorMsg" -Type "Error"
         Log-Action "Fehler beim Abrufen der Postfach-Ordner für $UserIdentity`: $errorMsg"
         return @()
-    }
-}
-
-function Refresh-InboxRuleUserDropdown {
-    [CmdletBinding()]
-    param()
-
-    try {
-        Write-Log "Aktualisiere Benutzerliste für Inbox Rules" -Type "Info"
-        
-        # Sicherstellen, dass das ComboBox-Element über den $script-Scope verfügbar ist
-        if ($null -eq $script:cmbInboxRuleUser) {
-            $script:cmbInboxRuleUser = Get-XamlElement -ElementName "cmbInboxRuleUser"
-            if ($null -eq $script:cmbInboxRuleUser) {
-                $errorMsg = "ComboBox 'cmbInboxRuleUser' konnte nicht gefunden werden."
-                Write-Log $errorMsg -Type "Error"
-                Show-MessageBox -Message $errorMsg -Title "UI Fehler" -Type Error
-                return
-            }
-        }
-
-        $script:cmbInboxRuleUser.Dispatcher.Invoke({
-            $script:cmbInboxRuleUser.ItemsSource = $null
-            $script:cmbInboxRuleUser.Items.Clear()
-        }, "Normal") | Out-Null
-        
-        if (-not $script:isConnected) {
-            Write-Log "Keine Exchange-Verbindung für Benutzerabfrage" -Type "Warning"
-            return $false
-        }
-        
-        # Alle Postfächer abrufen
-        $mailboxes = Get-Mailbox -ResultSize Unlimited | 
-                     Where-Object { $_.RecipientTypeDetails -eq "UserMailbox" } |
-                     Select-Object DisplayName, PrimarySmtpAddress |
-                     Sort-Object DisplayName
-
-        $script:cmbInboxRuleUser.Dispatcher.Invoke({
-            if ($null -ne $mailboxes -and $mailboxes.Count -gt 0) {
-                foreach ($mailbox in $mailboxes) {
-                    $item = New-Object System.Windows.Controls.ComboBoxItem
-                    $item.Content = "$($mailbox.DisplayName) ($($mailbox.PrimarySmtpAddress))"
-                    $item.Tag = $mailbox.PrimarySmtpAddress
-                    $item.ToolTip = "E-Mail: $($mailbox.PrimarySmtpAddress)"
-                    [void]$script:cmbInboxRuleUser.Items.Add($item)
-                }
-
-                if ($script:cmbInboxRuleUser.Items.Count -gt 0) {
-                    $script:cmbInboxRuleUser.SelectedIndex = -1 # Keine Auswahl
-                }
-                
-                $statusMsg = "Benutzerliste aktualisiert: $($mailboxes.Count) Benutzer geladen."
-                Write-Log $statusMsg -Type "Success"
-                Update-GuiText -TextElement $script:txtStatus -Message $statusMsg
-            }
-            else {
-                $statusMsg = "Keine Benutzerpostfächer gefunden."
-                Write-Log $statusMsg -Type "Warning"
-                Update-GuiText -TextElement $script:txtStatus -Message $statusMsg
-                
-                $placeholderItem = New-Object System.Windows.Controls.ComboBoxItem
-                $placeholderItem.Content = "-- Keine Postfächer gefunden --"
-                $placeholderItem.IsEnabled = $false
-                [void]$script:cmbInboxRuleUser.Items.Add($placeholderItem)
-            }
-        }, "Normal") | Out-Null
-        return $true
-    }
-    catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log "Fehler beim Aktualisieren der Benutzerliste für Inbox Rules: $errorMsg" -Type "Error"
-        Show-MessageBox -Message "Fehler beim Laden der Benutzer: $errorMsg" -Title "Fehler" -Type Error
-        return $false
     }
 }
 
@@ -599,7 +571,12 @@ function Initialize-InboxRulesTab {
 
                 $ruleName = $script:txtInboxRuleName.Text.Trim()
                 $fromAddress = $script:txtFromAddress.Text.Trim()
-                $targetFolder = if ($null -ne $script:cmbTargetFolder.SelectedItem) { $script:cmbTargetFolder.SelectedItem.Content.ToString() } else { "Inbox" }
+                # Tag enthält den Ordnerpfad (z. B. "/Posteingang/VIP"), Content nur den Anzeigetext
+                $targetFolder = "Inbox"
+                $selectedFolder = $script:cmbTargetFolder.SelectedItem
+                if ($null -ne $selectedFolder) {
+                    $targetFolder = if (-not [string]::IsNullOrWhiteSpace([string]$selectedFolder.Tag)) { [string]$selectedFolder.Tag } else { [string]$selectedFolder.Content }
+                }
                 $markAsRead = $script:chkMarkAsRead.IsChecked
 
                 $result = New-InboxRuleAction -UserIdentity $userIdentity -RuleName $ruleName -FromAddress $fromAddress -TargetFolder $targetFolder -MarkAsRead $markAsRead
@@ -662,7 +639,7 @@ function Initialize-InboxRulesTab {
                     return
                 }
 
-                $result = Set-InboxRuleStateAction -UserIdentity $userIdentity -RuleIdentity $selectedRule.Identity -Enabled $true
+                $result = Set-InboxRuleStateAction -UserIdentity $userIdentity -RuleIdentity $selectedRule.RuleIdentity -Enabled $true
 
                 if ($result) {
                     $script:txtStatus.Text = "Inbox Rule '$($selectedRule.Name)' wurde aktiviert."
@@ -696,7 +673,7 @@ function Initialize-InboxRulesTab {
                     return
                 }
 
-                $result = Set-InboxRuleStateAction -UserIdentity $userIdentity -RuleIdentity $selectedRule.Identity -Enabled $false
+                $result = Set-InboxRuleStateAction -UserIdentity $userIdentity -RuleIdentity $selectedRule.RuleIdentity -Enabled $false
 
                 if ($result) {
                     $script:txtStatus.Text = "Inbox Rule '$($selectedRule.Name)' wurde deaktiviert."
@@ -733,7 +710,7 @@ function Initialize-InboxRulesTab {
                         return
                     }
 
-                    $result = Remove-InboxRuleAction -UserIdentity $userIdentity -RuleIdentity $selectedRule.Identity
+                    $result = Remove-InboxRuleAction -UserIdentity $userIdentity -RuleIdentity $selectedRule.RuleIdentity
 
                     if ($result) {
                         $script:txtStatus.Text = "Inbox Rule '$($selectedRule.Name)' wurde gelöscht."
@@ -768,7 +745,7 @@ function Initialize-InboxRulesTab {
                     return
                 }
 
-                $result = Move-InboxRuleAction -UserIdentity $userIdentity -RuleIdentity $selectedRule.Identity -Direction "Up"
+                $result = Move-InboxRuleAction -UserIdentity $userIdentity -RuleIdentity $selectedRule.RuleIdentity -Direction "Up"
 
                 if ($result) {
                     $script:txtStatus.Text = "Inbox Rule '$($selectedRule.Name)' wurde nach oben verschoben."
@@ -802,7 +779,7 @@ function Initialize-InboxRulesTab {
                     return
                 }
 
-                $result = Move-InboxRuleAction -UserIdentity $userIdentity -RuleIdentity $selectedRule.Identity -Direction "Down"
+                $result = Move-InboxRuleAction -UserIdentity $userIdentity -RuleIdentity $selectedRule.RuleIdentity -Direction "Down"
 
                 if ($result) {
                     $script:txtStatus.Text = "Inbox Rule '$($selectedRule.Name)' wurde nach unten verschoben."

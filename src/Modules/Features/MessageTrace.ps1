@@ -11,6 +11,33 @@
 # Abschnitt: MessageTrace-Funktionen
 # -------------------------------------------------
 
+# Maximale Anzahl Ergebnisse pro Abfrage (Get-MessageTraceV2: -ResultSize, Get-MessageTrace: -PageSize)
+$script:MessageTraceResultLimit = 5000
+
+# Formatiert einen Zeitstempel der Nachrichtenverfolgung (UTC) in lokaler Zeit
+function Format-MessageTraceLocalTime {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $false)]
+        $Value
+    )
+
+    if ($null -eq $Value -or "$Value" -eq "") { return "-" }
+    $dateValue = [datetime]::MinValue
+    if ($Value -is [datetime]) {
+        $dateValue = $Value
+    }
+    elseif (-not [datetime]::TryParse("$Value", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AdjustToUniversal -bor [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$dateValue)) {
+        return "$Value"
+    }
+    # Exchange liefert UTC; nur nicht bereits lokale Werte umrechnen
+    if ($dateValue.Kind -ne [System.DateTimeKind]::Local) {
+        $dateValue = [datetime]::SpecifyKind($dateValue, [System.DateTimeKind]::Utc).ToLocalTime()
+    }
+    return $dateValue.ToString('dd.MM.yyyy HH:mm:ss')
+}
+
 function Start-MessageTraceAction {
     [CmdletBinding()]
     param()
@@ -36,8 +63,14 @@ function Start-MessageTraceAction {
         }
     }
     if (-not [string]::IsNullOrWhiteSpace($script:txtTraceMessageId.Text)) { $params.MessageId = $script:txtTraceMessageId.Text.Trim() }
-    if ($null -ne $script:dpTraceStart.SelectedDate) { $params.StartDate = $script:dpTraceStart.SelectedDate }
-    if ($null -ne $script:dpTraceEnd.SelectedDate) { $params.EndDate = $script:dpTraceEnd.SelectedDate }
+    if ($null -ne $script:dpTraceStart.SelectedDate) { $params.StartDate = $script:dpTraceStart.SelectedDate.Date }
+    if ($null -ne $script:dpTraceEnd.SelectedDate) {
+        # DatePicker liefert Mitternacht - den End-Tag vollständig einschließen (höchstens bis jetzt)
+        $endDate = $script:dpTraceEnd.SelectedDate.Date.AddDays(1)
+        $now = Get-Date
+        if ($endDate -gt $now) { $endDate = $now }
+        $params.EndDate = $endDate
+    }
     
     $selectedStatus = $script:cmbTraceStatus.SelectedItem.Content
     if ($selectedStatus -ne "Alle") {
@@ -58,35 +91,66 @@ function Start-MessageTraceAction {
         }
     }
 
+    if ($params.ContainsKey('StartDate') -and $params.ContainsKey('EndDate') -and $params.EndDate -le $params.StartDate) {
+        Show-MessageBox -Message "Das Enddatum muss nach dem Startdatum liegen." -Title "Ungültiger Zeitraum" -Type "Warning"
+        Update-StatusBar -Message "Nachrichtensuche abgebrochen: ungültiger Zeitraum." -Type "Warning"
+        return
+    }
+
+    # Der End-Tag zählt vollständig mit (Ende = folgender Tag 00:00 bzw. jetzt)
     if ($useTraceV2 -and $params.ContainsKey('StartDate') -and $params.ContainsKey('EndDate') -and
         (($params.EndDate - $params.StartDate).TotalDays -gt 10)) {
-        Show-MessageBox -Message "Get-MessageTraceV2 unterstützt maximal 10 Tage pro Abfrage. Bitte den Zeitraum verkleinern." -Title "Zeitraum zu groß" -Type "Warning"
+        Show-MessageBox -Message "Get-MessageTraceV2 unterstützt maximal 10 Tage pro Abfrage (einschließlich End-Tag). Bitte den Zeitraum verkleinern." -Title "Zeitraum zu groß" -Type "Warning"
         Update-StatusBar -Message "Nachrichtensuche abgebrochen: Zeitraum größer als 10 Tage." -Type "Warning"
         return
     }
 
+    if ($useTraceV2) {
+        $params.ResultSize = $script:MessageTraceResultLimit
+    } else {
+        $params.PageSize = $script:MessageTraceResultLimit
+    }
+
+    $traceResults = @()
+    $limitReached = $false
+    Start-UIBusy -Message "Nachrichtensuche läuft..." -Title "Nachrichtenverfolgung" -Cancelable
     try {
         if ($useTraceV2) {
-            $traceResults = @(Get-MessageTraceV2 @params)
+            $traceResults = @(Get-MessageTraceV2 @params | Step-UIProgress -Activity "Lade Nachrichten")
         } else {
-            $traceResults = @(Get-MessageTrace @params)
+            $traceResults = @(Get-MessageTrace @params | Step-UIProgress -Activity "Lade Nachrichten")
+        }
+        # Limit vor dem clientseitigen Betreff-Filter prüfen
+        $limitReached = $traceResults.Count -ge $script:MessageTraceResultLimit
+        if (-not $useTraceV2 -and $subjectFilter) {
             # Get-MessageTrace kennt keinen -Subject-Parameter - daher clientseitig filtern
-            if ($subjectFilter) {
-                $traceResults = @($traceResults | Where-Object { $_.Subject -like "*$subjectFilter*" })
-            }
+            $traceResults = @($traceResults | Where-Object { $_.Subject -like "*$subjectFilter*" })
         }
     } catch {
+        if ($script:UICancelRequested -or $_.Exception -is [System.OperationCanceledException]) {
+            Write-Log "Nachrichtensuche vom Benutzer abgebrochen." -Type "Info"
+            Update-StatusBar -Message "Nachrichtensuche abgebrochen." -Type "Warning"
+            return
+        }
         $errorMsg = $_.Exception.Message
         Write-Log "Fehler bei der Nachrichtensuche: $errorMsg" -Type "Error"
         Update-StatusBar -Message "Fehler bei der Nachrichtensuche: $errorMsg" -Type "Error"
         Show-MessageBox -Message "Fehler bei der Nachrichtensuche: $errorMsg" -Title "Fehler" -Type "Error"
         return
+    } finally {
+        Stop-UIBusy
     }
     
     $script:dgMessageTrace.ItemsSource = $traceResults
-    $resultCount = if ($null -ne $traceResults) { $traceResults.Count } else { 0 }
+    $resultCount = $traceResults.Count
     $script:txtTraceCount.Text = "Results: $resultCount"
-    Update-StatusBar -Message "Nachrichtensuche abgeschlossen. $resultCount Ergebnis(se) gefunden." -Type "Success"
+    if ($limitReached) {
+        $limitMsg = "Nachrichtensuche abgeschlossen. $resultCount Ergebnis(se) angezeigt - das Limit von $($script:MessageTraceResultLimit) Einträgen wurde erreicht, es gibt möglicherweise weitere Nachrichten. Bitte Filter oder Zeitraum eingrenzen."
+        Write-Log $limitMsg -Type "Warning"
+        Update-StatusBar -Message $limitMsg -Type "Warning"
+    } else {
+        Update-StatusBar -Message "Nachrichtensuche abgeschlossen. $resultCount Ergebnis(se) gefunden." -Type "Success"
+    }
 }
 
 function Export-MessageTraceAction {
@@ -151,7 +215,7 @@ function Show-DetailedMessageTraceAction {
         $detailString += "Nachrichtengröße: $($selectedTrace.Size) Bytes ($([math]::Round($selectedTrace.Size/1024, 2)) KB)`n"
         $detailString += "Status: $($selectedTrace.Status)`n"
         $detailString += "Empfangen: $($selectedTrace.Received) (UTC)`n"
-        $detailString += "Lokale Zeit: $(Get-Date $selectedTrace.Received -Format 'dd.MM.yyyy HH:mm:ss')`n"
+        $detailString += "Lokale Zeit: $(Format-MessageTraceLocalTime -Value $selectedTrace.Received)`n"
         $detailString += "Message-ID: $($selectedTrace.MessageId)`n"
         $detailString += "Message Trace ID: $($selectedTrace.MessageTraceId)`n"
         
@@ -197,23 +261,23 @@ function Show-DetailedMessageTraceAction {
             $totalEvents = $details.Count
             $detailString += "Anzahl der verfolgten Ereignisse: $totalEvents`n`n"
             
-            foreach ($event in $details) {
+            foreach ($traceEvent in $details) {
                 $detailString += "┌─ EREIGNIS $eventCounter von $totalEvents ─────────────────────────────────────┐`n"
-                $detailString += "│ Zeitstempel: $($event.Date) (UTC)`n"
-                $detailString += "│ Lokale Zeit: $(Get-Date $event.Date -Format 'dd.MM.yyyy HH:mm:ss')`n"
-                $detailString += "│ Ereignistyp: $($event.Event)`n"
-                $detailString += "│ Durchgeführte Aktion: $($event.Action)`n"
-                $detailString += "│ Detailbeschreibung: $($event.Detail)`n"
+                $detailString += "│ Zeitstempel: $($traceEvent.Date) (UTC)`n"
+                $detailString += "│ Lokale Zeit: $(Format-MessageTraceLocalTime -Value $traceEvent.Date)`n"
+                $detailString += "│ Ereignistyp: $($traceEvent.Event)`n"
+                $detailString += "│ Durchgeführte Aktion: $($traceEvent.Action)`n"
+                $detailString += "│ Detailbeschreibung: $($traceEvent.Detail)`n"
                 
                 # Alle verfügbaren Event-Eigenschaften
-                $event.PSObject.Properties | ForEach-Object {
+                $traceEvent.PSObject.Properties | ForEach-Object {
                     if ($_.Name -notin @('Date', 'Event', 'Action', 'Detail') -and $null -ne $_.Value -and $_.Value -ne "") {
                         $detailString += "│ $($_.Name): $($_.Value)`n"
                     }
                 }
                 
                 # Ereignis-spezifische Analyse
-                switch ($event.Event) {
+                switch ($traceEvent.Event) {
                     "RECEIVE" { $detailString += "│ ► Nachricht wurde vom Exchange-System empfangen`n" }
                     "SEND" { $detailString += "│ ► Nachricht wurde vom Exchange-System gesendet`n" }
                     "DELIVER" { $detailString += "│ ► Nachricht wurde erfolgreich zugestellt`n" }
@@ -303,7 +367,7 @@ function Show-DetailedMessageTraceAction {
         # Erstelle ein erweitertes Fenster für die umfassende Anzeige
         $xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="Umfassende Nachrichtenverfolgung - $($selectedTrace.Subject)" Height="800" Width="1200" WindowStartupLocation="CenterScreen">
+        Title="Umfassende Nachrichtenverfolgung" Height="800" Width="1200" WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -311,23 +375,23 @@ function Show-DetailedMessageTraceAction {
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
-        <Border Grid.Row="0" Background="#2C3E50" Padding="10">
+        <Border Grid.Row="0" Background="{DynamicResource HeaderBackgroundBrush}" Padding="10">
             <TextBlock Text="Umfassende Nachrichtenverfolgung - Maximale Detailtiefe" 
-                       Foreground="White" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+                       Foreground="{DynamicResource HeaderTextBrush}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
         </Border>
         
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10">
             <TextBox TextWrapping="NoWrap" IsReadOnly="True" Name="txtDetails" FontFamily="Consolas" FontSize="10" 
-                     Background="#F8F8F8" Padding="15" BorderThickness="1" BorderBrush="#BDC3C7"
+                     Background="{DynamicResource SurfaceAltBrush}" Padding="15" BorderThickness="1" BorderBrush="{DynamicResource ControlBorderBrush}"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </ScrollViewer>
         
-        <Border Grid.Row="2" Background="#ECF0F1" Padding="10">
+        <Border Grid.Row="2" Background="{DynamicResource SurfaceHoverBrush}" Padding="10">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Name="btnCopyToClipboard" Content="📋 In Zwischenablage kopieren" Padding="10,5" Margin="5" Background="#3498DB" Foreground="White"/>
-                <Button Name="btnSaveToFile" Content="💾 Als Datei speichern" Padding="10,5" Margin="5" Background="#27AE60" Foreground="White"/>
-                <Button Name="btnPrint" Content="🖨️ Drucken" Padding="10,5" Margin="5" Background="#F39C12" Foreground="White"/>
-                <Button Name="btnClose" Content="❌ Schließen" Padding="10,5" Margin="5" Background="#E74C3C" Foreground="White"/>
+                <Button Name="btnCopyToClipboard" Content="📋 In Zwischenablage kopieren" Padding="10,5" Margin="5" Style="{DynamicResource SecondaryButton}"/>
+                <Button Name="btnSaveToFile" Content="💾 Als Datei speichern" Padding="10,5" Margin="5" Style="{DynamicResource SecondaryButton}"/>
+                <Button Name="btnPrint" Content="🖨️ Drucken" Padding="10,5" Margin="5" Style="{DynamicResource SecondaryButton}"/>
+                <Button Name="btnClose" Content="❌ Schließen" Padding="10,5" Margin="5"/>
             </StackPanel>
         </Border>
     </Grid>
@@ -336,6 +400,9 @@ function Show-DetailedMessageTraceAction {
         
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]::new($xaml))
         $window = [System.Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $window
+        # Betreff erst nach dem Laden setzen - externe Daten nie in das XAML-Markup einfügen (XAML-Injection)
+        $window.Title = "Umfassende Nachrichtenverfolgung - $($selectedTrace.Subject)"
         $txtDetails = $window.FindName("txtDetails")
         $btnCopyToClipboard = $window.FindName("btnCopyToClipboard")
         $btnSaveToFile = $window.FindName("btnSaveToFile")

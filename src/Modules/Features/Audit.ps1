@@ -7,6 +7,29 @@
 # Nicht direkt ausführen.
 # =====================================================================
 
+# Prüft, ob eine Domain einer akzeptierten (internen) Domain entspricht oder deren Subdomain ist.
+# Exakter Vergleich statt Teilstring-Suche, damit z.B. "contoso.com.evil.net" nicht als intern gilt.
+function Test-AuditInternalDomain {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [AllowEmptyString()]
+        [string]$Domain,
+
+        [AllowEmptyCollection()]
+        [object[]]$InternalDomains
+    )
+
+    $candidate = ([string]$Domain).Trim().TrimEnd('.', '>', ']').ToLowerInvariant()
+    if ([string]::IsNullOrEmpty($candidate)) { return $false }
+    foreach ($internalDomain in @($InternalDomains)) {
+        $internal = ([string]$internalDomain).Trim().TrimStart('*', '.').TrimEnd('.').ToLowerInvariant()
+        if ([string]::IsNullOrEmpty($internal)) { continue }
+        if ($candidate -eq $internal -or $candidate.EndsWith(".$internal")) { return $true }
+    }
+    return $false
+}
+
 function Get-MailboxAuditConfigForUser {
     [CmdletBinding()]
     param (
@@ -58,8 +81,14 @@ function Get-MailboxAuditConfigForUser {
                     $result += "⚠️ Fehlende empfohlene Benutzer-Audit-Aktionen: $($missingOwnerActions -join ', ')`n"
                 }
                 
-                if ($mailboxObj.AuditLogAgeLimit -lt "180.00:00:00") {
-                    $result += "⚠️ Audit-Aufbewahrungszeitraum ist kürzer als empfohlen. Aktuell: $($mailboxObj.AuditLogAgeLimit), Empfohlen: 180 Tage oder mehr.`n"
+                try {
+                    $auditLogAge = [TimeSpan]::Parse([string]$mailboxObj.AuditLogAgeLimit, [System.Globalization.CultureInfo]::InvariantCulture)
+                    if ($auditLogAge.TotalDays -lt 180) {
+                        $result += "⚠️ Audit-Aufbewahrungszeitraum ist kürzer als empfohlen. Aktuell: $($mailboxObj.AuditLogAgeLimit), Empfohlen: 180 Tage oder mehr.`n"
+                    }
+                }
+                catch {
+                    $result += "⚠️ Audit-Aufbewahrungszeitraum konnte nicht ausgewertet werden (Wert: '$($mailboxObj.AuditLogAgeLimit)'). Empfohlen: 180 Tage oder mehr.`n"
                 }
                 
                 return $result
@@ -109,13 +138,13 @@ function Get-MailboxAuditConfigForUser {
             4 { # Audit-Konfiguration anpassen
                 $result = "### Audit-Konfigurationsbefehle für Postfach: $($mailboxObj.DisplayName)`n`n"
                 $result += "Um Audit zu aktivieren und alle empfohlenen Einstellungen vorzunehmen, können Sie folgende PowerShell-Befehle verwenden:`n`n"
-                $result += "```powershell`n"
+                $result += '```powershell' + "`n"
                 $result += "Set-Mailbox -Identity '$Mailbox' -AuditEnabled `$true`n"
                 $result += "Set-Mailbox -Identity '$Mailbox' -AuditAdmin Copy,Create,FolderBind,HardDelete,MessageBind,Move,MoveToDeletedItems,SendAs,SendOnBehalf,SoftDelete,Update`n"
                 $result += "Set-Mailbox -Identity '$Mailbox' -AuditDelegate FolderBind,SendAs,SendOnBehalf,SoftDelete,HardDelete,Update,Move,MoveToDeletedItems`n"
                 $result += "Set-Mailbox -Identity '$Mailbox' -AuditOwner HardDelete,SoftDelete,Update,Move,MoveToDeletedItems`n"
                 $result += "Set-Mailbox -Identity '$Mailbox' -AuditLogAgeLimit 180`n"
-                $result += "```"
+                $result += '```'
                 
                 return $result
             }
@@ -252,7 +281,7 @@ function Get-MailboxForwardingForUser {
                 
                 # Liste der internen Domains abrufen
                 try {
-                    $internalDomains = (Get-AcceptedDomain).DomainName
+                    $internalDomains = @((Get-AcceptedDomain -ErrorAction Stop).DomainName | ForEach-Object { [string]$_ })
                     $result += "Interne Domains für E-Mail-Weiterleitungs-Analyse:`n"
                     foreach ($domain in $internalDomains) {
                         $result += "- $domain`n"
@@ -265,15 +294,8 @@ function Get-MailboxForwardingForUser {
                 
                 # Überprüfe ForwardingSmtpAddress auf externe Weiterleitung
                 if (-not [string]::IsNullOrEmpty($mailboxObj.ForwardingSmtpAddress)) {
-                    $forwardingDomain = ($mailboxObj.ForwardingSmtpAddress -split "@")[1].TrimEnd(">")
-                    $isExternal = $true
-                    
-                    foreach ($domain in $internalDomains) {
-                        if ($forwardingDomain -like "*$domain*") {
-                            $isExternal = $false
-                            break
-                        }
-                    }
+                    $forwardingDomain = ([string](([string]$mailboxObj.ForwardingSmtpAddress -split "@")[-1])).Trim().TrimEnd(">")
+                    $isExternal = -not (Test-AuditInternalDomain -Domain $forwardingDomain -InternalDomains $internalDomains)
                     
                     if ($isExternal) {
                         $result += "⚠️ EXTERNE WEITERLEITUNG GEFUNDEN!`n"
@@ -302,17 +324,11 @@ function Get-MailboxForwardingForUser {
                             if (-not [string]::IsNullOrEmpty($rule.RedirectTo)) { $destinations += $rule.RedirectTo }
                             
                             foreach ($dest in $destinations) {
-                                if ($dest -match "SMTP:([^@]+@([^>]+))") {
+                                if ($dest -match "SMTP:([^@\s]+@([^>\]\s]+))") {
                                     $email = $matches[1]
                                     $domain = $matches[2]
                                     
-                                    $isExternal = $true
-                                    foreach ($intDomain in $internalDomains) {
-                                        if ($domain -like "*$intDomain*") {
-                                            $isExternal = $false
-                                            break
-                                        }
-                                    }
+                                    $isExternal = -not (Test-AuditInternalDomain -Domain $domain -InternalDomains $internalDomains)
                                     
                                     if ($isExternal) {
                                         $externalRules += [PSCustomObject]@{
@@ -354,9 +370,9 @@ function Get-MailboxForwardingForUser {
                 if (-not [string]::IsNullOrEmpty($mailboxObj.ForwardingAddress) -or -not [string]::IsNullOrEmpty($mailboxObj.ForwardingSmtpAddress)) {
                     $hasForwarding = $true
                     $result += "Befehl zum Entfernen der Postfach-Weiterleitung:`n`n"
-                    $result += "```powershell`n"
+                    $result += '```powershell' + "`n"
                     $result += "Set-Mailbox -Identity '$Mailbox' -ForwardingAddress `$null -ForwardingSmtpAddress `$null`n"
-                    $result += "```\n\n"
+                    $result += '```' + "`n`n"
                 }
                 
                 # Inbox-Regeln überprüfen und Befehle zum Entfernen erstellen
@@ -370,14 +386,14 @@ function Get-MailboxForwardingForUser {
                     if ($inboxRules -and $inboxRules.Count -gt 0) {
                         $hasForwarding = $true
                         $result += "Befehle zum Entfernen der Weiterleitungsregeln:`n`n"
-                        $result += "```powershell`n"
+                        $result += '```powershell' + "`n"
                         
                         foreach ($rule in $inboxRules) {
-                            $result += "# Regel '${$rule.Name}' entfernen`n"
+                            $result += "# Regel '$($rule.Name)' entfernen`n"
                             $result += "Remove-InboxRule -Identity '$($rule.Identity)' -Confirm:`$false`n`n"
                         }
                         
-                        $result += "```\n\n"
+                        $result += '```' + "`n`n"
                     }
                 } catch {
                     $result += "⚠️ Fehler beim Prüfen der Inbox-Regeln: $($_.Exception.Message)`n"
@@ -393,9 +409,7 @@ function Get-MailboxForwardingForUser {
                 $result = "### Transport-Regeln und Externe Weiterleitungen für: $($mailboxObj.DisplayName)`n`n"
                 
                 # Postfach-Weiterleitungen prüfen
-                $hasMailboxForwarding = $false
                 if (-not [string]::IsNullOrEmpty($mailboxObj.ForwardingAddress) -or -not [string]::IsNullOrEmpty($mailboxObj.ForwardingSmtpAddress)) {
-                    $hasMailboxForwarding = $true
                     $result += "⚠️ Postfach hat aktive Weiterleitungen konfiguriert`n`n"
                 }
                 
@@ -403,14 +417,15 @@ function Get-MailboxForwardingForUser {
                 try {
                     $result += "Organisationsweite Transport-Regeln, die E-Mails umleiten (kann alle Benutzer betreffen):`n`n"
                     
-                    $transportRules = Get-TransportRule -ErrorAction Stop | Where-Object {
-                        $_.RedirectMessageTo -ne $null -or 
-                        $_.BlindCopyTo -ne $null -or 
-                        $_.CopyTo -ne $null -or
-                        $_.AddToRecipients -ne $null -or
-                        $_.AddBcc -ne $null -or
-                        $_.AddCc -ne $null
-                    }
+                    # Regeln mit mindestens einem (nicht leeren) Umleitungs-/Kopieempfänger
+                    $transportRules = @(Get-TransportRule -ErrorAction Stop | Where-Object {
+                        @($_.RedirectMessageTo).Where({ $_ }).Count -gt 0 -or
+                        @($_.BlindCopyTo).Where({ $_ }).Count -gt 0 -or
+                        @($_.CopyTo).Where({ $_ }).Count -gt 0 -or
+                        @($_.AddToRecipients).Where({ $_ }).Count -gt 0 -or
+                        @($_.AddBcc).Where({ $_ }).Count -gt 0 -or
+                        @($_.AddCc).Where({ $_ }).Count -gt 0
+                    })
                     
                     if ($transportRules -and $transportRules.Count -gt 0) {
                         foreach ($rule in $transportRules) {
@@ -682,8 +697,12 @@ function Get-MailboxStatisticsForUser {
     )
     
     try {
-        # Mailbox-Statistiken abrufen
-        $stats = Get-MailboxStatistics -Identity $Mailbox -ErrorAction Stop
+        # Mailbox-Statistiken nur abrufen, wenn sie benötigt werden
+        # (Typ 2 nutzt Ordnerstatistiken, Typ 4/5 fragen erweiterte Statistiken selbst ab)
+        $stats = $null
+        if ($InfoType -in 1, 3) {
+            $stats = Get-MailboxStatistics -Identity $Mailbox -ErrorAction Stop
+        }
         
         switch ($InfoType) {
             1 { # Größeninformationen
@@ -701,12 +720,15 @@ function Get-MailboxStatisticsForUser {
                 $result += "Die Ordnerinformationen werden gesammelt...`n`n"
                 
                 try {
-                    $folders = Get-MailboxFolderStatistics -Identity $Mailbox -ErrorAction Stop
+                    $folders = @(Get-MailboxFolderStatistics -Identity $Mailbox -ErrorAction Stop)
                     $result += "Anzahl der Ordner: $($folders.Count)`n`n"
                     $result += "Top 15 Ordner nach Größe:`n"
                     $result += "----------------------------`n"
-                    $folders | Sort-Object -Property FolderSize -Descending | Select-Object -First 15 | ForEach-Object {
-                        $result += "$($_.Name): $($_.FolderSize) ($($_.ItemsInFolder) Elemente)`n"
+                    # FolderSize ist (deserialisiert) eine Zeichenfolge wie "1.2 GB (1,288,490,188 bytes)" - nach Bytes sortieren
+                    $folderSizeBytes = @{ Expression = { $bytes = ConvertTo-ReportByteCount -Size $_.FolderSize; if ($null -eq $bytes) { [double]0 } else { $bytes } } }
+                    $topFolders = @($folders | Sort-Object -Property $folderSizeBytes -Descending | Select-Object -First 15)
+                    foreach ($folder in $topFolders) {
+                        $result += "$($folder.Name): $($folder.FolderSize) ($($folder.ItemsInFolder) Elemente)`n"
                     }
                 }
                 catch {
@@ -719,7 +741,6 @@ function Get-MailboxStatisticsForUser {
                 $result = "### Nutzungsstatistiken für Postfach: $($stats.DisplayName)`n`n"
                 $result += "Letzte Anmeldung: $($stats.LastLogonTime)`n"
                 $result += "Letzte Abmeldung: $($stats.LastLogoffTime)`n"
-                $result += "Zugriffe gesamt: $($stats.LogonCount)`n"
                 
                 $daysInactiveSinceLogon = $null
                 if ($stats.LastLogonTime) {
@@ -796,12 +817,12 @@ function Get-MailboxPermissionsSummary {
                 $result = "### Postfach-Berechtigungen für: $Mailbox`n`n"
                 
                 try {
-                    $permissions = Get-MailboxPermission -Identity $Mailbox | Where-Object {
+                    $permissions = @(Get-MailboxPermission -Identity $Mailbox -ErrorAction Stop | Where-Object {
                         $_.User -notlike "NT AUTHORITY\SELF" -and
                         $_.User -notlike "S-1-5*" -and 
                         $_.User -notlike "NT AUTHORITY\SYSTEM" -and
                         $_.IsInherited -eq $false
-                    }
+                    })
                     
                     if ($permissions.Count -gt 0) {
                         $result += "**Direkte Berechtigungen:**`n"
@@ -824,11 +845,11 @@ function Get-MailboxPermissionsSummary {
                 $result = "### SendAs-Berechtigungen für: $Mailbox`n`n"
                 
                 try {
-                    $sendAsPermissions = Get-RecipientPermission -Identity $Mailbox | Where-Object {
+                    $sendAsPermissions = @(Get-RecipientPermission -Identity $Mailbox -ErrorAction Stop | Where-Object {
                         $_.Trustee -notlike "NT AUTHORITY\SELF" -and
                         $_.Trustee -notlike "S-1-5*" -and 
                         $_.Trustee -notlike "NT AUTHORITY\SYSTEM"
-                    }
+                    })
                     
                     if ($sendAsPermissions.Count -gt 0) {
                         $result += "**SendAs-Berechtigungen:**`n"
@@ -851,7 +872,7 @@ function Get-MailboxPermissionsSummary {
                 $result = "### SendOnBehalf-Berechtigungen für: $Mailbox`n`n"
                 
                 try {
-                    $mailboxObj = Get-Mailbox -Identity $Mailbox
+                    $mailboxObj = Get-Mailbox -Identity $Mailbox -ErrorAction Stop
                     $onBehalfPermissions = $mailboxObj.GrantSendOnBehalfTo
                     
                     if ($onBehalfPermissions -and $onBehalfPermissions.Count -gt 0) {
@@ -925,12 +946,12 @@ function Get-MailboxPermissionsSummary {
                 # Postfach-Berechtigungen
                 $result += "#### Postfach-Berechtigungen`n"
                 try {
-                    $permissions = Get-MailboxPermission -Identity $Mailbox | Where-Object {
+                    $permissions = @(Get-MailboxPermission -Identity $Mailbox -ErrorAction Stop | Where-Object {
                         $_.User -notlike "NT AUTHORITY\SELF" -and
                         $_.User -notlike "S-1-5*" -and 
                         $_.User -notlike "NT AUTHORITY\SYSTEM" -and
                         $_.IsInherited -eq $false
-                    }
+                    })
                     
                     if ($permissions.Count -gt 0) {
                         foreach ($perm in $permissions) {
@@ -948,11 +969,11 @@ function Get-MailboxPermissionsSummary {
                 # SendAs-Berechtigungen
                 $result += "`n#### SendAs-Berechtigungen`n"
                 try {
-                    $sendAsPermissions = Get-RecipientPermission -Identity $Mailbox | Where-Object {
+                    $sendAsPermissions = @(Get-RecipientPermission -Identity $Mailbox -ErrorAction Stop | Where-Object {
                         $_.Trustee -notlike "NT AUTHORITY\SELF" -and
                         $_.Trustee -notlike "S-1-5*" -and 
                         $_.Trustee -notlike "NT AUTHORITY\SYSTEM"
-                    }
+                    })
                     
                     if ($sendAsPermissions.Count -gt 0) {
                         foreach ($perm in $sendAsPermissions) {
@@ -969,7 +990,7 @@ function Get-MailboxPermissionsSummary {
                 # SendOnBehalf-Berechtigungen
                 $result += "`n#### SendOnBehalf-Berechtigungen`n"
                 try {
-                    $mailboxObj = Get-Mailbox -Identity $Mailbox
+                    $mailboxObj = Get-Mailbox -Identity $Mailbox -ErrorAction Stop
                     $onBehalfPermissions = $mailboxObj.GrantSendOnBehalfTo
                     
                     if ($onBehalfPermissions -and $onBehalfPermissions.Count -gt 0) {
@@ -1018,7 +1039,7 @@ function Initialize-AuditTab {
         $script:txtAuditResult = $txtAuditResult
         
         # Event-Handler für Audit-Buttons registrieren
-        Register-EventHandler -Control $btnRunAudit -Handler {
+        $null = Register-EventHandler -Control $btnRunAudit -Handler {
             try {
                 # Prüfen, ob eine Exchange-Verbindung besteht
                 if (-not $script:isConnected) {
@@ -1044,21 +1065,38 @@ function Initialize-AuditTab {
                     return
                 }
                 
-                $mailbox = $script:txtAuditMailbox.Text
+                $mailbox = ([string]$script:txtAuditMailbox.Text).Trim()
                 $navigationType = $script:cmbAuditCategory.SelectedItem.Content
                 $infoType = $script:cmbAuditType.SelectedIndex + 1
                 
-                $result = Get-FormattedMailboxInfo -Mailbox $mailbox -InfoType $infoType -NavigationType $navigationType
+                Start-UIBusy -Message "Rufe $navigationType für '$mailbox' ab..." -Title "Postfach-Audit"
+                try {
+                    $result = Get-FormattedMailboxInfo -Mailbox $mailbox -InfoType $infoType -NavigationType $navigationType
+                }
+                finally {
+                    Stop-UIBusy
+                }
                 
                 if ($null -ne $script:txtAuditResult) {
                     $script:txtAuditResult.Text = $result
                 }
                 
-                $script:txtStatus.Text = "Audit erfolgreich ausgeführt."
+                # Die Get-*ForUser-Funktionen liefern Fehler als Text ("Fehler ..."), Teilfehler als eigene Zeilen
+                $resultText = [string]$result
+                if ($resultText -match '^\s*(Fehler|Unbekannter|Nicht unterstützter)') {
+                    Update-StatusBar -Message "Audit fehlgeschlagen - Details im Ergebnisfeld." -Type Error
+                }
+                elseif ($resultText -match '(?m)^\s*(\S+\s+)?Fehler beim ') {
+                    Update-StatusBar -Message "Audit mit Fehlern ausgeführt - Details im Ergebnisfeld." -Type Warning
+                }
+                else {
+                    Update-StatusBar -Message "Audit erfolgreich ausgeführt." -Type Success
+                }
             }
             catch {
                 $errorMsg = $_.Exception.Message
-                $script:txtStatus.Text = "Fehler: $errorMsg"
+                Write-Log "Fehler beim Ausführen des Audits: $errorMsg" -Type "Error"
+                Update-StatusBar -Message "Fehler: $errorMsg" -Type Error
                 
                 if ($null -ne $script:txtAuditResult) {
                     $script:txtAuditResult.Text = "Fehler beim Ausführen des Audits: $errorMsg"

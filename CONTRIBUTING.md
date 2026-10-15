@@ -6,10 +6,13 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
 
 ```
 .
-├── .github/                 # Workflows (PSScriptAnalyzer, Codacy) und PR-Vorlage
+├── .github/
+│   ├── ISSUE_TEMPLATE/      # Vorlagen für Fehlerberichte und Funktionswünsche
+│   ├── workflows/           # CI (PSScriptAnalyzer, Codacy)
+│   └── PULL_REQUEST_TEMPLATE.md
 ├── docs/
 │   ├── AUDIT.md             # Ergebnisse des Code-Audits
-│   └── screenshots/         # Ablage für aktuelle Screenshots (README)
+│   └── screenshots/         # Nur aktuelle Screenshots, Dateiname ohne Version (siehe README dort)
 ├── src/
 │   ├── easyEXO.ps1          # Launcher: Umgebung, Module laden, Fenster, zentrale Event-Handler
 │   ├── GUI/
@@ -28,8 +31,10 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
 └── SECURITY.md
 ```
 
-> Alte Skriptversionen werden **nicht** mehr als Dateikopien im Repository abgelegt. Die Historie ist über Git-Tags,
-> Releases und das [CHANGELOG](CHANGELOG.md) nachvollziehbar.
+> Alte Skriptversionen und veraltete Screenshots werden **nicht** im Repository abgelegt. Dateinamen enthalten keine
+> Versionsnummer (der Launcher heißt immer `src/easyEXO.ps1`); die Version steht ausschließlich in `$script:AppVersion`,
+> in der README (Badge) und im [CHANGELOG](CHANGELOG.md). Die Historie ist über Git, Releases und das CHANGELOG
+> nachvollziehbar. Temporäre Dateien (Analyse-Ausgaben, Hilfsskripte) gehören nicht ins Repository.
 
 ## Ablauf
 
@@ -54,7 +59,9 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
    ```
 4. Erhöhen Sie die Versionsnummer in `$script:AppVersion` (`src/easyEXO.ps1`) gemäß [Semantic Versioning](https://semver.org/lang/de/).
 5. Tragen Sie Ihre Änderungen in der [CHANGELOG.md](CHANGELOG.md) direkt unter dieser **konkreten Versionsnummer mit Datum** ein
-   (z. B. `## [0.3.1] - JJJJ-MM-TT`). Abschnitte ohne Versionsnummer werden nicht geführt.
+   (z. B. `## [0.5.1] - JJJJ-MM-TT`), gegliedert nach *Hinzugefügt*, *Geändert*, *Behoben*, *Sicherheit*, *Entfernt*.
+   Abschnitte ohne Versionsnummer (z. B. „Unreleased“) werden nicht geführt. Badge in der README anpassen und in
+   `SECURITY.md` die unterstützte Version prüfen.
 6. Erstellen Sie einen Pull Request gegen `main` und füllen Sie die PR-Vorlage aus.
 
 ## Richtlinien
@@ -64,8 +71,19 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
   in `$script:ModuleFiles` (`src/easyEXO.ps1`) eingetragen werden. Module werden per Dot-Sourcing geladen und teilen
   sich den Script-Scope – Pfade daher über `$script:AppRoot` bilden, nicht über `$PSScriptRoot`.
 - **Kodierung:** `.ps1`-Dateien als UTF-8 **mit BOM** speichern (Umlaute unter Windows PowerShell 5.1).
-- **GUI/Design:** Keine fest kodierten Farben an Buttons/Steuerelementen; stattdessen die Styles aus
-  `src/GUI/Theme.xaml` verwenden (`SecondaryButton`, `SuccessButton`, `DangerButton`, `WarningButton`, `NavButton` …).
+- **GUI/Design:** Keine fest kodierten Farben im XAML oder Code; Farben und Styles ausschließlich in `src/GUI/Theme.xaml`
+  definieren und per `StaticResource` verwenden (`SecondaryButton`, `SuccessButton`, `DangerButton`, `WarningButton`,
+  `NavButton`, `*Brush` …). Statusmeldungen über `Update-StatusBar -Message … -Type Info|Success|Warning|Error`
+  (Farben aus `Status*Brush`). Eigene Fenster/Dialoge erben die Ressourcen des Hauptfensters nicht – direkt nach dem
+  Laden `$null = Add-ThemeResource -Window $dialog` aufrufen und im Inline-XAML `{DynamicResource <Key>}` verwenden
+  (für einfache Eingaben `Show-InputDialog`).
+- **XAML:** Keine Event-Attribute (`Click="…"`, `SelectionChanged="…"`) – Ereignisse werden im Code registriert.
+  Daten aus Exchange (Namen, Betreffzeilen …) nie in XAML-Zeichenketten einsetzen, sondern nach dem Laden über
+  Eigenschaften (`.Text`, `.ItemsSource`) zuweisen. Spaltenbindungen (`Binding="{Binding …}"`) müssen den
+  tatsächlichen Eigenschaftsnamen der Cmdlet-Ausgabe entsprechen.
+- **Exchange-Parameter** vor der Verwendung mit der aktuellen Cmdlet-Dokumentation (learn.microsoft.com) abgleichen;
+  Ergebnisse von Cmdlets und Hilfsfunktionen mit `@(…)` umschließen, damit einzelne oder leere Ergebnisse als Liste
+  behandelt werden. Erfolgsmeldungen erst nach erfolgreichem Aufruf (`-ErrorAction Stop`) ausgeben.
 - **Lange Exchange-Abfragen** möglichst mit `-ResultSize`/`-PropertySets` begrenzen und nicht in Schleifen pro Objekt ausführen.
   Listenabfragen ohne Identität immer mit `-ResultSize Unlimited` (Standard sind nur 1000 Einträge).
 - **Arbeitsanzeige:** Länger laufende Vorgänge in `Start-UIBusy -Message … -Cancelable` / `Stop-UIBusy` (im `finally`)

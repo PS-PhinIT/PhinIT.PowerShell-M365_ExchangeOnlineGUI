@@ -13,7 +13,7 @@
 function Get-OwnRetentionCompliancePolicy {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false, Position = 0, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $false, Position = 0)]
         [string]$Identity,
         [Parameter(Mandatory = $false)]
         [System.Management.Automation.SwitchParameter]$DistributionDetail,
@@ -101,7 +101,7 @@ function Get-OwnRetentionCompliancePolicy {
 function Get-OwnDlpCompliancePolicy {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false, Position = 0, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $false, Position = 0)]
         [string]$Identity,
         [Parameter(Mandatory = $false)]
         [System.Management.Automation.SwitchParameter]$DistributionDetail,
@@ -165,6 +165,7 @@ function Start-ExchangeHealthCheck {
     [CmdletBinding()]
     param()
 
+    Start-UIBusy -Message "Starte Exchange Health Check..." -Title "Health Check"
     try {
         # GUI-Updates vor dem Start
         Update-StatusBar -Message "Starte Exchange Health Check..." -Type "Info"
@@ -189,8 +190,11 @@ function Start-ExchangeHealthCheck {
         $allResults = [System.Collections.Generic.List[object]]::new()
 
         # Führe jeden Check nacheinander aus
+        $checkIndex = 0
         foreach ($check in $checks) {
             $checkName = ($check.ToString() -split ' ')[1].TrimEnd('}') # Extrahiert den Funktionsnamen
+            Update-UIBusy -Message "Prüfe: $checkName" -Current $checkIndex -Total $checks.Count
+            $checkIndex++
             Update-StatusBar -Message "Prüfe: $checkName..." -Type "Info"
             Write-Log "Prüfe: $checkName..." -Type "Info"
             
@@ -229,6 +233,9 @@ function Start-ExchangeHealthCheck {
         $script:pbHealthCheck.Visibility = [System.Windows.Visibility]::Hidden
         Update-StatusBar -Message "Fehler beim Health Check: $errorMsg" -Type "Error"
     }
+    finally {
+        Stop-UIBusy
+    }
 }
 
 function Test-ExchangeConnection {
@@ -240,54 +247,39 @@ function Test-ExchangeConnection {
         
         $details = [System.Collections.Generic.List[string]]::new()
         $overallStatus = "OK" # Start with OK, downgrade on any failure
+        $networkProblem = $false
+        $exoEndpoint = "outlook.office365.com"
 
-        # 1. Grundlegende Internetverbindung prüfen
-        Write-Log "Prüfe grundlegende Internetverbindung..." -Type "Debug"
-        if (Test-Connection -ComputerName "8.8.8.8" -Count 1 -Quiet) {
-            $details.Add("✅ Grundlegende Internetverbindung ist vorhanden.")
-        } else {
-            $details.Add("❌ FEHLER: Keine grundlegende Internetverbindung (Ping an 8.8.8.8 fehlgeschlagen).")
-            $overallStatus = "Fehler"
-        }
-
-        # 2. DNS-Auflösung für M365-Endpunkte prüfen
+        # 1. DNS-Auflösung für M365-Endpunkte prüfen
         Write-Log "Prüfe DNS-Auflösung für M365-Endpunkte..." -Type "Debug"
-        $dnsTest = Resolve-DnsName -Name "outlook.office365.com" -ErrorAction SilentlyContinue
+        $dnsTest = Resolve-DnsName -Name $exoEndpoint -ErrorAction SilentlyContinue
         if ($dnsTest) {
-            $details.Add("✅ DNS-Auflösung für 'outlook.office365.com' erfolgreich.")
+            $details.Add("✅ DNS-Auflösung für '$exoEndpoint' erfolgreich.")
         } else {
-            $details.Add("❌ FEHLER: DNS-Auflösung für 'outlook.office365.com' fehlgeschlagen. Prüfen Sie Ihre DNS-Einstellungen.")
-            $overallStatus = "Fehler"
+            $details.Add("⚠️ WARNUNG: DNS-Auflösung für '$exoEndpoint' fehlgeschlagen. Prüfen Sie Ihre DNS-Einstellungen.")
+            $networkProblem = $true
         }
 
-        # 3. Port-Konnektivität prüfen (HTTPS/443)
+        # 2. Port-Konnektivität prüfen (HTTPS/443)
         Write-Log "Prüfe Port-Konnektivität (TCP 443)..." -Type "Debug"
-        $portTest = Test-NetConnection -ComputerName "outlook.office365.com" -Port 443 -InformationLevel Quiet -ErrorAction SilentlyContinue
+        $portTest = Test-NetConnection -ComputerName $exoEndpoint -Port 443 -InformationLevel Quiet -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
         if ($portTest) {
-            $details.Add("✅ Verbindung zu 'outlook.office365.com' auf Port 443 (HTTPS) erfolgreich.")
+            $details.Add("✅ Verbindung zu '$exoEndpoint' auf Port 443 (HTTPS) erfolgreich.")
         } else {
-            $details.Add("❌ FEHLER: Verbindung zu 'outlook.office365.com' auf Port 443 (HTTPS) fehlgeschlagen. Prüfen Sie Ihre Firewall-Regeln.")
-            $overallStatus = "Fehler"
+            $details.Add("⚠️ WARNUNG: Direkte Verbindung zu '$exoEndpoint' auf Port 443 (HTTPS) fehlgeschlagen. Prüfen Sie Ihre Firewall-Regeln (bei Verwendung eines Proxys kann dieser Test fehlschlagen, obwohl die Verbindung funktioniert).")
+            $networkProblem = $true
         }
 
-        # Wenn Netzwerk-Checks fehlschlagen, hier abbrechen und Ergebnis zurückgeben
-        if ($overallStatus -eq "Fehler") {
-            $details.Add("➡️ Aufgrund von Netzwerkproblemen wurde der Test der PowerShell-Befehle übersprungen.")
-            return [PSCustomObject]@{
-                CheckName = "Exchange Online Verbindung"
-                Status    = "Fehler"
-                Details   = $details -join "`n"
-            }
-        }
-
-        # 4. Test der PowerShell-Verbindung mit einem EXO-Befehl
+        # 3. Test der PowerShell-Verbindung mit einem EXO-Befehl (wird immer ausgeführt,
+        # da die Netzwerktests z.B. hinter einem Proxy fehlschlagen können)
         Write-Log "Prüfe PowerShell-Befehlsausführung (Get-OrganizationConfig)..." -Type "Debug"
         $testResult = Get-OrganizationConfig -ErrorAction SilentlyContinue
         
         if ($null -ne $testResult) {
             $details.Add("✅ PowerShell-Befehl (Get-OrganizationConfig) erfolgreich ausgeführt.")
+            if ($networkProblem) { $overallStatus = "Warnung" }
         } else {
-            $details.Add("❌ FEHLER: PowerShell-Befehl konnte nicht ausgeführt werden. Mögliche Ursachen: Berechtigungen, abgelaufene Sitzung oder ein temporäres Microsoft-Dienstproblem.")
+            $details.Add("❌ FEHLER: PowerShell-Befehl konnte nicht ausgeführt werden. Mögliche Ursachen: Netzwerkprobleme, Berechtigungen, abgelaufene Sitzung oder ein temporäres Microsoft-Dienstproblem.")
             $details.Add("➡️ Service Health Dashboard: https://admin.microsoft.com/Adminportal/Home#/servicehealth")
             $overallStatus = "Fehler"
         }
@@ -376,35 +368,35 @@ function Test-TransportService {
 
         # 2. Test: Abrufen von Transport-Regeln
         Write-Log "Prüfe Abruf von Transport-Regeln (Get-TransportRule)..." -Type "Debug"
-        $transportRules = Get-TransportRule -ResultSize 1 -ErrorAction SilentlyContinue
+        $transportRuleErrors = $null
+        $transportRules = Get-TransportRule -ResultSize 1 -ErrorAction SilentlyContinue -ErrorVariable transportRuleErrors
         if ($null -ne $transportRules) {
             $details.Add("✅ Transport-Regeln können abgerufen werden.")
         } else {
             # Wenn keine Regeln vorhanden sind, ist das kein Fehler, aber das Cmdlet sollte nicht fehlschlagen.
-            if ($null -eq $Error[0] -or $Error[0].CategoryInfo.Category -ne 'OperationStopped') {
+            if (@($transportRuleErrors).Count -eq 0) {
                  $details.Add("✅ Transport-Regeln-Dienst ist erreichbar (keine Regeln gefunden).")
             } else {
-                $details.Add("⚠️ WARNUNG: Transport-Regeln konnten nicht abgerufen werden. Der Regel-Dienst ist möglicherweise beeinträchtigt.")
+                $details.Add("⚠️ WARNUNG: Transport-Regeln konnten nicht abgerufen werden. Der Regel-Dienst ist möglicherweise beeinträchtigt. Details: $($transportRuleErrors[0].Exception.Message)")
                 if ($overallStatus -ne "Fehler") { $overallStatus = "Warnung" }
             }
-            $Error.Clear()
         }
 
         # 3. Test: Nachrichtenverfolgungs-Dienst (Message Trace)
         Write-Log "Prüfe Nachrichtenverfolgungs-Dienst (Get-MessageTrace)..." -Type "Debug"
         # Wir führen eine sehr kurze Abfrage durch, nur um die Dienstverfügbarkeit zu testen.
+        $traceErrors = $null
         if (Get-Command -Name Get-MessageTraceV2 -ErrorAction SilentlyContinue) {
-            $traceTest = Get-MessageTraceV2 -StartDate (Get-Date).AddMinutes(-5) -EndDate (Get-Date) -ResultSize 1 -ErrorAction SilentlyContinue
+            $traceTest = Get-MessageTraceV2 -StartDate (Get-Date).AddMinutes(-5) -EndDate (Get-Date) -ResultSize 1 -ErrorAction SilentlyContinue -ErrorVariable traceErrors
         } else {
-            $traceTest = Get-MessageTrace -StartDate (Get-Date).AddMinutes(-1) -EndDate (Get-Date) -PageSize 1 -ErrorAction SilentlyContinue
+            $traceTest = Get-MessageTrace -StartDate (Get-Date).AddMinutes(-1) -EndDate (Get-Date) -PageSize 1 -ErrorAction SilentlyContinue -ErrorVariable traceErrors
         }
-        if ($null -ne $traceTest -or ($null -eq $Error[0])) {
+        if ($null -ne $traceTest -or @($traceErrors).Count -eq 0) {
             $details.Add("✅ Nachrichtenverfolgungs-Dienst ist erreichbar.")
         } else {
-            $details.Add("❌ FEHLER: Der Nachrichtenverfolgungs-Dienst antwortet nicht. Die Analyse des E-Mail-Flusses ist beeinträchtigt.")
+            $details.Add("❌ FEHLER: Der Nachrichtenverfolgungs-Dienst antwortet nicht. Die Analyse des E-Mail-Flusses ist beeinträchtigt. Details: $($traceErrors[0].Exception.Message)")
             $overallStatus = "Fehler"
         }
-        $Error.Clear()
 
         return [PSCustomObject]@{
             CheckName = "Transport-Service"
@@ -460,8 +452,8 @@ function Test-ComplianceService {
         # Dieses Cmdlet ist Teil des Security & Compliance PowerShell und erfordert entsprechende Berechtigungen.
         Write-Log "Prüfe Abruf von Aufbewahrungsrichtlinien (Get-RetentionCompliancePolicy)..." -Type "Debug"
         try {
-            # Wir rufen nur eine Richtlinie ab, um die Dienstverfügbarkeit zu testen.
-            $retentionPolicies = Get-OwnRetentionCompliancePolicy -ErrorAction Stop
+            # Der Abruf dient nur dem Test der Dienstverfügbarkeit; das Ergebnis wird nicht ausgewertet.
+            $null = Get-OwnRetentionCompliancePolicy -ErrorAction Stop
             $details.Add("✅ Dienst für Aufbewahrungsrichtlinien ist erreichbar.")
         }
         catch {
@@ -474,7 +466,8 @@ function Test-ComplianceService {
         # Dieses Cmdlet ist ebenfalls Teil des Security & Compliance PowerShell.
         Write-Log "Prüfe Abruf von DLP-Richtlinien (Get-DlpCompliancePolicy)..." -Type "Debug"
         try {
-            $dlpPolicies = Get-OwnDlpCompliancePolicy -ErrorAction Stop
+            # Der Abruf dient nur dem Test der Dienstverfügbarkeit; das Ergebnis wird nicht ausgewertet.
+            $null = Get-OwnDlpCompliancePolicy -ErrorAction Stop
             $details.Add("✅ Dienst für DLP-Richtlinien ist erreichbar.")
         }
         catch {
@@ -671,18 +664,11 @@ function Test-TenantConfiguration {
                 $details.Add("✅ Audit-Protokollierung ist aktiviert.")
             }
 
-            if ($orgConfig.ModernAuthEnabled -eq $false) {
-                $warnings.Add("Modern Authentication (OAuth2) ist deaktiviert. Dies ist veraltet und unsicher.")
+            if ($orgConfig.OAuth2ClientProfileEnabled -eq $false) {
+                $warnings.Add("Modern Authentication (OAuth2ClientProfileEnabled) ist deaktiviert. Dies ist veraltet und unsicher.")
                 if ($overallStatus -ne "Fehler") { $overallStatus = "Warnung" }
             } else {
                 $details.Add("✅ Modern Authentication ist aktiviert.")
-            }
-            
-            if ($orgConfig.SmtpClientAuthenticationDisabled -eq $false) {
-                $warnings.Add("SMTP AUTH ist mandantenweit aktiviert. Dies stellt ein erhebliches Sicherheitsrisiko dar und sollte deaktiviert werden, es sei denn, es wird explizit benötigt.")
-                if ($overallStatus -ne "Fehler") { $overallStatus = "Warnung" }
-            } else {
-                $details.Add("✅ SMTP AUTH ist mandantenweit deaktiviert (Best Practice).")
             }
 
             $details.Add("➡️ Öffentliche Ordner: $($orgConfig.PublicFoldersEnabled)")
@@ -692,11 +678,26 @@ function Test-TenantConfiguration {
             $overallStatus = "Fehler"
         }
 
+        # SMTP AUTH (SmtpClientAuthenticationDisabled) ist Teil der Transport-Konfiguration
+        Write-Log "Prüfe SMTP AUTH-Einstellung (Get-TransportConfig)..." -Type "Debug"
+        $transportConfig = Get-TransportConfig -ErrorAction SilentlyContinue
+        if ($null -ne $transportConfig) {
+            if ($transportConfig.SmtpClientAuthenticationDisabled -ne $true) {
+                $warnings.Add("SMTP AUTH ist mandantenweit aktiviert. Dies stellt ein erhebliches Sicherheitsrisiko dar und sollte deaktiviert werden, es sei denn, es wird explizit benötigt.")
+                if ($overallStatus -ne "Fehler") { $overallStatus = "Warnung" }
+            } else {
+                $details.Add("✅ SMTP AUTH ist mandantenweit deaktiviert (Best Practice).")
+            }
+        } else {
+            $warnings.Add("Die Transport-Konfiguration (SMTP AUTH) konnte nicht abgerufen werden.")
+            if ($overallStatus -ne "Fehler") { $overallStatus = "Warnung" }
+        }
+
         # 2. Test: Standard-Remote-Domain-Einstellungen prüfen
         Write-Log "Prüfe Standard-Remote-Domain-Einstellungen (Get-RemoteDomain)..." -Type "Debug"
-        $remoteDomain = Get-RemoteDomain -Identity "*" -ErrorAction SilentlyContinue
+        $remoteDomain = Get-RemoteDomain -Identity "Default" -ErrorAction SilentlyContinue
         if ($null -ne $remoteDomain) {
-            $details.Add("✅ Standard-Remote-Domain-Einstellungen ('*') erfolgreich abgerufen.")
+            $details.Add("✅ Standard-Remote-Domain-Einstellungen ('Default', '*') erfolgreich abgerufen.")
             if ($remoteDomain.AutoForwardEnabled -eq $true) {
                 $warnings.Add("Automatische externe Weiterleitungen sind für die gesamte Organisation erlaubt. Dies stellt ein Sicherheitsrisiko dar.")
                 if ($overallStatus -ne "Fehler") { $overallStatus = "Warnung" }
@@ -731,11 +732,15 @@ function Test-TenantConfiguration {
         $finalDetails = ""
         if ($warnings.Count -gt 0) {
             $finalDetails += "⚠️ Warnungen:`n"
-            $warnings.ForEach({ $finalDetails += "- $_\n" })
+            foreach ($warning in $warnings) {
+                $finalDetails += "- $warning`n"
+            }
             $finalDetails += "`n"
         }
         $finalDetails += "ℹ️ Details:`n"
-        $details.ForEach({ $finalDetails += "- $_\n" })
+        foreach ($detail in $details) {
+            $finalDetails += "- $detail`n"
+        }
 
         return [PSCustomObject]@{
             CheckName = "Tenant-Konfiguration"

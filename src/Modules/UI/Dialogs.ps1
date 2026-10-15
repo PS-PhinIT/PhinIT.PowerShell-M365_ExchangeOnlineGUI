@@ -410,8 +410,10 @@ function Show-InputDialog {
         if ($null -ne $script:Form) {
             $successStyle = $script:Form.TryFindResource("SuccessButton")
             $secondaryStyle = $script:Form.TryFindResource("SecondaryButton")
+            $backgroundBrush = $script:Form.TryFindResource("WindowBackgroundBrush")
             if ($successStyle -is [System.Windows.Style]) { $okButton.Style = $successStyle }
             if ($secondaryStyle -is [System.Windows.Style]) { $cancelButton.Style = $secondaryStyle }
+            if ($backgroundBrush -is [System.Windows.Media.Brush]) { $dialog.Background = $backgroundBrush }
         }
 
         $okButton.Add_Click({
@@ -460,41 +462,10 @@ function Show-SettingsWindow {
         <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                 Title="Einstellungen - easyEXO" Height="275" Width="500" 
-                WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
-                Background="#f9f9f9">
+                WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize">
+            <!-- Farben und Button-Styles kommen aus dem Theme (Theme.xaml) und werden nach dem Laden zugewiesen -->
             <Window.Resources>
-                <Style TargetType="Button">
-                    <Setter Property="Background" Value="#f0f0f0"/>
-                    <Setter Property="Foreground" Value="#202020"/>
-                    <Setter Property="BorderBrush" Value="#e0e0e0"/>
-                    <Setter Property="BorderThickness" Value="1"/>
-                    <Setter Property="Padding" Value="10,6"/>
-                    <Setter Property="MinHeight" Value="30"/>
-                    <Setter Property="MinWidth" Value="80"/>
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="Button">
-                                <Border Background="{TemplateBinding Background}" 
-                                        BorderBrush="{TemplateBinding BorderBrush}" 
-                                        BorderThickness="{TemplateBinding BorderThickness}"
-                                        CornerRadius="2">
-                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
-                                </Border>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                    <Style.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#e5e5e5"/>
-                            <Setter Property="BorderBrush" Value="#d0d0d0"/>
-                        </Trigger>
-                        <Trigger Property="IsPressed" Value="True">
-                            <Setter Property="Background" Value="#d0d0d0"/>
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
                 <Style TargetType="TextBox">
-                    <Setter Property="BorderBrush" Value="#d4d4d4"/>
                     <Setter Property="BorderThickness" Value="1"/>
                     <Setter Property="Padding" Value="8,2"/>
                     <Setter Property="Height" Value="30"/>
@@ -531,12 +502,12 @@ function Show-SettingsWindow {
                 <CheckBox Grid.Row="1" Grid.Column="1" x:Name="chkEnableDebug" Margin="0,0,0,10"/>
                 
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Log-Verzeichnis:" ToolTip="Pfad zum Ordner, in dem Log-Dateien gespeichert werden."/>
-                <TextBox Grid.Row="2" Grid.Column="1" x:Name="txtLogPath" Margin="0,0,5,10" IsReadOnly="True" Background="#eeeeee"/>
-                <Button Grid.Row="2" Grid.Column="2" x:Name="btnBrowseLogPath" Content="..." Width="40" ToolTip="Log-Verzeichnis auswählen"/>
+                <TextBox Grid.Row="2" Grid.Column="1" x:Name="txtLogPath" Margin="0,0,5,10" IsReadOnly="True"/>
+                <Button Grid.Row="2" Grid.Column="2" x:Name="btnBrowseLogPath" Content="..." Width="40" Height="30" Margin="0,0,0,10" ToolTip="Log-Verzeichnis auswählen"/>
 
                 <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-                    <Button x:Name="btnSaveSettings" Content="Speichern" IsDefault="True" Margin="0,0,10,0" Background="#0078D7" Foreground="White" BorderBrush="#005BA1" FontWeight="SemiBold"/>
-                    <Button x:Name="btnCancelSettings" Content="Abbrechen" IsCancel="True"/>
+                    <Button x:Name="btnSaveSettings" Content="Speichern" IsDefault="True" Width="110" Height="30" Margin="0,0,10,0"/>
+                    <Button x:Name="btnCancelSettings" Content="Abbrechen" IsCancel="True" Width="110" Height="30"/>
                 </StackPanel>
             </Grid>
         </Window> 
@@ -545,6 +516,7 @@ function Show-SettingsWindow {
         # XAML laden
         $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]$xamlSettings)
         $settingsWindow = [Windows.Markup.XamlReader]::Load($reader)
+        $null = Add-ThemeResource -Window $settingsWindow
         $settingsWindow.Owner = $script:Form
 
         # UI-Elemente finden
@@ -555,11 +527,27 @@ function Show-SettingsWindow {
         $btnSaveSettings = $settingsWindow.FindName("btnSaveSettings")
         $btnCancelSettings = $settingsWindow.FindName("btnCancelSettings")
 
+        # Theme-Farben und -Styles des Hauptfensters übernehmen (eigene Fenster erben keine Window-Ressourcen)
+        if ($null -ne $script:Form) {
+            $windowBrush = $script:Form.TryFindResource("WindowBackgroundBrush")
+            $readOnlyBrush = $script:Form.TryFindResource("SurfaceAltBrush")
+            $successStyle = $script:Form.TryFindResource("SuccessButton")
+            $secondaryStyle = $script:Form.TryFindResource("SecondaryButton")
+            if ($windowBrush -is [System.Windows.Media.Brush]) { $settingsWindow.Background = $windowBrush }
+            if ($readOnlyBrush -is [System.Windows.Media.Brush]) { $txtLogPath.Background = $readOnlyBrush }
+            if ($successStyle -is [System.Windows.Style]) { $btnSaveSettings.Style = $successStyle }
+            if ($secondaryStyle -is [System.Windows.Style]) {
+                $btnCancelSettings.Style = $secondaryStyle
+                $btnBrowseLogPath.Style = $secondaryStyle
+            }
+        }
+
         # Aktuelle Einstellungen laden und in der GUI anzeigen
         $currentConfig = Get-RegistryConfig
         $txtDefaultUser.Text = $currentConfig.General.DefaultUser
         $chkEnableDebug.IsChecked = [bool]($currentConfig.General.Debug -eq "1")
-        $txtLogPath.Text = $currentConfig.General.LogPath
+        # Das Log-Verzeichnis liegt im Konfigurationsbereich "Paths" (nicht "General")
+        $txtLogPath.Text = $currentConfig.Paths.LogPath
 
         # Event-Handler für "Durchsuchen"
         $btnBrowseLogPath.Add_Click({
@@ -582,18 +570,21 @@ function Show-SettingsWindow {
                 if (-not (Test-Path -Path $script:registryPath)) {
                     New-Item -Path $script:registryPath -Force | Out-Null
                 }
-                Set-ItemProperty -Path $script:registryPath -Name "DefaultUser" -Value $txtDefaultUser.Text -ErrorAction Stop
-                $debugValue = if ($chkEnableDebug.IsChecked) { "1" } else { "0" }
-                Set-ItemProperty -Path $script:registryPath -Name "Debug" -Value $debugValue -ErrorAction Stop
-                Set-ItemProperty -Path $script:registryPath -Name "LogPath" -Value $txtLogPath.Text -ErrorAction Stop
+                New-ItemProperty -Path $script:registryPath -Name "DefaultUser" -Value $txtDefaultUser.Text.Trim() -PropertyType String -Force -ErrorAction Stop | Out-Null
+                $debugValue = if ($chkEnableDebug.IsChecked) { 1 } else { 0 }
+                New-ItemProperty -Path $script:registryPath -Name "Debug" -Value $debugValue -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+                # Leeres Log-Verzeichnis nicht speichern - sonst greift beim nächsten Start kein gültiger Pfad
+                if (-not [string]::IsNullOrWhiteSpace($txtLogPath.Text)) {
+                    New-ItemProperty -Path $script:registryPath -Name "LogPath" -Value $txtLogPath.Text.Trim() -PropertyType String -Force -ErrorAction Stop | Out-Null
+                }
+
+                # Globale Konfiguration aktualisieren und sofort anwenden
+                $script:config = Get-RegistryConfig
+                $script:debugMode = $script:config.General.Debug -eq "1"
+                $null = Initialize-Logging
 
                 Write-Log "Einstellungen erfolgreich in der Registry gespeichert." -Type Success
-                Show-MessageBox -Message "Die Einstellungen wurden gespeichert. Einige Änderungen erfordern einen Neustart der Anwendung." -Title "Gespeichert" -Type Info
-                
-                # Globale Konfiguration aktualisieren
-                $script:config = Get-RegistryConfig
-                # Debug-Modus direkt anpassen
-                $script:debugMode = $script:config.General.Debug -eq "1"
+                Show-MessageBox -Message "Die Einstellungen wurden gespeichert und sind sofort aktiv." -Title "Gespeichert" -Type Info
 
                 $settingsWindow.Close()
             }

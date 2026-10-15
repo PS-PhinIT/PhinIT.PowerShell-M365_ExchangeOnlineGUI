@@ -69,7 +69,7 @@ function New-SharedMailboxAction {
     
     try {
         Write-Log  "Erstelle neue Shared Mailbox: $Name mit Adresse $EmailAddress" -Type "Info"
-        New-Mailbox -Name $Name -PrimarySmtpAddress $EmailAddress -Shared -ErrorAction Stop
+        $null = New-Mailbox -Name $Name -PrimarySmtpAddress $EmailAddress -Shared -ErrorAction Stop
         Write-Log  "Shared Mailbox $Name erfolgreich erstellt" -Type "Success"
         Log-Action "Shared Mailbox $Name ($EmailAddress) erfolgreich erstellt"
         return $true
@@ -146,17 +146,14 @@ function Add-SharedMailboxPermissionAction {
 
         switch ($PermissionType) {
             "FullAccess" {
-                Add-MailboxPermission -Identity $Mailbox -User $User -AccessRights FullAccess -AutoMapping $AutoMapping -ErrorAction Stop
+                $null = Add-MailboxPermission -Identity $Mailbox -User $User -AccessRights FullAccess -AutoMapping $AutoMapping -ErrorAction Stop
             }
             "SendAs" {
-                Add-RecipientPermission -Identity $Mailbox -Trustee $User -AccessRights SendAs -Confirm:$false -ErrorAction Stop
+                $null = Add-RecipientPermission -Identity $Mailbox -Trustee $User -AccessRights SendAs -Confirm:$false -ErrorAction Stop
             }
             "SendOnBehalf" {
-                $currentGrantSendOnBehalf = (Get-Mailbox -Identity $Mailbox).GrantSendOnBehalfTo
-                if ($currentGrantSendOnBehalf -notcontains $User) {
-                    $currentGrantSendOnBehalf += $User
-                    Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo $currentGrantSendOnBehalf -ErrorAction Stop
-                }
+                # @{Add=...} ergänzt den Delegaten, ohne bestehende Einträge zu überschreiben
+                Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Add = $User} -ErrorAction Stop
             }
             default {
                 throw "Ungültiger PermissionType: $PermissionType"
@@ -229,11 +226,8 @@ function Remove-SharedMailboxPermissionAction {
                 Remove-RecipientPermission -Identity $Mailbox -Trustee $User -AccessRights SendAs -Confirm:$false -ErrorAction Stop
             }
             "SendOnBehalf" {
-                $currentGrantSendOnBehalf = (Get-Mailbox -Identity $Mailbox).GrantSendOnBehalfTo
-                if ($currentGrantSendOnBehalf -contains $User) {
-                    $newGrantSendOnBehalf = $currentGrantSendOnBehalf | Where-Object { $_ -ne $User }
-                    Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo $newGrantSendOnBehalf -ErrorAction Stop
-                }
+                # @{Remove=...} entfernt nur diesen Delegaten, übrige Einträge bleiben erhalten
+                Set-Mailbox -Identity $Mailbox -GrantSendOnBehalfTo @{Remove = $User} -ErrorAction Stop
             }
             default {
                 throw "Ungültiger PermissionType: $PermissionType"
@@ -395,12 +389,12 @@ function Get-ForwardingMailboxesAction {
         Write-Log "Rufe alle Postfächer mit Weiterleitung ab" -Type "Info"
         Update-StatusBar -Message "Rufe Postfächer mit Weiterleitung ab..." -Type Info
 
-        # Alle Mailboxen abrufen und filtern
-        $mailboxes = Get-Mailbox -ResultSize Unlimited | Where-Object {
-            (-not [string]::IsNullOrEmpty($_.ForwardingAddress)) -or (-not [string]::IsNullOrEmpty($_.ForwardingSmtpAddress))
-        } | Select-Object DisplayName, PrimarySmtpAddress, ForwardingAddress, ForwardingSmtpAddress, DeliverToMailboxAndForward
+        # Nur Postfächer mit Weiterleitung abrufen (serverseitiger Filter statt Abruf aller Postfächer)
+        $mailboxes = @(Get-Mailbox -ResultSize Unlimited -Filter "ForwardingSmtpAddress -ne `$null -or ForwardingAddress -ne `$null" -ErrorAction Stop |
+            Step-UIProgress -Activity "Lade Postfächer mit Weiterleitung" |
+            Select-Object DisplayName, PrimarySmtpAddress, ForwardingAddress, ForwardingSmtpAddress, DeliverToMailboxAndForward)
 
-        if ($null -ne $mailboxes -and $mailboxes.Count -gt 0) {
+        if ($mailboxes.Count -gt 0) {
             Write-Log "$($mailboxes.Count) Postfächer mit Weiterleitung gefunden" -Type "Info"
             Update-StatusBar -Message "$($mailboxes.Count) Postfächer mit Weiterleitung gefunden" -Type Info
         } else {
@@ -411,10 +405,16 @@ function Get-ForwardingMailboxesAction {
         return $mailboxes
     }
     catch {
-        $errorMsg = $_.Exception.Message
-        Write-Log "Fehler beim Abrufen der Postfächer mit Weiterleitung: $errorMsg" -Type "Error"
-        Update-StatusBar -Message "Fehler beim Abrufen der Postfächer mit Weiterleitung: $errorMsg" -Type Error
-        return $null
+        if ($script:UICancelRequested -or $_.Exception -is [System.OperationCanceledException]) {
+            Write-Log "Abruf der Postfächer mit Weiterleitung durch Benutzer abgebrochen" -Type "Info"
+        }
+        else {
+            $errorMsg = $_.Exception.Message
+            Write-Log "Fehler beim Abrufen der Postfächer mit Weiterleitung: $errorMsg" -Type "Error"
+            Update-StatusBar -Message "Fehler beim Abrufen der Postfächer mit Weiterleitung: $errorMsg" -Type Error
+        }
+        # Fehler (inkl. Abbruch) an den Aufrufer weitergeben, damit nicht "keine Weiterleitungen" gemeldet wird
+        throw
     }
 }
 
@@ -432,17 +432,57 @@ function Update-SharedMailboxAutoMappingAction {
         Write-Log  "Aktualisiere AutoMapping für Shared Mailbox $Mailbox auf $AutoMapping" -Type "Info"
         
         # Bestehende FullAccess-Berechtigungen abrufen und neu setzen mit AutoMapping-Parameter
-        $fullAccessPerms = Get-MailboxPermission -Identity $Mailbox | Where-Object {
+        $fullAccessPerms = @(Get-MailboxPermission -Identity $Mailbox -ErrorAction Stop | Where-Object {
             $_.User -notlike "NT AUTHORITY\SELF" -and 
             $_.AccessRights -like "*FullAccess*" -and 
             $_.IsInherited -eq $false
+        })
+        
+        $failedUsers = New-Object 'System.Collections.Generic.List[string]'
+        $index = 0
+        Start-UIBusy -Message "Aktualisiere AutoMapping..." -Title "AutoMapping"
+        try {
+            foreach ($perm in $fullAccessPerms) {
+                $index++
+                $user = $perm.User.ToString()
+                Update-UIBusy -Message "Aktualisiere AutoMapping" -Current $index -Total $fullAccessPerms.Count
+
+                try {
+                    Remove-MailboxPermission -Identity $Mailbox -User $user -AccessRights FullAccess -Confirm:$false -ErrorAction Stop
+                }
+                catch {
+                    Write-Log  "AutoMapping für $user auf $Mailbox nicht geändert (Entfernen fehlgeschlagen): $($_.Exception.Message)" -Type "Error"
+                    $failedUsers.Add($user)
+                    continue
+                }
+
+                try {
+                    $null = Add-MailboxPermission -Identity $Mailbox -User $user -AccessRights FullAccess -AutoMapping $AutoMapping -ErrorAction Stop
+                    Write-Log  "AutoMapping für $user auf $Mailbox aktualisiert" -Type "Info"
+                }
+                catch {
+                    $addError = $_.Exception.Message
+                    $failedUsers.Add($user)
+                    Write-Log  "Erneutes Hinzufügen der FullAccess-Berechtigung für $user auf $Mailbox fehlgeschlagen: $addError - versuche Wiederherstellung" -Type "Error"
+                    try {
+                        # Wiederherstellung ohne AutoMapping-Angabe (Exchange-Standard), damit der Zugriff erhalten bleibt
+                        $null = Add-MailboxPermission -Identity $Mailbox -User $user -AccessRights FullAccess -ErrorAction Stop
+                        Write-Log  "FullAccess-Berechtigung für $user auf $Mailbox wiederhergestellt" -Type "Warning"
+                        Log-Action "FullAccess-Berechtigung für $user auf $Mailbox nach Fehler beim AutoMapping-Update wiederhergestellt"
+                    }
+                    catch {
+                        Write-Log  "Wiederherstellung der FullAccess-Berechtigung für $user auf $Mailbox fehlgeschlagen: $($_.Exception.Message)" -Type "Error"
+                        Log-Action "ACHTUNG: FullAccess-Berechtigung für $user auf $Mailbox wurde entfernt und konnte nicht wiederhergestellt werden: $($_.Exception.Message)"
+                    }
+                }
+            }
+        }
+        finally {
+            Stop-UIBusy
         }
         
-        foreach ($perm in $fullAccessPerms) {
-            $user = $perm.User.ToString()
-            Remove-MailboxPermission -Identity $Mailbox -User $user -AccessRights FullAccess -Confirm:$false -ErrorAction Stop
-            Add-MailboxPermission -Identity $Mailbox -User $user -AccessRights FullAccess -AutoMapping $AutoMapping -ErrorAction Stop
-            Write-Log  "AutoMapping für $user auf $Mailbox aktualisiert" -Type "Info"
+        if ($failedUsers.Count -gt 0) {
+            throw "AutoMapping konnte für $($failedUsers.Count) von $($fullAccessPerms.Count) Benutzer(n) nicht aktualisiert werden: $($failedUsers -join ', ')"
         }
         
         Write-Log  "AutoMapping für Shared Mailbox erfolgreich aktualisiert" -Type "Success"
@@ -464,11 +504,14 @@ function Set-SharedMailboxForwardingAction {
         [string]$Mailbox,
         
         [Parameter(Mandatory = $true)]
-        [string]$ForwardingAddress
+        [string]$ForwardingAddress,
+
+        [Parameter(Mandatory = $false)]
+        [bool]$DeliverToMailboxAndForward = $true
     )
     
     try {
-        Write-Log  "Setze Weiterleitung für Shared Mailbox $Mailbox auf $ForwardingAddress" -Type "Info"
+        Write-Log  "Setze Weiterleitung für Shared Mailbox $Mailbox auf $ForwardingAddress (Kopie behalten: $DeliverToMailboxAndForward)" -Type "Info"
         
         if ([string]::IsNullOrEmpty($ForwardingAddress)) {
             # Weiterleitung entfernen
@@ -476,11 +519,11 @@ function Set-SharedMailboxForwardingAction {
             Write-Log  "Weiterleitung für Shared Mailbox erfolgreich entfernt" -Type "Success"
         } else {
             # Weiterleitung setzen
-            Set-Mailbox -Identity $Mailbox -ForwardingSmtpAddress $ForwardingAddress -DeliverToMailboxAndForward $true -ErrorAction Stop
+            Set-Mailbox -Identity $Mailbox -ForwardingSmtpAddress $ForwardingAddress -DeliverToMailboxAndForward $DeliverToMailboxAndForward -ErrorAction Stop
             Write-Log  "Weiterleitung für Shared Mailbox erfolgreich gesetzt" -Type "Success"
         }
         
-        Log-Action "Weiterleitung für Shared Mailbox $Mailbox auf $ForwardingAddress gesetzt"
+        Log-Action "Weiterleitung für Shared Mailbox $Mailbox auf $ForwardingAddress gesetzt (Kopie behalten: $DeliverToMailboxAndForward)"
         return $true
     }
     catch {
@@ -793,7 +836,7 @@ function Initialize-SharedMailboxTab {
             }
             catch {
                 $errorMsg = $_.Exception.Message
-                Write-Log -Level Error -Message "Fehler beim Hinzufügen der Berechtigung: $errorMsg"
+                Write-Log "Fehler beim Hinzufügen der Berechtigung: $errorMsg" -Type Error
                 $script:txtStatus.Text = "Fehler: $errorMsg"
             }
         } -ControlName "btnAddSharedMailboxPermission"
@@ -883,7 +926,7 @@ function Initialize-SharedMailboxTab {
                 }
                 
                 # Funktion zum Anzeigen der Berechtigungen aufrufen
-                $permissions = Get-SharedMailboxPermissionsAction -Mailbox $mailbox
+                $permissions = @(Get-SharedMailboxPermissionsAction -Mailbox $mailbox)
                 
                 # Berechtigungen in der Benutzeroberfläche anzeigen
                 if ($permissions.Count -gt 0) {
@@ -948,13 +991,26 @@ function Initialize-SharedMailboxTab {
                 }
                 
                 # Funktion zum Anzeigen aller Weiterleitungen aufrufen
-                $forwardingMailboxes = Get-ForwardingMailboxesAction
+                Start-UIBusy -Message "Rufe Postfächer mit Weiterleitung ab..." -Title "Weiterleitungen" -Cancelable
+                try {
+                    $forwardingMailboxes = @(Get-ForwardingMailboxesAction)
+                }
+                finally {
+                    Stop-UIBusy
+                }
                 
                 if ($forwardingMailboxes.Count -gt 0) {
                     # Anzeige der Weiterleitungen in einem neuen Fenster oder Dialog
                     $forwardingText = "Aktive Weiterleitungen:`n`n"
                     foreach ($fwd in $forwardingMailboxes) {
-                        $forwardingText += "- $($fwd.Mailbox) → $($fwd.ForwardingAddress) (Kopie behalten: $($fwd.DeliverToMailboxAndForward))`n"
+                        # ForwardingSmtpAddress (z. B. "smtp:user@extern.de") hat Vorrang vor ForwardingAddress (Empfängerobjekt)
+                        $forwardingTarget = if (-not [string]::IsNullOrWhiteSpace("$($fwd.ForwardingSmtpAddress)")) {
+                            "$($fwd.ForwardingSmtpAddress)" -replace '^smtp:', ''
+                        } else {
+                            "$($fwd.ForwardingAddress)"
+                        }
+                        $keepCopyText = if ($fwd.DeliverToMailboxAndForward) { "Ja" } else { "Nein" }
+                        $forwardingText += "- $($fwd.DisplayName) <$($fwd.PrimarySmtpAddress)> → $forwardingTarget (Kopie behalten: $keepCopyText)`n"
                     }
                     
                     [System.Windows.MessageBox]::Show(
@@ -976,7 +1032,12 @@ function Initialize-SharedMailboxTab {
             }
             catch {
                 $errorMsg = $_.Exception.Message
-                $script:txtStatus.Text = "Fehler: $errorMsg"
+                if ($script:UICancelRequested -or $_.Exception -is [System.OperationCanceledException]) {
+                    $script:txtStatus.Text = "Abruf der Weiterleitungen abgebrochen."
+                }
+                else {
+                    $script:txtStatus.Text = "Fehler: $errorMsg"
+                }
             }
         } -ControlName "btnGetForwardingMailboxes"
 
@@ -998,13 +1059,24 @@ function Initialize-SharedMailboxTab {
                 
                 # Parameter sammeln
                 $mailbox = $script:cmbSharedMailboxSelect.SelectedItem.ToString()
-                $autoMapping = $script:chkAutoMapping.IsChecked
+                $autoMapping = [bool]$script:chkAutoMapping.IsChecked
+                
+                # Sicherheitsabfrage: Für das Ändern des AutoMappings werden alle FullAccess-Berechtigungen entfernt und neu gesetzt
+                $autoMappingText = if ($autoMapping) { "aktiviert" } else { "deaktiviert" }
+                $confirmResult = Show-MessageBox -Message "Zum Ändern des AutoMappings werden alle FullAccess-Berechtigungen der Shared Mailbox '$mailbox' entfernt und mit AutoMapping $autoMappingText neu gesetzt. Möchten Sie fortfahren?" -Title "AutoMapping aktualisieren" -Type "Question"
+                if ($confirmResult -ne "Yes") {
+                    $script:txtStatus.Text = "Aktualisierung des AutoMappings abgebrochen."
+                    return
+                }
                 
                 # Funktion zum Aktualisieren des Auto-Mappings aufrufen
                 $result = Update-SharedMailboxAutoMappingAction -Mailbox $mailbox -AutoMapping $autoMapping
                 
                 if ($result) {
                     $script:txtStatus.Text = "Auto-Mapping wurde erfolgreich aktualisiert."
+                }
+                else {
+                    $script:txtStatus.Text = "Auto-Mapping konnte nicht (vollständig) aktualisiert werden. Details siehe Protokoll."
                 }
             }
             catch {
@@ -1033,7 +1105,7 @@ function Initialize-SharedMailboxTab {
                 # Parameter sammeln
                 $mailbox = $script:cmbSharedMailboxSelect.SelectedItem.ToString()
                 $forwardingAddress = $script:txtForwardingAddress.Text
-                $keepCopy = $script:chkKeepCopy.IsChecked
+                $keepCopy = [bool]$script:chkKeepCopy.IsChecked
                 
                 # Funktion zum Einrichten der Weiterleitung aufrufen
                 $result = Set-SharedMailboxForwardingAction -Mailbox $mailbox -ForwardingAddress $forwardingAddress -DeliverToMailboxAndForward $keepCopy

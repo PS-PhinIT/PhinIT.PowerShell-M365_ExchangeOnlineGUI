@@ -27,7 +27,7 @@
 # -------------------------------------------------
 # Version (bei jedem Release anpassen und in CHANGELOG.md dokumentieren)
 # -------------------------------------------------
-$script:AppVersion = "0.4.0"
+$script:AppVersion = "0.5.0"
 
 # WPF benötigt einen STA-Thread (Standard bei Windows PowerShell 5.1 und pwsh 7 unter Windows).
 # Bei Start mit -MTA wird das Skript automatisch im STA-Modus neu gestartet.
@@ -116,82 +116,46 @@ foreach ($moduleFile in $script:ModuleFiles) {
 $script:debugMode = $false
 $script:logFilePath = Join-Path -Path "$script:AppRoot\Logs" -ChildPath "ExchangeTool.log"
 
-# Statusfarben (lesbar auf heller Statusleiste und dunkler Navigationsleiste)
-$script:connectedBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(0x2E, 0x9E, 0x44))
-$script:disconnectedBrush = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(0xE5, 0x53, 0x4B))
+# Statusfarben für Verbindungsstatus und Statusleiste (beide dunkel) - werden nach dem Laden
+# des Fensters aus dem Theme (Status*Brush in src/GUI/Theme.xaml) übernommen
+$script:connectedBrush = $null
+$script:disconnectedBrush = $null
 $script:isConnected = $false
+$script:RestartPending = $false
+
 # Registry-Pfad und Standardwerte für Konfigurationseinstellungen
 $script:registryPath = "HKCU:\Software\easyIT\easyEXO"
-$currentScriptVersion = $script:AppVersion
 
 try {
     Write-LogEntry "Prüfe und initialisiere Registry-Konfiguration unter '$($script:registryPath)'."
-
-    # Stelle sicher, dass der Basispfad "HKCU:\Software\easyIT" existiert
-    $parentPath = "HKCU:\Software\easyIT"
-    if (-not (Test-Path -Path $parentPath)) {
-        New-Item -Path "HKCU:\Software" -Name "easyIT" -Force -ErrorAction Stop | Out-Null
-        Write-LogEntry "Registry-Basispfad '$parentPath' wurde erstellt."
-    }
-
-    # Prüfe, ob der Anwendungspfad existiert.
-    $appPathExistedBefore = Test-Path -Path $script:registryPath
-    if (-not $appPathExistedBefore) {
-        # Wenn der Anwendungspfad nicht existiert, erstelle ihn.
-        New-Item -Path $parentPath -Name (Split-Path $script:registryPath -Leaf) -Force -ErrorAction Stop | Out-Null
+    if (-not (Test-Path -Path $script:registryPath)) {
+        New-Item -Path $script:registryPath -Force -ErrorAction Stop | Out-Null
         Write-LogEntry "Registry-Anwendungspfad '$($script:registryPath)' wurde erstellt."
     }
-    
-    $performUpdate = $false
-    
-    if (-not $appPathExistedBefore) {
-        # Wenn der Anwendungspfad gerade erst erstellt wurde, ist ein vollständiges Setzen der Standardwerte erforderlich.
-        Write-LogEntry "Registry-Anwendungspfad war nicht vorhanden. Standardwerte werden initial geschrieben."
-        $performUpdate = $true
-    } else {
-        # Der Pfad existierte bereits. Prüfe die Version.
-        $storedVersion = $null
-        try {
-            # Versuche, den Versionseintrag zu lesen
-            $storedVersionProperty = Get-ItemProperty -Path $script:registryPath -Name "Version" -ErrorAction SilentlyContinue
-            if ($null -ne $storedVersionProperty -and $storedVersionProperty.PSObject.Properties["Version"]) {
-                $storedVersion = $storedVersionProperty.Version
-            }
-        }
-        catch {
-            # Fehler beim Lesen der Version, sicherheitshalber Update durchführen
-            Write-LogEntry "WARNUNG: Fehler beim Lesen der Version aus der Registry unter '$($script:registryPath)': $($_.Exception.Message). Standardwerte werden vorsichtshalber aktualisiert."
-            $performUpdate = $true # Update erzwingen bei Lesefehler
-        }
 
-        if (-not $performUpdate) { # Nur prüfen, wenn nicht schon durch Fehler oben ein Update erzwungen wurde
-            if ($null -eq $storedVersion) {
-                Write-LogEntry "Kein Versionseintrag in der Registry gefunden unter '$($script:registryPath)' oder Wert ist null. Standardwerte werden geschrieben."
-                $performUpdate = $true
-            } elseif ($storedVersion -ne $currentScriptVersion) {
-                Write-LogEntry "Registry-Version ('$storedVersion') unterscheidet sich von Skript-Version ('$currentScriptVersion'). Standardwerte werden aktualisiert."
-                $performUpdate = $true
-            } else {
-                Write-LogEntry "Registry-Version ('$storedVersion') ist aktuell mit Skript-Version ('$currentScriptVersion'). Keine Aktualisierung der Standardwerte erforderlich."
-            }
+    # Nur fehlende Werte anlegen - vom Benutzer gespeicherte Einstellungen (Debug, Standard-Benutzer,
+    # Log-Verzeichnis) bleiben bei einem Versionswechsel erhalten.
+    $registryDefaults = [ordered]@{
+        Debug       = @{ Value = 0; Type = "DWord" }
+        AppName     = @{ Value = "easyEXO | Exchange Online Management Tool"; Type = "String" }
+        DefaultUser = @{ Value = ""; Type = "String" }
+        LogPath     = @{ Value = (Join-Path -Path $script:AppRoot -ChildPath "Logs"); Type = "String" }
+    }
+    $existingValues = Get-ItemProperty -Path $script:registryPath -ErrorAction SilentlyContinue
+    foreach ($entry in $registryDefaults.GetEnumerator()) {
+        if ($null -eq $existingValues -or $null -eq $existingValues.PSObject.Properties[$entry.Key]) {
+            New-ItemProperty -Path $script:registryPath -Name $entry.Key -Value $entry.Value.Value -PropertyType $entry.Value.Type -Force -ErrorAction Stop | Out-Null
+            Write-LogEntry "Registry-Standardwert '$($entry.Key)' angelegt."
         }
     }
-    
-    if ($performUpdate) {
-        Write-LogEntry "Setze/Aktualisiere Registry-Standardwerte für '$($script:registryPath)'."
-        New-ItemProperty -Path $script:registryPath -Name "Debug" -Value 0 -PropertyType DWORD -Force -ErrorAction Stop | Out-Null
-        New-ItemProperty -Path $script:registryPath -Name "AppName" -Value "easyEXO | Exchange Online Management Tool" -PropertyType String -Force -ErrorAction Stop | Out-Null
-        New-ItemProperty -Path $script:registryPath -Name "Version" -Value $currentScriptVersion -PropertyType String -Force -ErrorAction Stop | Out-Null
-        New-ItemProperty -Path $script:registryPath -Name "ThemeColor" -Value "#0078D7" -PropertyType String -Force -ErrorAction Stop | Out-Null
-        New-ItemProperty -Path $script:registryPath -Name "DefaultUser" -Value "" -PropertyType String -Force -ErrorAction Stop | Out-Null
-        New-ItemProperty -Path $script:registryPath -Name "LogPath" -Value "$script:AppRoot\Logs" -PropertyType String -Force -ErrorAction Stop | Out-Null
-        New-ItemProperty -Path $script:registryPath -Name "HeaderLogoURL" -Value "https://psscripts.de" -PropertyType String -Force -ErrorAction Stop | Out-Null
-        Write-LogEntry "Registry-Standardwerte für '$($script:registryPath)' erfolgreich gesetzt/aktualisiert."
+    $storedVersion = if ($null -ne $existingValues -and $null -ne $existingValues.PSObject.Properties["Version"]) { [string]$existingValues.Version } else { $null }
+    if ($storedVersion -ne $script:AppVersion) {
+        New-ItemProperty -Path $script:registryPath -Name "Version" -Value $script:AppVersion -PropertyType String -Force -ErrorAction Stop | Out-Null
+        Write-LogEntry "Registry-Version aktualisiert ('$storedVersion' -> '$($script:AppVersion)')."
     }
 }
 catch {
-    $errorMsg = $_.Exception.Message
-    Write-LogEntry "FEHLER bei der Registry-Konfigurationsinitialisierung für '$($script:registryPath)': $errorMsg"
+    Write-LogEntry "FEHLER bei der Registry-Konfigurationsinitialisierung für '$($script:registryPath)': $($_.Exception.Message)" -Type "Error"
 }
 
 # Lade Konfiguration
@@ -202,12 +166,17 @@ if ($script:config["General"]["Debug"] -eq "1") {
     $script:debugMode = $true
 }
 
+# Log-Verzeichnis aus den Einstellungen übernehmen (Standard: Logs neben dem Launcher)
+$null = Initialize-Logging
+
 # -------------------------------------------------
 # Abschnitt: GUI laden (src/GUI/MainWindow.xaml + src/GUI/Theme.xaml)
 # -------------------------------------------------
 try {
     $script:Form = Load-XAML -XamlContent (Get-MainWindowXaml)
     $script:Form.Title = "$($script:Form.Title) | v$($script:AppVersion)"
+    $script:connectedBrush = Get-StatusBrush -Type Success
+    $script:disconnectedBrush = Get-StatusBrush -Type Error
 
     # Fenstergröße an den verfügbaren Bildschirmbereich anpassen (kleine Displays / Skalierung)
     $workArea = [System.Windows.SystemParameters]::WorkArea
@@ -307,9 +276,6 @@ $script:btnNavAudit         = Get-XamlElement -ElementName "btnNavAudit"
 $script:btnNavReports       = Get-XamlElement -ElementName "btnNavReports"
 $script:btnNavTroubleshooting = Get-XamlElement -ElementName "btnNavTroubleshooting"
 
-# Legacy/Fallback Referenzen (falls noch verwendet)
-$script:tabOrgSettings      = Get-XamlElement -ElementName "tabOrgSettings"
-$script:btnNavOrgSettings   = Get-XamlElement -ElementName "btnNavOrgSettings"
 $script:btnInfo             = Get-XamlElement -ElementName "btnInfo"
 $script:btnSettings         = Get-XamlElement -ElementName "btnSettings"
 
@@ -330,6 +296,8 @@ $script:btnConnect.Add_Click({
     if (-not $script:envCheckDone) {
         $script:envCheckDone = $true
         $null = Test-PowerShell7AndAdminRights
+        # Neustart mit PowerShell 7 wurde eingeleitet - diese Instanz schließt sich, keine Verbindung mehr aufbauen
+        if ($script:RestartPending) { return }
     }
     # Prüfen, ob die erforderlichen Module vorhanden sind, bevor die Verbindung versucht wird.
     if (-not (Check-Prerequisites)) {
@@ -356,26 +324,19 @@ $null = Register-EventHandler -Control $script:btnConnectCompliance -Handler {
 
 # Tab-Wechsel protokollieren (Tab-Header werden ausgeblendet, daher den Namen verwenden)
 $script:tabContent.Add_SelectionChanged({
-    param($sender, $e)
+    param($tabSource, $selectionArgs)
     # Nur Ereignisse des TabControls selbst (nicht von untergeordneten ComboBoxen/DataGrids) protokollieren
-    if ($e.OriginalSource -ne $sender) { return }
-    $selectedTab = $sender.SelectedItem
+    if ($selectionArgs.OriginalSource -ne $tabSource) { return }
+    $selectedTab = $tabSource.SelectedItem
     if ($null -ne $selectedTab) {
         Write-Log "Tab gewechselt zu: $($selectedTab.Name)"
     }
 })
 
-# Referenzierung weiterer wichtiger UI-Elemente
-$script:btnCheckPrerequisites   = Get-XamlElement -ElementName "btnCheckPrerequisites"
-
 # -------------------------------------------------
-# Status-Variablen für die Organisationseinstellungen (Features/OrganizationSettings.ps1)
+# Status-Variable für die Organisationseinstellungen (Features/OrganizationSettings.ps1)
 # -------------------------------------------------
-$script:tabEXOSettings = $null
-$script:organizationConfigSettings = @{}
 $script:currentOrganizationConfig = $null
-$script:EXOSettingsLoggingEnabled = $false
-$script:EXOSettingsLogFilePath = Join-Path -Path $script:AppRoot -ChildPath "Logs\easyEXOSettings.log"
 
 # -------------------------------------------------
 # Kopfzeilen-Buttons (Einstellungen, Info, Schließen)
@@ -472,13 +433,19 @@ $script:Form.Add_Loaded({
             if (-not [string]::IsNullOrWhiteSpace($script:AppVersion)) {
                 $script:txtVersion.Text = "v$($script:AppVersion)"
             } else {
-                Log-Action "Fehler beim Setzen der Version: $($_.Exception.Message)"
+                Log-Action "Keine Versionsnummer gesetzt (`$script:AppVersion ist leer)."
             }
         } catch {
             Log-Action "Fehler beim Setzen der Version: $($_.Exception.Message)"
         }
     }
     
+    # Copyright-Jahr in der Statusleiste aktuell halten
+    $txtCopyright = Get-XamlElement -ElementName "txtCopyright"
+    if ($null -ne $txtCopyright) {
+        $txtCopyright.Text = "Copyright © $(Get-Date -Format yyyy)"
+    }
+
     # Verbindungsstatus initialisieren
     if ($null -ne $script:txtConnectionStatus) {
         $script:txtConnectionStatus.Text = "Nicht verbunden"

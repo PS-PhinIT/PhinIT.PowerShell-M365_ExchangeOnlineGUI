@@ -7,7 +7,147 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 Jede Änderung wird direkt unter einer **konkreten Versionsnummer mit Datum** eingetragen.
 
 Die Einträge bis einschließlich 0.1.1 wurden nachträglich aus der Git-Historie
-(Commits und Pull Requests) rekonstruiert.
+(Commits und Pull Requests) rekonstruiert. Die Versionen 0.2.0 bis 0.4.0 wurden gemeinsam mit
+[Pull Request #2](https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/pull/2) in `main` übernommen.
+
+## [0.5.0] - 2026-10-14
+
+Zweites Audit-Release: vollständige Prüfung aller Module (Sicherheit, Performance, Funktionen, Verweise, GUI,
+Exchange-Befehle) mit Abgleich der verwendeten Cmdlet-Parameter gegen die aktuelle Microsoft-Dokumentation.
+Schwerpunkte: ungültige Exchange-Parameter, falsche Erfolgsmeldungen, Abstürze bei genau einem Ergebnis,
+XAML-Injection in Dialogen, fehlende Bestätigungen und einheitliches Design. Details: [docs/AUDIT.md](docs/AUDIT.md)
+(Abschnitt „Nachprüfung 0.5.0“).
+
+### Hinzugefügt
+- **Microsoft Defender (ATP):** Schaltflächen „Ausgewählte löschen“ für Anti-Phishing-, Safe-Attachments- und
+  Safe-Links-Richtlinien (mit Bestätigung; zugehörige Regeln werden zuerst entfernt).
+- **Einstellungen:** Standard-Benutzer, Debug-Modus und Log-Verzeichnis wirken sofort nach dem Speichern
+  (`Initialize-Logging`).
+- **Statusleiste:** Copyright mit aktuellem Jahr.
+- **Theme für Dialoge:** `Add-ThemeResource` stellt Farben und Styles aus `Theme.xaml` auch in eigenen Fenstern
+  bereit (Richtlinien-, Geräte-, Connector-, Ressourcen-, Nachrichtenverfolgungs- und Einstellungsdialog);
+  `Get-StatusBrush` liefert die Statusfarben aus dem Theme.
+- **Repository:** Issue-Vorlagen für Fehlerberichte und Funktionswünsche (`.github/ISSUE_TEMPLATE/`), Sicherheitslücken
+  werden auf die vertrauliche Meldung verwiesen.
+- Arbeitsanzeige mit Fortschritt und „Abbrechen“ zusätzlich für Health Check, Audit, Diagnosen, Quarantäne,
+  Regionaleinstellungen, Weiterleitungen freigegebener Postfächer, „Standardberechtigung für alle“ (Kalender),
+  Nachrichtenverfolgung, Import von Transportregeln und Deaktivieren mehrerer Abwesenheitsnotizen.
+
+### Geändert
+- **Design:** Alle fest kodierten Farben aus `MainWindow.xaml` und den Inline-Dialogen entfernt – Farben stehen nur
+  noch in `Theme.xaml` (neue Brushes für Kopfzeile, Navigationsleiste, Statusleiste, Hinweise und Dashboard-Kacheln).
+  22 Schaltflächen ohne Style verwenden jetzt die Theme-Styles; Verbindungsstatus und Statusleiste nutzen die
+  Theme-Statusfarben.
+- **Transportregeln:** Bereich vollständig eingedeutscht (Navigation „Transportregeln“, „Posteingangsregeln“, Bereich
+  „Automatische Antworten“); Rückfragen beim Erstellen wirksamer Regeln (Erzwingen, Löschen, Umleiten, Quarantäne,
+  Ablehnen), beim Aktivieren im Modus „Erzwingen“ und beim Deaktivieren.
+- **Anmeldung:** Eingabe des Benutzernamens über den Theme-Eingabedialog statt eines eigenen Fensters; „Abbrechen“
+  bricht die Anmeldung sauber ab.
+- **Registry:** Beim Start werden nur fehlende Werte angelegt, die Version nur bei Änderung geschrieben; die
+  ungenutzten Werte `ThemeColor`/`HeaderLogoURL` werden nicht mehr angelegt.
+- **PowerShell-7-Neustart:** Das Fenster wird geordnet geschlossen (kein `exit` im Event-Handler); ein Neustart mit
+  Administratorrechten wird nicht mehr angeboten (nicht erforderlich).
+- **Health Check:** Der Ping an einen externen DNS-Server (8.8.8.8) entfällt – er brach den Verbindungstest in
+  Netzen ohne ICMP ab; DNS- und Port-443-Test sind Hinweise, der Exchange-Online-Test läuft immer.
+- **Berichte:** Start-/Enddatum sind nur aktiv, wenn der gewählte Bericht sie verwendet.
+- **Nachrichtenverfolgung:** bis zu 5000 Ergebnisse (Hinweis bei Erreichen des Limits).
+- **Regionaleinstellungen:** Export als Textdatei statt CSV; Bestätigung auch für einzeln genannte Postfächer.
+- **Freigegebene Postfächer:** Weiterleitungen werden serverseitig gefiltert und mit Ziel und „Kopie behalten“ angezeigt.
+- Schaltflächen in Cross-Premises, Organisations- und Regionaleinstellungen über `Register-EventHandler`
+  (Fehlerbehandlung, Sperre während laufender Vorgänge).
+- Troubleshooting-Links auf learn.microsoft.com umgestellt (docs.microsoft.com und ein Drittanbieter-Link wurden von
+  der URL-Allowlist blockiert); RPS-Hinweise in der Vergangenheitsform.
+
+### Behoben
+- **Einstellungen/Logging:** Das Log-Verzeichnis aus den Einstellungen wurde ignoriert (Dialog las den falschen
+  Schlüssel, Logging nutzte einen festen Pfad); Debug-Einträge wurden auch ohne Debug-Modus geschrieben; der Debug-Wert
+  wurde mit falschem Typ gespeichert.
+- **Launcher:** Der Verweis auf den Bereich Organisationseinstellungen wurde nach dem Laden mit `$null` überschrieben;
+  tote Verweise (`tabOrgSettings`, `btnNavOrgSettings`, `btnCheckPrerequisites`) entfernt; fehlerhafte Verwendung von
+  `$_` im Loaded-Handler.
+- **Spaltenbindungen:** Safe Attachments „Aktiviert“ (`Enable`), Safe Links „E-Mail-Schutz“
+  (`EnableSafeLinksForEmail`), Geräte in Quarantäne (`UserDisplayName`, `DeviceAccessState`), Connectors (`Type`).
+- **CSV-Export:** Mehrwertige Eigenschaften (z. B. `EmailAddresses`) wurden als Typname exportiert – jetzt als Liste.
+- **Abstürze/leere Listen bei genau einem Ergebnis** (fehlendes `@(…)`): Domänen, Gruppen, Ressourcen und
+  Ressourcenberechtigungen, Kontakte (MailUser), Berechtigungen und Weiterleitungen freigegebener Postfächer,
+  Posteingangsregeln, mobile Geräte, akzeptierte Domänen (Cross-Premises).
+- **Postfachberechtigungen:** „Senden als“ wurde bei Benutzern mit Vollzugriff verworfen; Spalte „Berechtigungstyp“ war
+  leer; „Senden im Auftrag“ erkannte bestehende Einträge nicht (Vergleich von Anzeigenamen mit Adressen) – Änderungen
+  jetzt über `@{Add=…}`/`@{Remove=…}` ohne Neuschreiben der ganzen Liste, Entfernen mit Bestätigung.
+- **Freigegebene Postfächer:** „Kopie behalten“ bei Weiterleitungen wurde ignoriert; Fehler beim Laden der
+  Weiterleitungen wurden als „keine Weiterleitungen“ gemeldet; Ändern von AutoMapping ohne Bestätigung und ohne
+  Wiederherstellung bei Fehlern.
+- **Kalender:** Vorhandene Berechtigungen werden aktualisiert statt mit Fehler abzubrechen; Fehlermeldungen wurden von
+  einer Erfolgsmeldung überschrieben; „Standardberechtigung für alle“ meldete auch bei Fehlern Erfolg.
+- **Kontakte:** MailUser wurden mit `Set-MailContact` bearbeitet (jetzt `Set-MailUser`); Aktualisieren nach dem Löschen
+  eines MailUsers schlug fehl.
+- **Gruppen:** „Benutzer entfernen“ meldete Erfolg trotz Fehler; „Aus GAL ausblenden“ bei Microsoft 365-Gruppen las
+  eine nicht existierende Eigenschaft und blendete Gruppen beim Speichern ungewollt ein; „Absender-Authentifizierung“
+  und „Externe Absender zulassen“ widersprachen sich; `New-UnifiedGroup` erhielt Beschreibung und Besitzer über
+  ungültige Parameter (jetzt `-Notes`, `-Owner`).
+- **Ressourcen:** Liste wurde nach Erstellen/Bearbeiten/Löschen nicht aktualisiert; Standort über `Office` statt
+  `ResourceCustom`, kein ungültiger Parameter `-Location` mehr bei `New-Mailbox`; Kapazität nur, wenn angegeben;
+  ungültige Zahleneingaben werden gemeldet statt verworfen; Platzhalter im Einstellungsdialog.
+- **Transportregeln:** ungültiger Standardmodus „Test“ (jetzt „Audit“, Rückfall bei ungültiger Auswahl); Regeln ohne
+  gültige Bedingung oder Aktion (hätten für alle Nachrichten gegolten) werden abgelehnt; Import übergab die
+  nicht existierenden Parameter `State`/`Description` (jetzt `Enabled`/`Comments`) und meldete Erfolg trotz Fehlern;
+  Listen-Eigenschaften im CSV-Export/-Import; ungültige statische Einträge in den Auswahllisten entfernt.
+- **Posteingangsregeln:** Aktivieren, Deaktivieren, Löschen und Verschieben verwendeten eine ungültige Identität;
+  Zielordner im falschen Format.
+- **Nachrichtenverfolgung:** Der End-Tag war ausgeschlossen; „Lokale Zeit“ wurde nicht umgerechnet; Prüfung
+  „Ende nach Start“ ergänzt.
+- **Abwesenheitsnotizen:** Deaktivieren mehrerer Benutzer lud die Liste für jeden Benutzer neu.
+- **Cross-Premises:** Fehler beim Laden/Ändern von Connectors wurden als Erfolg protokolliert; Inbound-Connector ohne
+  Absenderdomänen; Smart Hosts ohne `UseMXRecord $false`; `TlsDomain` nur bei Zertifikatsprüfung „DomainValidation“;
+  fehlerhafter Text in der Rückfrage.
+- **Microsoft Defender (ATP):** Anti-Phishing-, Safe-Attachments- und Safe-Links-Dialoge verwendeten nicht existierende
+  Parameter (u. a. `Description`, `ImpersonationProtectionEnabled`, `SpoofProtectionEnabled`, `EnableRedirect`) – jetzt die dokumentierten Parameter
+  (`AdminDisplayName`, `EnableTargetedUserProtection`, `EnableMailboxIntelligenceProtection`, `Enable`, `Redirect`,
+  `DeliverMessageAfterScan`, `TrackClicks`, `AllowClickThrough` …); Aktionen für sichere Anlagen
+  (Allow/Block/DynamicDelivery); fehlende Regeln werden angelegt, Empfängerbereiche lassen sich leeren. Beim Bearbeiten
+  bleiben vorhandene Empfänger ohne `@` (Alias/Name) Empfänger und werden nicht mehr als Domäne gespeichert.
+- **Quarantäne:** Es wurde nur die erste Seite geladen; ungültige Typwerte; „Ausgewählte freigeben/löschen“ verarbeitete
+  nur eine Nachricht.
+- **Mobile Geräte:** `AllowBluetooth` mit ungültigem Wert; ungültiges Feld „Beschreibung“; Mindest-Kennwortlänge ohne
+  `PasswordEnabled`; Zulassen/Blockieren ließ die Geräte-ID in der jeweils anderen Liste.
+- **Organisationseinstellungen:** „Speichern“ und „Exportieren“ funktionierten erst nach dem ersten Laden.
+- **Regionaleinstellungen:** Absturz der Fortschrittsanzeige; „Ordnernamen in Benutzersprache“ wurde falsch gelesen;
+  Exchange-Warnungen wurden als Fehler gezählt.
+- **Health Check:** Warnungen und Details wurden nie ausgegeben; SMTP-AUTH-Prüfung über `Get-TransportConfig`;
+  Modern Auth über `OAuth2ClientProfileEnabled`; Remote-Domäne „Default“; Fehlerauswertung ohne globales `$Error`.
+- **Audit:** Regelname fehlte in der Lösch-Empfehlung; `AuditLogAgeLimit` als Zeitspanne ausgewertet; Ordner nach
+  Größe in Bytes sortiert; die Option „Vollständige Audit-Details“ war durch fehlerhafte Zeichenketten unerreichbar;
+  Statusleiste zeigt das tatsächliche Ergebnis.
+- **Berichte:** ungültige Eigenschaft `AuditBypassEnabled`; Fehler bei Postfachstatistiken werden gezählt und
+  protokolliert.
+- **Diagnosen (Troubleshooting):** Fehler der Diagnosebefehle wurden als Erfolg gemeldet; nicht existierende
+  Eigenschaften `PowerShellMax*`; typografische Gedankenstriche als Parameterpräfix; fehlende `-ResultSize Unlimited`.
+- **Dashboard:** „Zurücksetzen“ leerte die Statistik-Kacheln nicht.
+- **Rückgabewerte:** Gruppen-, Postfachberechtigungs-, Shared-Mailbox- und Abwesenheitsfunktionen gaben neben `$true`/`$false`
+  auch MessageBox-Ergebnisse bzw. Exchange-Objekte zurück – Fehlschläge (z. B. Mitglied aus dynamischer Gruppe entfernen,
+  teilweise fehlgeschlagenes Auto-Mapping) wurden dadurch als Erfolg gemeldet.
+
+### Sicherheit
+- **XAML-Injection:** Betreff (Nachrichtenverfolgung) und Anzeigename (Ressourcen) wurden in das XAML-Markup eingesetzt
+  – Daten werden jetzt nach dem Laden über Eigenschaften gesetzt; kein Inline-XAML enthält mehr Variablen.
+- **Transportregel-Import (XML):** Nur erlaubte Eigenschaften und einfache Datentypen werden übernommen.
+- **Audit:** Abgleich interner Domänen war mit Domänen wie `contoso.com.evil.net` umgehbar.
+- **Externe Links:** Admin-Center- und Hilfe-Links (Defender, Organisationseinstellungen) nur noch über
+  `Open-ExternalUrl` (https, Allowlist) statt `Start-Process`.
+- **PowerShell-7-Installation:** MSI ohne Explorer-Kontextmenü (Befund S2 aus 0.2.0 war nur teilweise umgesetzt).
+- Globale Variable `$Global:IsConnectedToExo` entfernt (Verbindungsstatus nur im Script-Scope); Steuerzeichen werden aus
+  Statusmeldungen entfernt.
+
+### Entfernt
+- Ungenutzte Funktionen: `Test-ModuleInstalled`, `Test-InternetConnection`, `Add-ComboBoxDefaultItem`,
+  `Update-ComboBoxItems`, `Write-StatusMessage`, `Get-MailboxPermissionsAction`, `Set-CalendarDefaultPermissionsAction`,
+  `Add-CalendarPermission`, `Remove-CalendarPermission`, `Set-AnonymousCalendarPermissionForAll`, `Update-ExoContact`,
+  `Search-ExoContacts`, zehn Altfunktionen in `Groups.ps1` (u. a. `Create-DistributionGroupAction`,
+  `Get-ExoDistributionGroup`), `Refresh-InboxRuleUserDropdown`, `Get-ThrottlingPolicyAction`,
+  `Get-ThrottlingPolicyForTroubleshooting`, `Test-EWSThrottlingPolicy`, `Initialize-OrganizationConfigControls`,
+  `Set-EXOSettingsDebugLogging`.
+- Wirkungslose Checkbox „Authentifizierung“ im Connector-Dialog, ungenutzte Kopfzeilen-Elemente
+  (`headerStatus`, `headerStatusContainer`) und ungenutzte Variablen.
 
 ## [0.4.0] - 2026-10-14
 
@@ -288,7 +428,8 @@ Aufteilung in Module und neues, modernes Design. Details zu allen Befunden: [doc
 - Import der frühen Skriptversionen V0.0.1 bis V0.0.9 inklusive Funktionsmodulen, externer XAML-Oberfläche
   (`assets/EXOGUI.xaml`), Grafiken und Konfigurationsdateien (INI/JSON).
 
-[0.4.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/db7f1ea...main
+[0.5.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/a81147c...main
+[0.4.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/db7f1ea...a81147c
 [0.3.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/cda8c87...db7f1ea
 [0.2.0]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/compare/dffe553...cda8c87
 [0.1.1]: https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/commit/dc4d8de

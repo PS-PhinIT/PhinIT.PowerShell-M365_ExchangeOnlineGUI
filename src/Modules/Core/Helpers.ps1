@@ -69,7 +69,7 @@ function Get-FormattedError {
 
             # Füge Informationen zum Skript und zur Zeilennummer hinzu, falls verfügbar
             $scriptInfo = ""
-            if ($ErrorRecord.InvocationInfo -ne $null) {
+            if ($null -ne $ErrorRecord.InvocationInfo) {
                 $scriptName = $ErrorRecord.InvocationInfo.ScriptName
                 $lineNumber = $ErrorRecord.InvocationInfo.ScriptLineNumber
                 if (-not [string]::IsNullOrWhiteSpace($scriptName) -and $lineNumber -gt 0) {
@@ -123,8 +123,10 @@ function Open-AdminCenterLink {
                 Update-GuiText -TextElement $txtStatus -Message "Öffne Exchange Admin Center..."
             }
             
-            # Link öffnen mit Standard-Browser
-            Start-Process $diagnostic.AdminCenterLink
+            # Link nur über die Allowlist (https, Microsoft-Hosts) öffnen
+            if (-not (Open-ExternalUrl -Url $diagnostic.AdminCenterLink)) {
+                throw "Die Adresse '$($diagnostic.AdminCenterLink)' ist nicht zulässig."
+            }
             
             Log-Action "Admin Center Link geöffnet: $($diagnostic.Name)"
             if ($null -ne $txtStatus) {
@@ -164,13 +166,21 @@ function ConvertTo-SafeCsvObject {
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [AllowNull()]
-        $InputObject
+        $InputObject,
+
+        # Trennzeichen für mehrwertige Eigenschaften (z. B. EmailAddresses, ForwardTo)
+        [string]$ListSeparator = ", "
     )
     process {
         if ($null -eq $InputObject) { return }
         $safeObject = [ordered]@{}
         foreach ($property in $InputObject.PSObject.Properties) {
             $value = $property.Value
+            # Mehrwertige Eigenschaften zusammenfassen - Export-Csv schreibt sonst nur den Typnamen
+            # (z. B. "System.Collections.ArrayList") statt der Werte.
+            if ($null -ne $value -and $value -isnot [string] -and $value -isnot [System.Collections.IDictionary] -and $value -is [System.Collections.IEnumerable]) {
+                $value = (@($value) | ForEach-Object { "$_" }) -join $ListSeparator
+            }
             if ($value -is [string] -and $value -match '^[=+\-@\t\r]') {
                 $value = "'" + $value
             }
