@@ -232,14 +232,14 @@
                                 Style="{StaticResource NavButton}"
                                 x:Name="btnNavCrossPremises"
                                 Content="Cross-Premises Routing" />
-                            <!-- <Button
+                            <Button
                                 Style="{StaticResource NavButton}"
                                 x:Name="btnNavHybridExchange"
                                 Content="Hybrid Exchange Config" />
                             <Button
                                 Style="{StaticResource NavButton}"
                                 x:Name="btnNavMultiForest"
-                                Content="Multi-Forest Management" /> -->
+                                Content="Multi-Forest Management" />
                         </StackPanel>
                     </Expander>
 
@@ -271,14 +271,14 @@
                                 Style="{StaticResource NavButton}"
                                 x:Name="btnNavATP"
                                 Content="Advanced Threat Protection" />
-                            <!--     <Button
+                            <Button
                                 Style="{StaticResource NavButton}"
                                 x:Name="btnNavDLP"
                                 Content="Data Loss Prevention" />
                             <Button
                                 Style="{StaticResource NavButton}"
                                 x:Name="btnNavEDiscovery"
-                                Content="eDiscovery &amp; Legal Hold" /> -->
+                                Content="eDiscovery &amp; Legal Hold" />
                             <Button
                                 Style="{StaticResource NavButton}"
                                 x:Name="btnNavMDM"

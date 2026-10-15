@@ -1,5 +1,37 @@
 # Audit-Bericht easyEXO
 
+## Nachprüfung 0.5.1 – 2026-10-15
+
+**Ausgangsstand:** `64b4cd6` (Merge von Pull Request #3), Version 0.5.0. Nach Behebung: **0.5.1**.
+Die weiter unten aufgeführten Befunde früherer Audits bleiben als Historie erhalten; sie sind keine
+Behauptung einer erneuten vollständigen Live-Prüfung.
+
+### Umfang und Ergebnis
+
+| Bereich | Prüfung / Ergebnis |
+|---|---|
+| Sicherheit | Repositoryweite Suche nach sicherheitskritischen Operationen in 34 PowerShell-Dateien; vertiefte Prüfung von Helpers, Environment, Troubleshooting, Transportregel-Import, Berichtexport und Verbindungslogik. Keine belastbar ausnutzbare neue Schwachstelle festgestellt. |
+| Funktionen / Performance | Dashboard-Fehlerstatus und Abbruchfluss korrigiert; nach Abbruch keine zusätzliche Domänenabfrage. Bestehende gebündelte Empfängerabfrage bleibt unverändert. |
+| GUI | Titel der Arbeitsanzeige korrigiert: `$title` überschrieb wegen case-insensitiver Variablennamen den Parameter `$Title`. Vier auskommentierte Navigationsschaltflächen für Hybrid, Multi-Forest, DLP und eDiscovery aktiviert; vorhandene Funktionen waren dadurch nicht erreichbar. |
+| Verweise | XML-basierte Prüfung der literalen Hauptfenster-Verweise: vier nur in Kommentaren vorhandene Namen gefunden und als echte Elemente wiederhergestellt. Danach 478 benannte Elemente, keine fehlenden literalen Ziele; Theme-Ressourcen und lokale Markdown-Verweise ohne fehlende Ziele nach Bereinigung. Dynamische Namen und Laufzeit-Bindings erfordern Windows-Tests. |
+| Struktur | Ein versionloser Launcher `src/easyEXO.ps1`, Fachmodule getrennt von GUI und Kernfunktionen. Keine alten Skriptkopien oder Screenshot-Bilddateien im Ausgangsstand; leere Screenshot-Ablage samt README und aktuellen Verweisen entfernt. |
+| Dokumentation / Historie | README, CHANGELOG, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, LICENSE und Audit-Bericht bleiben erhalten. Historie mit Git und den zusammengeführten Pull Requests #2 und #3 abgeglichen; 0.5.1 mit konkretem Datum dokumentiert. |
+
+### Validierung und Grenzen
+
+- PowerShell-Parser: 34 Skriptdateien ohne Syntaxfehler; beide XAML-Dateien als XML wohlgeformt.
+- PSScriptAnalyzer 1.25.0: keine Fehler; Ausgangsstand mit 107 Warnungen (47 ShouldProcess,
+  26 SingularNouns, 13 ApprovedVerbs, je 7 EmptyCatchBlock/UnusedParameter, 6 WriteHost,
+  1 OverwritingBuiltInCmdlets). Keine pauschale Unterdrückung dieser bestehenden Hinweise.
+- Isolierte Aufrufe mit ersetzten GUI-/Exchange-Abhängigkeiten bestätigen Overlay-Titel sowie Dashboard-Erfolg,
+  Empfängerfehler, Domänenfehler und Abbruch; keine Domänenabfrage nach Abbruch und ausgeglichener Busy-Zähler.
+- Sicherheitsspezifische Prüfläufe für CSV-Schutz, Importvalidierung und Quote-Breakout in Diagnosevorlagen erfolgreich.
+- **Nicht durchgeführt:** Windows-PowerShell-5.1-/WPF-Laufzeittest, Excel-Integration und Live-Exchange-/Purview-Test.
+  Cmdlet-Verfügbarkeit, Rollen, Dienständerungen und dynamische Bindings müssen im Windows-Testmandanten geprüft werden.
+  Keine vollständige Zeile-für-Zeile-Neuprüfung aller Module und keine Sicherheitsgarantie.
+
+## Historische Audits bis 0.5.0
+
 | | |
 |---|---|
 | **Version geprüft** | 0.1.1 (`easyEXO_V0.1.1.ps1`, ~28.500 Zeilen) |

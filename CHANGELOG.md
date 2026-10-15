@@ -9,6 +9,33 @@ Jede Änderung wird direkt unter einer **konkreten Versionsnummer mit Datum** ei
 Die Einträge bis einschließlich 0.1.1 wurden nachträglich aus der Git-Historie
 (Commits und Pull Requests) rekonstruiert. Die Versionen 0.2.0 bis 0.4.0 wurden gemeinsam mit
 [Pull Request #2](https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/pull/2) in `main` übernommen.
+Die Änderungen zu 0.5.0 wurden mit
+[Pull Request #3](https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/pull/3)
+am 2026-10-15 zusammengeführt; das bereits dokumentierte Versionsdatum bleibt erhalten.
+
+## [0.5.1] - 2026-10-15
+
+Erneutes Audit des aktuellen Quellstands nach Pull Request #3. Prüfumfang, Ergebnisse und
+Grenzen der Prüfung stehen in [docs/AUDIT.md](docs/AUDIT.md#nachprüfung-051--2026-10-15).
+
+### Behoben
+- **Navigation:** Die Schaltflächen für Hybrid Exchange, Multi-Forest, DLP und eDiscovery waren im XAML
+  auskommentiert. Sie sind wieder erreichbar und nutzen die bestehenden Tab-Zuordnungen und Handler.
+- **Arbeitsanzeige:** Der Titelparameter wurde durch das gleichnamige TextBlock-Steuerelement überschrieben
+  (PowerShell unterscheidet keine Groß-/Kleinschreibung). Das Overlay zeigt nun den übergebenen Titel.
+- **Dashboard:** Fehler beim Laden von Empfängern oder Domänen werden nicht mehr als vollständiger Erfolg
+  gemeldet. Nach einem Abbruch erfolgt keine weitere Domänenabfrage; die Arbeitsanzeige wird weiterhin
+  im `finally` aufgeräumt.
+
+### Entfernt
+- Vollständige Screenshot-Ablage einschließlich ihrer README; Verweise in README und Mitwirkungsrichtlinien
+  angepasst. Bilddateien und alte Skriptkopien waren im geprüften Ausgangsstand bereits nicht mehr enthalten.
+
+### Dokumentation
+- Bestehende Struktur mit `src/GUI`, `src/Modules/{Core,UI,Exchange,Features}` und `docs` beibehalten;
+  wichtige Projektdokumente und Versionshistorie bleiben erhalten.
+- Versionsangaben in Launcher, README und Sicherheitsrichtlinie auf 0.5.1 abgeglichen.
+- Historische Einträge anhand der zusammengeführten Pull Requests #2 und #3 geprüft und Herkunft ergänzt.
 
 ## [0.5.0] - 2026-10-14
 
