@@ -110,7 +110,16 @@ function Get-MailboxAuditConfigForUser {
                         }
                     }
                     if ($null -eq $auditLogs) {
-                        $auditLogs = @(Search-UnifiedAuditLog -StartDate $startDate -EndDate $endDate -UserIds $Mailbox -RecordType ExchangeItem -ResultSize 10 -ErrorAction Stop |
+                        $targetMailbox = [string]$mailboxObj.UserPrincipalName
+                        if ([string]::IsNullOrWhiteSpace($targetMailbox)) { $targetMailbox = [string]$mailboxObj.PrimarySmtpAddress }
+                        $unifiedLogs = @(Search-UnifiedAuditLog -StartDate $startDate -EndDate $endDate -FreeText $targetMailbox -RecordType ExchangeItem -ResultSize 5000 -ErrorAction Stop)
+                        if ($unifiedLogs.Count -ge 5000) {
+                            $result += "⚠️ Suchlimit von 5000 Audit-Ereignissen erreicht; der Postfachnachweis kann unvollständig sein.`n"
+                        }
+                        $auditLogs = @($unifiedLogs | Where-Object {
+                            $data = $_.AuditData | ConvertFrom-Json -ErrorAction Stop
+                            [string]$data.MailboxOwnerUPN -eq $targetMailbox
+                        } | Sort-Object CreationDate -Descending | Select-Object -First 10 |
                             Select-Object @{ Name = 'LastAccessed'; Expression = { $_.CreationDate } },
                                           @{ Name = 'Operation'; Expression = { $_.Operations } },
                                           @{ Name = 'LogonUserDisplayName'; Expression = { $_.UserIds } })

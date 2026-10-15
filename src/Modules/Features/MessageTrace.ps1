@@ -193,7 +193,20 @@ function Show-DetailedMessageTraceAction {
         # Sammle alle verfügbaren Informationen
         # Get-MessageTraceDetail ist abgekündigt - bevorzugt Get-MessageTraceDetailV2 verwenden (ExchangeOnlineManagement >= 3.7.0)
         if (Get-Command -Name Get-MessageTraceDetailV2 -ErrorAction SilentlyContinue) {
-            $details = Get-MessageTraceDetailV2 -MessageTraceId $selectedTrace.MessageTraceId -RecipientAddress $selectedTrace.RecipientAddress -ErrorAction Stop
+            $receivedUtc = if ($selectedTrace.Received -is [datetime]) {
+                if ($selectedTrace.Received.Kind -eq [System.DateTimeKind]::Unspecified) {
+                    [datetime]::SpecifyKind($selectedTrace.Received, [System.DateTimeKind]::Utc)
+                } else {
+                    $selectedTrace.Received.ToUniversalTime()
+                }
+            } else {
+                [datetime]::Parse([string]$selectedTrace.Received, [System.Globalization.CultureInfo]::InvariantCulture,
+                    [System.Globalization.DateTimeStyles]::AssumeUniversal -bor [System.Globalization.DateTimeStyles]::AdjustToUniversal)
+            }
+            $detailEnd = $receivedUtc.Date.AddDays(1)
+            if ($detailEnd -gt [datetime]::UtcNow) { $detailEnd = [datetime]::UtcNow }
+            $details = Get-MessageTraceDetailV2 -MessageTraceId $selectedTrace.MessageTraceId -RecipientAddress $selectedTrace.RecipientAddress `
+                -StartDate $receivedUtc.Date -EndDate $detailEnd -ErrorAction Stop
         } else {
             $details = Get-MessageTraceDetail -MessageTraceId $selectedTrace.MessageTraceId -RecipientAddress $selectedTrace.RecipientAddress -ErrorAction Stop
         }

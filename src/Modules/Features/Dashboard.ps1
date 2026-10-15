@@ -76,6 +76,7 @@ function Refresh-DashboardStatistics {
 
         Write-Log "Aktualisiere Dashboard-Statistiken..." -Type "Info"
         Update-StatusBar -Message "Lade Dashboard-Statistiken..." -Type "Info"
+        $hasErrors = $false
 
         # Performance: Alle Empfängertypen mit EINER Abfrage laden und während des Empfangs zählen
         # (keine Zwischenspeicherung aller Objekte, Fortschrittsanzeige, abbrechbar).
@@ -110,10 +111,16 @@ function Refresh-DashboardStatistics {
             Show-DashboardStatText -ElementName "txtStatGroups" -Value (& $getCount @('MailUniversalDistributionGroup', 'MailUniversalSecurityGroup', 'MailNonUniversalGroup', 'RoomList', 'GroupMailbox'))
             Show-DashboardStatText -ElementName "txtStatResources" -Value (& $getCount @('RoomMailbox', 'EquipmentMailbox'))
         } catch {
-            $statText = if ($script:UICancelRequested) { "Abgebrochen" } else { "Fehler" }
+            $cancelled = $script:UICancelRequested -or $_.Exception -is [System.OperationCanceledException]
+            $statText = if ($cancelled) { "Abgebrochen" } else { "Fehler" }
+            $hasErrors = $true
             Write-Log "Empfängerstatistik nicht vollständig abgerufen ($statText): $($_.Exception.Message)" -Type "Warning"
             foreach ($statName in @("txtStatTotalMailboxes", "txtStatSharedMailboxes", "txtStatGroups", "txtStatResources")) {
                 Show-DashboardStatText -ElementName $statName -Value $statText
+            }
+            if ($cancelled) {
+                Update-StatusBar -Message "Dashboard-Aktualisierung abgebrochen." -Type "Warning"
+                return
             }
         } finally {
             Stop-UIBusy
@@ -125,12 +132,18 @@ function Refresh-DashboardStatistics {
             $count = (Get-AcceptedDomain -ErrorAction Stop | Measure-Object).Count
             Show-DashboardStatText -ElementName "txtStatDomains" -Value $count
         } catch {
+            $hasErrors = $true
             Write-Log "Fehler beim Abrufen der Domänen: $($_.Exception.Message)" -Type "Warning"
             Show-DashboardStatText -ElementName "txtStatDomains" -Value "Fehler"
         }
 
-        Update-StatusBar -Message "Dashboard-Statistiken erfolgreich aktualisiert." -Type "Success"
-        Write-Log "Dashboard-Statistiken erfolgreich aktualisiert." -Type "Success"
+        if ($hasErrors) {
+            Update-StatusBar -Message "Dashboard-Statistiken nur teilweise aktualisiert. Details siehe Protokoll." -Type "Warning"
+            Write-Log "Dashboard-Statistiken nur teilweise aktualisiert." -Type "Warning"
+        } else {
+            Update-StatusBar -Message "Dashboard-Statistiken erfolgreich aktualisiert." -Type "Success"
+            Write-Log "Dashboard-Statistiken erfolgreich aktualisiert." -Type "Success"
+        }
 
     } catch {
         $errorMsg = Get-FormattedError -ErrorRecord $_

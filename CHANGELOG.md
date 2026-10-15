@@ -9,6 +9,56 @@ Jede Änderung wird direkt unter einer **konkreten Versionsnummer mit Datum** ei
 Die Einträge bis einschließlich 0.1.1 wurden nachträglich aus der Git-Historie
 (Commits und Pull Requests) rekonstruiert. Die Versionen 0.2.0 bis 0.4.0 wurden gemeinsam mit
 [Pull Request #2](https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/pull/2) in `main` übernommen.
+Die Änderungen zu 0.5.0 wurden mit
+[Pull Request #3](https://github.com/PS-PhinIT/PhinIT.PowerShell-M365_ExchangeOnlineGUI/pull/3)
+am 2026-10-15 zusammengeführt; das bereits dokumentierte Versionsdatum bleibt erhalten.
+
+## [0.5.1] - 2026-10-15
+
+Erneutes Audit des aktuellen Quellstands nach Pull Request #3. Prüfumfang, Ergebnisse und
+Grenzen der Prüfung stehen in [docs/AUDIT.md](docs/AUDIT.md#nachprüfung-051--2026-10-15).
+
+### Behoben
+- **Navigation:** Die Schaltflächen für Hybrid Exchange, Multi-Forest, DLP und eDiscovery waren im XAML
+  auskommentiert. Sie sind wieder erreichbar und nutzen die bestehenden Tab-Zuordnungen und Handler.
+- **Arbeitsanzeige:** Der Titelparameter wurde durch das gleichnamige TextBlock-Steuerelement überschrieben
+  (PowerShell unterscheidet keine Groß-/Kleinschreibung). Das Overlay zeigt nun den übergebenen Titel.
+- **Dashboard:** Fehler beim Laden von Empfängern oder Domänen werden nicht mehr als vollständiger Erfolg
+  gemeldet. Nach einem Abbruch erfolgt keine weitere Domänenabfrage; die Arbeitsanzeige wird weiterhin
+  im `finally` aufgeräumt.
+- **Berichte:** Alle elf Berichtsfunktionen akzeptieren die initial leere Ergebnisliste; zuvor brachen die
+  Aufrufe bereits bei der Parameterbindung ab.
+- **Gruppen:** Fehlerdialoge und Mitgliedschaftsergebnisse verunreinigen die Gruppenrückgabe nicht mehr.
+  Fehlgeschlagene Mitgliedschaften werden separat gemeldet statt eine vollständige Einrichtung vorzutäuschen.
+- **Weiterleitungen:** Ein SMTP-Ziel ersetzt nun ein vorhandenes `ForwardingAddress`; Anzeige und Berichte
+  berücksichtigen dessen tatsächlichen Vorrang vor `ForwardingSmtpAddress`.
+- **Audit:** Der Unified-Audit-Fallback prüft das Zielpostfach über `MailboxOwnerUPN` statt den Akteur mit dem
+  Postfach gleichzusetzen; Suchlimit wird ausdrücklich angezeigt.
+- **Nachrichtenverfolgung:** Detailabfragen enthalten den Zeitraum der ausgewählten Nachricht, auch außerhalb
+  des standardmäßigen 48-Stunden-Fensters.
+- **Ressourcen:** Stellvertreterlisten lassen sich vollständig leeren; unverändertes Speichern aktiviert keine
+  zuvor abgeschaltete Kalenderverarbeitung. Mindestdauer `0` wird angezeigt, akzeptiert und übertragen.
+- **Abbruch / Multi-Forest:** Abbruch auch nach Verarbeitung des letzten Pipelineobjekts und am Pipelineende
+  prüfen; Suchfehler nicht mehr als erfolgreiche leere Suche melden.
+- **Kontakte:** Listenabfragen mit vorhandener Fortschritts-/Abbruchanzeige und ohne zusätzliche
+  `Get-OrganizationConfig`-Abfrage; Cmdletfehler brechen zuverlässig ab.
+
+### Sicherheit
+- **Transportregelimport gesperrt:** Die bisherigen CSV-/CLIXML-Exporte verlieren Bedingungen, Ausnahmen und
+  weitere Einstellungen. Die Wiederherstellung konnte dadurch wirksame Regeln ungewollt ausweiten.
+  Importausführung entfernt, kompatible Fehlerrückgabe beibehalten und GUI-Schaltfläche deaktiviert.
+  Exporte bleiben ausdrücklich **Berichte, keine Sicherungen**. Ein verlustfreier Import erfordert eine
+  gesonderte Implementierung; vorhandene Berichte dürfen nicht zur Wiederherstellung verwendet werden.
+
+### Entfernt
+- Vollständige Screenshot-Ablage einschließlich ihrer README; Verweise in README und Mitwirkungsrichtlinien
+  angepasst. Bilddateien und alte Skriptkopien waren im geprüften Ausgangsstand bereits nicht mehr enthalten.
+
+### Dokumentation
+- Bestehende Struktur mit `src/GUI`, `src/Modules/{Core,UI,Exchange,Features}` und `docs` beibehalten;
+  wichtige Projektdokumente und Versionshistorie bleiben erhalten.
+- Versionsangaben in Launcher, README und Sicherheitsrichtlinie auf 0.5.1 abgeglichen.
+- Historische Einträge anhand der zusammengeführten Pull Requests #2 und #3 geprüft und Herkunft ergänzt.
 
 ## [0.5.0] - 2026-10-14
 

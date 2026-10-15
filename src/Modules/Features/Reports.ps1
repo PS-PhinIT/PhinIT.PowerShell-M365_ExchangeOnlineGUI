@@ -152,6 +152,7 @@ function Add-ReportMailboxStatistics {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results,
 
         [Parameter(Mandatory = $true)]
@@ -238,6 +239,7 @@ function Add-ReportMailboxPermissions {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results,
 
         [Parameter(Mandatory = $true)]
@@ -286,6 +288,7 @@ function Add-ReportCalendarPermissions {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results,
 
         [Parameter(Mandatory = $true)]
@@ -350,6 +353,7 @@ function Add-ReportGroupMembers {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results
     )
 
@@ -388,6 +392,7 @@ function Add-ReportForwarding {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results,
 
         [switch]$ExternalOnly
@@ -412,7 +417,7 @@ function Add-ReportForwarding {
         if ([string]::IsNullOrWhiteSpace($smtpTarget) -and [string]::IsNullOrWhiteSpace($recipientTarget)) { continue }
 
         $targetAddress = $smtpTarget
-        if ([string]::IsNullOrWhiteSpace($targetAddress) -and -not [string]::IsNullOrWhiteSpace($recipientTarget)) {
+        if (-not [string]::IsNullOrWhiteSpace($recipientTarget)) {
             # ForwardingAddress verweist auf ein Empfängerobjekt (z. B. einen E-Mail-Kontakt)
             try {
                 $recipient = Get-Recipient -Identity $recipientTarget -ErrorAction Stop
@@ -438,7 +443,7 @@ function Add-ReportForwarding {
             Weiterleitungsziel         = $targetAddress
             ZielDomaene                = $targetDomain
             KopieImPostfach            = $mailbox.DeliverToMailboxAndForward
-            Quelle                     = if (-not [string]::IsNullOrWhiteSpace($smtpTarget)) { "ForwardingSmtpAddress" } else { "ForwardingAddress" }
+            Quelle                     = if (-not [string]::IsNullOrWhiteSpace($recipientTarget)) { "ForwardingAddress" } else { "ForwardingSmtpAddress" }
         })
     }
 }
@@ -447,6 +452,7 @@ function Add-ReportArchiveHold {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results
     )
 
@@ -470,6 +476,7 @@ function Add-ReportSendAs {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results
     )
 
@@ -514,6 +521,7 @@ function Add-ReportUnifiedGroups {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results
     )
 
@@ -537,6 +545,7 @@ function Add-ReportGroupsWithoutOwner {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results
     )
 
@@ -559,6 +568,7 @@ function Add-ReportResources {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results
     )
 
@@ -595,6 +605,7 @@ function Add-ReportMailboxAudit {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [System.Collections.Generic.List[object]]$Results
     )
 

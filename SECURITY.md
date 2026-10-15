@@ -7,8 +7,8 @@ Sicherheitsupdates werden ausschließlich für die jeweils aktuelle Version auf 
 
 | Version | Unterstützt |
 |---------|-------------|
-| 0.5.x   | ✅          |
-| < 0.5.0 | ❌          |
+| 0.5.1   | ✅          |
+| < 0.5.1 | ❌          |
 
 ## Sicherheitslücke melden
 
@@ -41,6 +41,8 @@ Sie erhalten in der Regel innerhalb von 7 Tagen eine erste Rückmeldung.
   regelmäßig. Der Debug-Modus protokolliert zusätzliche Details und sollte nur zur Fehlersuche aktiviert werden.
 - **Exporte:** CSV-, XLSX- und TXT-Exporte enthalten Mandantendaten – speichern Sie diese nur an geschützten Orten.
   CSV-Werte werden gegen Formel-Injection geschützt (`ConvertTo-SafeCsvObject`).
+- **Transportregelberichte:** CSV-/CLIXML-Berichte sind keine vollständige Regelsicherung. Der Import ist gesperrt,
+  damit verlorene Bedingungen oder Ausnahmen nicht zu einer ungewollten Ausweitung von Regeln führen.
 - **PowerShell-7-Installation:** Die optionale Installation erfolgt nur nach Bestätigung – per `winget` (exakte Paket-ID
   `Microsoft.PowerShell`, Quelle `winget`) oder als MSI über den offiziellen Microsoft-Link. Beim MSI wird die
   Authenticode-Signatur (Microsoft Corporation) vor der Ausführung geprüft; installiert wird ohne PowerShell-Remoting und

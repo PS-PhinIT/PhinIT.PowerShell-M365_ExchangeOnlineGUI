@@ -1,8 +1,6 @@
 # easyEXO - Exchange Online Verwaltungstool
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
-
-> Screenshots der aktuellen Version werden unter [`docs/screenshots/`](docs/screenshots/) abgelegt.
+![Version](https://img.shields.io/badge/version-0.5.1-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
 
 ## Übersicht
 
@@ -25,7 +23,9 @@ Das Tool ist modular aufgebaut (ein Launcher plus thematisch getrennte Moduldate
 - **Kontakte**: Suchen und Bearbeiten von Mail-Kontakten.
 
 ### ⚙️ Mailflow
-- **Transportregeln**: Erstellen, Anzeigen, Aktivieren/Deaktivieren und Exportieren/Importieren von Mailflow-Regeln.
+- **Transportregeln**: Erstellen, Anzeigen, Aktivieren/Deaktivieren und Berichtsexport von Mailflow-Regeln.
+  Der CSV-/CLIXML-Import ist aus Sicherheitsgründen deaktiviert: Diese Berichte enthalten keine vollständigen
+  Regeldefinitionen und sind nicht zur Wiederherstellung geeignet.
 - **Posteingangsregeln**: Verwaltung von Posteingangsregeln für einzelne Benutzerpostfächer.
 - **Nachrichtenverfolgung**: Detaillierte Suche und Analyse von E-Mail-Zustellungen.
 - **Automatische Antworten**: Abwesenheitsnotizen für einzelne oder mehrere Benutzer (Masseneinrichtung), Platzhalter `{StartDate}`/`{EndDate}`, Zeilenumbrüche werden übernommen.
@@ -105,8 +105,7 @@ Automatisch gespeicherte Berichte (Option „Automatisch als CSV speichern“) l
 │       └── Features/            # Fachmodule je Bereich (Postfächer, Gruppen, Mail-Flow, Sicherheit,
 │                                #   Compliance/eDiscovery, Hybrid, Multi-Forest, Berichte …)
 ├── docs/
-│   ├── AUDIT.md                 # Audit-Bericht (Sicherheit, Performance, Funktionen, GUI …)
-│   └── screenshots/             # Screenshots der aktuellen Version (Dateiname ohne Versionsnummer)
+│   └── AUDIT.md                 # Audit-Bericht (Sicherheit, Performance, Funktionen, GUI …)
 ├── .github/
 │   ├── ISSUE_TEMPLATE/          # Vorlagen für Fehlerberichte und Funktionswünsche
 │   ├── workflows/               # CI (PSScriptAnalyzer, Codacy)
@@ -119,7 +118,7 @@ Automatisch gespeicherte Berichte (Option „Automatisch als CSV speichern“) l
 └── SECURITY.md
 ```
 
-Ältere Skriptversionen und Screenshots sind nicht mehr im Repository enthalten; sie bleiben über die Git-Historie verfügbar. Der Launcher heißt unabhängig von der Version immer `easyEXO.ps1` – die aktuelle Version steht im Badge oben, in der Titelleiste des Programms und im [CHANGELOG](CHANGELOG.md).
+Alte Skriptversionen und sämtliche Screenshots einschließlich ihrer Ablage sind aus dem aktuellen Dateibestand entfernt; frühere Inhalte bleiben über die Git-Historie verfügbar. Der Launcher heißt unabhängig von der Version immer `easyEXO.ps1` – die aktuelle Version steht im Badge oben, in der Titelleiste des Programms und im [CHANGELOG](CHANGELOG.md).
 
 ## Weitere Dokumentation
 
