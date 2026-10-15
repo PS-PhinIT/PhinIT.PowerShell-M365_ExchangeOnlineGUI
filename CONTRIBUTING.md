@@ -11,8 +11,7 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
 │   ├── workflows/           # CI (PSScriptAnalyzer, Codacy)
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── docs/
-│   ├── AUDIT.md             # Ergebnisse des Code-Audits
-│   └── screenshots/         # Nur aktuelle Screenshots, Dateiname ohne Version (siehe README dort)
+│   └── AUDIT.md             # Ergebnisse des Code-Audits
 ├── src/
 │   ├── easyEXO.ps1          # Launcher: Umgebung, Module laden, Fenster, zentrale Event-Handler
 │   ├── GUI/
@@ -31,7 +30,7 @@ Vielen Dank für Ihr Interesse an **easyEXO**! Beiträge in Form von Issues, Ver
 └── SECURITY.md
 ```
 
-> Alte Skriptversionen und veraltete Screenshots werden **nicht** im Repository abgelegt. Dateinamen enthalten keine
+> Alte Skriptversionen und sämtliche Screenshots werden **nicht** im Repository abgelegt. Dateinamen enthalten keine
 > Versionsnummer (der Launcher heißt immer `src/easyEXO.ps1`); die Version steht ausschließlich in `$script:AppVersion`,
 > in der README (Badge) und im [CHANGELOG](CHANGELOG.md). Die Historie ist über Git, Releases und das CHANGELOG
 > nachvollziehbar. Temporäre Dateien (Analyse-Ausgaben, Hilfsskripte) gehören nicht ins Repository.

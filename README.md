@@ -1,8 +1,6 @@
 # easyEXO - Exchange Online Verwaltungstool
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
-
-> Screenshots der aktuellen Version werden unter [`docs/screenshots/`](docs/screenshots/) abgelegt.
+![Version](https://img.shields.io/badge/version-0.5.1-blue) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-5391FE) ![Lizenz](https://img.shields.io/badge/license-MIT-green)
 
 ## Übersicht
 
@@ -105,8 +103,7 @@ Automatisch gespeicherte Berichte (Option „Automatisch als CSV speichern“) l
 │       └── Features/            # Fachmodule je Bereich (Postfächer, Gruppen, Mail-Flow, Sicherheit,
 │                                #   Compliance/eDiscovery, Hybrid, Multi-Forest, Berichte …)
 ├── docs/
-│   ├── AUDIT.md                 # Audit-Bericht (Sicherheit, Performance, Funktionen, GUI …)
-│   └── screenshots/             # Screenshots der aktuellen Version (Dateiname ohne Versionsnummer)
+│   └── AUDIT.md                 # Audit-Bericht (Sicherheit, Performance, Funktionen, GUI …)
 ├── .github/
 │   ├── ISSUE_TEMPLATE/          # Vorlagen für Fehlerberichte und Funktionswünsche
 │   ├── workflows/               # CI (PSScriptAnalyzer, Codacy)
@@ -119,7 +116,7 @@ Automatisch gespeicherte Berichte (Option „Automatisch als CSV speichern“) l
 └── SECURITY.md
 ```
 
-Ältere Skriptversionen und Screenshots sind nicht mehr im Repository enthalten; sie bleiben über die Git-Historie verfügbar. Der Launcher heißt unabhängig von der Version immer `easyEXO.ps1` – die aktuelle Version steht im Badge oben, in der Titelleiste des Programms und im [CHANGELOG](CHANGELOG.md).
+Alte Skriptversionen und sämtliche Screenshots einschließlich ihrer Ablage sind aus dem aktuellen Dateibestand entfernt; frühere Inhalte bleiben über die Git-Historie verfügbar. Der Launcher heißt unabhängig von der Version immer `easyEXO.ps1` – die aktuelle Version steht im Badge oben, in der Titelleiste des Programms und im [CHANGELOG](CHANGELOG.md).
 
 ## Weitere Dokumentation
 

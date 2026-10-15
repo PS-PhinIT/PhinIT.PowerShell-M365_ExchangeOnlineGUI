@@ -7,8 +7,8 @@ Sicherheitsupdates werden ausschließlich für die jeweils aktuelle Version auf 
 
 | Version | Unterstützt |
 |---------|-------------|
-| 0.5.x   | ✅          |
-| < 0.5.0 | ❌          |
+| 0.5.1   | ✅          |
+| < 0.5.1 | ❌          |
 
 ## Sicherheitslücke melden
 

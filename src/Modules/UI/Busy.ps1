@@ -57,12 +57,12 @@ function Start-UIBusy {
     try {
         if ($null -ne $script:Form) {
             $overlay = $script:Form.FindName("gridBusyOverlay")
-            $title = $script:Form.FindName("txtBusyTitle")
+            $titleControl = $script:Form.FindName("txtBusyTitle")
             $text = $script:Form.FindName("txtBusyMessage")
             $bar = $script:Form.FindName("prgBusy")
             $cancel = $script:Form.FindName("btnBusyCancel")
 
-            if ($null -ne $title) { $title.Text = $Title }
+            if ($null -ne $titleControl) { $titleControl.Text = $Title }
             if ($null -ne $text) { $text.Text = $Message }
             if ($null -ne $bar) { $bar.IsIndeterminate = $true; $bar.Value = 0 }
             if ($null -ne $cancel) {
