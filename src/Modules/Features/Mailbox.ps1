@@ -45,7 +45,7 @@ function Add-MailboxPermissionAction {
         }
         
         # Berechtigung hinzufügen
-        Add-MailboxPermission -Identity $SourceUser -User $TargetUser -AccessRights FullAccess -InheritanceType All -AutoMapping $true -ErrorAction Stop
+        $null = Add-MailboxPermission -Identity $SourceUser -User $TargetUser -AccessRights FullAccess -InheritanceType All -AutoMapping $true -ErrorAction Stop
         
         Write-Log  "Postfachberechtigung erfolgreich hinzugefügt" -Type "Success"
         if ($null -ne $txtStatus) {
@@ -269,7 +269,7 @@ function Add-SendAsPermissionAction {
         }
         
         # Berechtigung hinzufügen
-        Add-RecipientPermission -Identity $SourceUser -Trustee $TargetUser -AccessRights SendAs -Confirm:$false -ErrorAction Stop
+        $null = Add-RecipientPermission -Identity $SourceUser -Trustee $TargetUser -AccessRights SendAs -Confirm:$false -ErrorAction Stop
         
         Write-Log  "SendAs-Berechtigung erfolgreich hinzugefügt" -Type "Success"
         if ($null -ne $txtStatus) {

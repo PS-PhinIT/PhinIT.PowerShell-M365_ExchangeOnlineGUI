@@ -69,7 +69,7 @@ function New-SharedMailboxAction {
     
     try {
         Write-Log  "Erstelle neue Shared Mailbox: $Name mit Adresse $EmailAddress" -Type "Info"
-        New-Mailbox -Name $Name -PrimarySmtpAddress $EmailAddress -Shared -ErrorAction Stop
+        $null = New-Mailbox -Name $Name -PrimarySmtpAddress $EmailAddress -Shared -ErrorAction Stop
         Write-Log  "Shared Mailbox $Name erfolgreich erstellt" -Type "Success"
         Log-Action "Shared Mailbox $Name ($EmailAddress) erfolgreich erstellt"
         return $true
@@ -146,10 +146,10 @@ function Add-SharedMailboxPermissionAction {
 
         switch ($PermissionType) {
             "FullAccess" {
-                Add-MailboxPermission -Identity $Mailbox -User $User -AccessRights FullAccess -AutoMapping $AutoMapping -ErrorAction Stop
+                $null = Add-MailboxPermission -Identity $Mailbox -User $User -AccessRights FullAccess -AutoMapping $AutoMapping -ErrorAction Stop
             }
             "SendAs" {
-                Add-RecipientPermission -Identity $Mailbox -Trustee $User -AccessRights SendAs -Confirm:$false -ErrorAction Stop
+                $null = Add-RecipientPermission -Identity $Mailbox -Trustee $User -AccessRights SendAs -Confirm:$false -ErrorAction Stop
             }
             "SendOnBehalf" {
                 # @{Add=...} ergänzt den Delegaten, ohne bestehende Einträge zu überschreiben
@@ -457,7 +457,7 @@ function Update-SharedMailboxAutoMappingAction {
                 }
 
                 try {
-                    Add-MailboxPermission -Identity $Mailbox -User $user -AccessRights FullAccess -AutoMapping $AutoMapping -ErrorAction Stop
+                    $null = Add-MailboxPermission -Identity $Mailbox -User $user -AccessRights FullAccess -AutoMapping $AutoMapping -ErrorAction Stop
                     Write-Log  "AutoMapping für $user auf $Mailbox aktualisiert" -Type "Info"
                 }
                 catch {
@@ -466,7 +466,7 @@ function Update-SharedMailboxAutoMappingAction {
                     Write-Log  "Erneutes Hinzufügen der FullAccess-Berechtigung für $user auf $Mailbox fehlgeschlagen: $addError - versuche Wiederherstellung" -Type "Error"
                     try {
                         # Wiederherstellung ohne AutoMapping-Angabe (Exchange-Standard), damit der Zugriff erhalten bleibt
-                        Add-MailboxPermission -Identity $Mailbox -User $user -AccessRights FullAccess -ErrorAction Stop
+                        $null = Add-MailboxPermission -Identity $Mailbox -User $user -AccessRights FullAccess -ErrorAction Stop
                         Write-Log  "FullAccess-Berechtigung für $user auf $Mailbox wiederhergestellt" -Type "Warning"
                         Log-Action "FullAccess-Berechtigung für $user auf $Mailbox nach Fehler beim AutoMapping-Update wiederhergestellt"
                     }

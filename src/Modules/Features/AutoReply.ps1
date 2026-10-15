@@ -204,7 +204,7 @@ function Set-AutoReplyAction {
             
             Log-Action "Abwesenheitsnotiz für $UserIdentity aktiviert ($StartDate - $EndDate)"
             Update-StatusBar -Message "Abwesenheitsnotiz für $UserIdentity erfolgreich aktiviert." -Type Success
-            if (-not $NoRefresh) { Get-AutoReplyStatusAction -UserIdentity $UserIdentity } # Status aktualisieren
+            if (-not $NoRefresh) { $null = Get-AutoReplyStatusAction -UserIdentity $UserIdentity } # Status aktualisieren
         }
         return $true
     } catch {
@@ -308,7 +308,7 @@ function Disable-AutoReplyAction {
             Set-MailboxAutoReplyConfiguration -Identity $UserIdentity -AutoReplyState Disabled -ErrorAction Stop
             Log-Action "Abwesenheitsnotiz für $UserIdentity deaktiviert"
             Update-StatusBar -Message "Abwesenheitsnotiz für $UserIdentity erfolgreich deaktiviert." -Type Success
-            if (-not $NoRefresh) { Get-AutoReplyStatusAction -UserIdentity $UserIdentity } # Status aktualisieren
+            if (-not $NoRefresh) { $null = Get-AutoReplyStatusAction -UserIdentity $UserIdentity } # Status aktualisieren
         }
         return $true
     } catch {

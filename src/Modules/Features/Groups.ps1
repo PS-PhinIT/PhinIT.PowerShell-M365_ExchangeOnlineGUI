@@ -328,7 +328,7 @@ function Update-ExoGroupSettingsAction {
 
     try {
         if (-not $script:isConnected) {
-            Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
+            $null = Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
             Update-StatusBar -Message "Nicht verbunden." -Type Warning
             return $false
         }
@@ -393,7 +393,7 @@ function Update-ExoGroupSettingsAction {
                 default {
                     $errMsg = "Update-ExoGroupSettingsAction: Nicht unterstützter Gruppentyp '$recipientType' für Gruppe '$Identity'."
                     Write-Log $errMsg -Type Error
-                    Show-MessageBox -Message $errMsg -Title "Nicht unterstützter Typ" -Type Warning
+                    $null = Show-MessageBox -Message $errMsg -Title "Nicht unterstützter Typ" -Type Warning
                     Update-StatusBar -Message "Nicht unterstützter Gruppentyp: $recipientType" -Type Warning
                     return $false
                 }
@@ -414,7 +414,7 @@ function Update-ExoGroupSettingsAction {
         $groupNameForError = if ($groupDisplayName) { $groupDisplayName } else { $Identity }
         Write-Log "Fehler in Update-ExoGroupSettingsAction für Gruppe '$groupNameForError': $errMsg" -Type Error
         if (Test-Path Function:\Log-Action) { Log-Action "Fehler Update-ExoGroupSettingsAction '$groupNameForError': $errMsg" }
-        Show-MessageBox -Message "Fehler beim Aktualisieren der Einstellungen für Gruppe '$groupNameForError':`n$($_.Exception.Message)" -Title "Fehler bei Aktualisierung" -Type Error
+        $null = Show-MessageBox -Message "Fehler beim Aktualisieren der Einstellungen für Gruppe '$groupNameForError':`n$($_.Exception.Message)" -Title "Fehler bei Aktualisierung" -Type Error
         Update-StatusBar -Message "Fehler beim Aktualisieren der Einstellungen für '$groupNameForError'." -Type Error
         return $false
     }
@@ -598,7 +598,7 @@ function Remove-ExoGroupAction {
 
     try {
         if (-not $script:isConnected) {
-            Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
+            $null = Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
             Update-StatusBar -Message "Nicht verbunden." -Type Warning
             return $false
         }
@@ -634,7 +634,7 @@ function Remove-ExoGroupAction {
                 default {
                     $errMsg = "Remove-ExoGroupAction: Nicht unterstützter Gruppentyp '$recipientType' für Gruppe '$groupDisplayName' zum Löschen."
                     Write-Log $errMsg -Type Error
-                    Show-MessageBox -Message $errMsg -Title "Nicht unterstützter Typ" -Type Warning
+                    $null = Show-MessageBox -Message $errMsg -Title "Nicht unterstützter Typ" -Type Warning
                     Update-StatusBar -Message "Nicht unterstützter Gruppentyp: $recipientType" -Type Warning
                     return $false
                 }
@@ -654,7 +654,7 @@ function Remove-ExoGroupAction {
         $errMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Unbekannter Fehler beim Löschen der Gruppe."
         Write-Log "Fehler in Remove-ExoGroupAction für Gruppe '$groupDisplayName': $errMsg" -Type Error
         if (Test-Path Function:\Log-Action) { Log-Action "Fehler Remove-ExoGroupAction '$groupDisplayName': $errMsg" }
-        Show-MessageBox -Message "Fehler beim Löschen der Gruppe '$groupDisplayName':`n$($_.Exception.Message)" -Title "Fehler bei Löschung" -Type Error
+        $null = Show-MessageBox -Message "Fehler beim Löschen der Gruppe '$groupDisplayName':`n$($_.Exception.Message)" -Title "Fehler bei Löschung" -Type Error
         Update-StatusBar -Message "Fehler beim Löschen der Gruppe '$groupDisplayName'." -Type Error
         return $false
     }
@@ -677,7 +677,7 @@ function Add-ExoGroupMemberAction {
 
     try {
         if (-not $script:isConnected) {
-            Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
+            $null = Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
             Update-StatusBar -Message "Nicht verbunden." -Type Warning
             return $false
         }
@@ -710,14 +710,14 @@ function Add-ExoGroupMemberAction {
                 "DynamicDistributionGroup" {
                      $errMsg = "Add-ExoGroupMemberAction: Mitglieder können nicht manuell zu dynamischen Verteilergruppen hinzugefügt werden (Gruppe '$groupDisplayName')."
                     Write-Log $errMsg -Type Warning
-                    Show-MessageBox -Message $errMsg -Title "Aktion nicht unterstützt" -Type Warning
+                    $null = Show-MessageBox -Message $errMsg -Title "Aktion nicht unterstützt" -Type Warning
                     Update-StatusBar -Message "Mitglieder können nicht zu dynamischen Gruppen hinzugefügt werden." -Type Warning
                     return $false
                 }
                 default {
                     $errMsg = "Add-ExoGroupMemberAction: Mitglieder können nicht manuell zu Gruppentyp '$recipientType' (Gruppe '$groupDisplayName') hinzugefügt werden."
                     Write-Log $errMsg -Type Error
-                    Show-MessageBox -Message $errMsg -Title "Nicht unterstützter Typ" -Type Warning
+                    $null = Show-MessageBox -Message $errMsg -Title "Nicht unterstützter Typ" -Type Warning
                     Update-StatusBar -Message "Mitglieder können nicht zu '$recipientType' hinzugefügt werden." -Type Warning
                     return $false
                 }
@@ -737,7 +737,7 @@ function Add-ExoGroupMemberAction {
         $errMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Unbekannter Fehler beim Hinzufügen des Gruppenmitglieds."
         Write-Log "Fehler in Add-ExoGroupMemberAction für Gruppe '$groupDisplayName', Mitglied '$MemberIdentity': $errMsg" -Type Error
         if (Test-Path Function:\Log-Action) { Log-Action "Fehler Add-ExoGroupMemberAction '$groupDisplayName'/'$MemberIdentity': $errMsg" }
-        Show-MessageBox -Message "Fehler beim Hinzufügen von '$MemberIdentity' zu Gruppe '$groupDisplayName':`n$($_.Exception.Message)" -Title "Fehler bei Mitgliedschaft" -Type Error
+        $null = Show-MessageBox -Message "Fehler beim Hinzufügen von '$MemberIdentity' zu Gruppe '$groupDisplayName':`n$($_.Exception.Message)" -Title "Fehler bei Mitgliedschaft" -Type Error
         Update-StatusBar -Message "Fehler beim Hinzufügen zu '$groupDisplayName'." -Type Error
         return $false
     }
@@ -761,7 +761,7 @@ function Remove-ExoGroupMemberAction {
 
     try {
         if (-not $script:isConnected) {
-            Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
+            $null = Show-MessageBox -Message "Sie sind nicht mit Exchange Online verbunden." -Title "Nicht verbunden" -Type Warning
             Update-StatusBar -Message "Nicht verbunden." -Type Warning
             return $false
         }
@@ -793,14 +793,14 @@ function Remove-ExoGroupMemberAction {
                  "DynamicDistributionGroup" {
                      $errMsg = "Remove-ExoGroupMemberAction: Mitglieder können nicht manuell aus dynamischen Verteilergruppen entfernt werden (Gruppe '$groupDisplayName')."
                     Write-Log $errMsg -Type Warning
-                    Show-MessageBox -Message $errMsg -Title "Aktion nicht unterstützt" -Type Warning
+                    $null = Show-MessageBox -Message $errMsg -Title "Aktion nicht unterstützt" -Type Warning
                     Update-StatusBar -Message "Mitglieder können nicht aus dynamischen Gruppen entfernt werden." -Type Warning
                     return $false
                 }
                 default {
                     $errMsg = "Remove-ExoGroupMemberAction: Mitglieder können nicht manuell aus Gruppentyp '$recipientType' (Gruppe '$groupDisplayName') entfernt werden."
                     Write-Log $errMsg -Type Error
-                    Show-MessageBox -Message $errMsg -Title "Nicht unterstützter Typ" -Type Warning
+                    $null = Show-MessageBox -Message $errMsg -Title "Nicht unterstützter Typ" -Type Warning
                     Update-StatusBar -Message "Mitglieder können nicht aus '$recipientType' entfernt werden." -Type Warning
                     return $false
                 }
@@ -820,7 +820,7 @@ function Remove-ExoGroupMemberAction {
         $errMsg = Get-FormattedError -ErrorRecord $_ -DefaultText "Unbekannter Fehler beim Entfernen des Gruppenmitglieds."
         Write-Log "Fehler in Remove-ExoGroupMemberAction für Gruppe '$groupDisplayName', Mitglied '$UserIdentity': $errMsg" -Type Error
         if (Test-Path Function:\Log-Action) { Log-Action "Fehler Remove-ExoGroupMemberAction '$groupDisplayName'/'$UserIdentity': $errMsg" }
-        Show-MessageBox -Message "Fehler beim Entfernen von '$UserIdentity' aus Gruppe '$groupDisplayName':`n$($_.Exception.Message)" -Title "Fehler bei Mitgliedschaft" -Type Error
+        $null = Show-MessageBox -Message "Fehler beim Entfernen von '$UserIdentity' aus Gruppe '$groupDisplayName':`n$($_.Exception.Message)" -Title "Fehler bei Mitgliedschaft" -Type Error
         Update-StatusBar -Message "Fehler beim Entfernen aus '$groupDisplayName'." -Type Error
         throw # Re-throw the exception so the calling code knows it failed
     }

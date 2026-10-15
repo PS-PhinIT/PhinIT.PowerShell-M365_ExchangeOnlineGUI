@@ -123,6 +123,9 @@ XAML-Injection in Dialogen, fehlende Bestätigungen und einheitliches Design. De
 - **Diagnosen (Troubleshooting):** Fehler der Diagnosebefehle wurden als Erfolg gemeldet; nicht existierende
   Eigenschaften `PowerShellMax*`; typografische Gedankenstriche als Parameterpräfix; fehlende `-ResultSize Unlimited`.
 - **Dashboard:** „Zurücksetzen“ leerte die Statistik-Kacheln nicht.
+- **Rückgabewerte:** Gruppen-, Postfachberechtigungs-, Shared-Mailbox- und Abwesenheitsfunktionen gaben neben `$true`/`$false`
+  auch MessageBox-Ergebnisse bzw. Exchange-Objekte zurück – Fehlschläge (z. B. Mitglied aus dynamischer Gruppe entfernen,
+  teilweise fehlgeschlagenes Auto-Mapping) wurden dadurch als Erfolg gemeldet.
 
 ### Sicherheit
 - **XAML-Injection:** Betreff (Nachrichtenverfolgung) und Anzeigename (Ressourcen) wurden in das XAML-Markup eingesetzt
